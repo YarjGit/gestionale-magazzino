@@ -5,6 +5,9 @@ riferimenti/
 *.json
 !prototipo/**/*.json
 
+# Articoli veri convertiti per il prototipo locale (strumenti/importa-articoli.ps1)
+prototipo/js/dati-articoli-reali.js
+
 # Impostazioni locali di Claude e di Windows
 .claude/
 Thumbs.db

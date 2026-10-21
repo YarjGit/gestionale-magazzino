@@ -252,6 +252,7 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
 <script src="js/dati-articoli.js"></script>
 <script src="js/dati-carichi.js"></script>
 <script>
@@ -527,7 +528,8 @@
     const rigaPos = +e.target.dataset.riga;
     if (rigaPos) {
       const r = RIGHE.find(x => x.pos === rigaPos);
-      const v = e.target.dataset.campo === "prezzo" ? num(e.target.value) : Math.max(0, +e.target.value || 0);
+      // I prezzi hanno sempre due decimali
+      const v = e.target.dataset.campo === "prezzo" ? Math.round(num(e.target.value) * 100) / 100 : Math.max(0, +e.target.value || 0);
       if (e.target.dataset.campo === "etichette") r.etichetteMan = true;
       if (e.target.dataset.campo === "sconto") r.sconto = Math.min(100, v); else r[e.target.dataset.campo] = v;
       aggiornaRiga(r);
@@ -569,6 +571,7 @@
       // Le righe dell'ordine entrano con Spedita = 0: si riempiono sparando la merce che arriva
       o.righe.forEach(([codice, qta]) => {
         const art = ARTICOLI.find(a => a.codice === codice);
+        if (!art) return;  // ordine di esempio con un codice che non c'è tra gli articoli caricati
         let r = RIGHE.find(x => x.articolo === art);
         if (r) { r.ordinata = (r.ordinata || 0) + qta; return; }
         r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: qta, qta: 0, prezzo: art.costo, sconto: 0, barcode: art.barcode, articolo: art };
@@ -627,7 +630,7 @@
   }
   function aggiungiArticolo(art) {
     const n = Math.max(1, +$("addQta").value || 1);
-    const prezzo = $("addPrezzo").value ? num($("addPrezzo").value) : null;
+    const prezzo = $("addPrezzo").value ? Math.round(num($("addPrezzo").value) * 100) / 100 : null;
     // Stesso articolo già in elenco (anche dall'ordine collegato): aumenta la quantità arrivata
     let r = RIGHE.find(x => x.articolo === art && (prezzo == null || x.prezzo === prezzo));
     if (r) r.qta += n;

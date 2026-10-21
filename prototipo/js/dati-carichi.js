@@ -32,16 +32,20 @@ function righeCarico(c) {
   let seme = c.id;
   const caso = () => (seme = (seme * 9301 + 49297) % 233280) / 233280;
   const n = Math.min(c.id === 8815 ? 13 : 4 + Math.floor(caso() * 9), c.nArt, ARTICOLI.length);
+  // I pezzi in più vanno sulle prime righe: l'ultima resta da 1 pezzo e chiude il totale al centesimo
   const qta = Array(n).fill(1);
-  for (let i = n; i < c.nArt; i++) qta[Math.floor(caso() * n)]++;
+  for (let i = n; i < c.nArt; i++) qta[Math.floor(caso() * Math.max(1, n - 1))]++;
   const pesi = qta.map(q => q * (0.5 + caso()));
   const somma = pesi.reduce((a, b) => a + b, 0);
+  const cent = v => Math.round(v * 100) / 100;
   let resto = c.totArt;
   return qta.map((q, i) => {
-    const tot = i === n - 1 ? Math.round(resto * 100) / 100 : Math.round(c.totArt * pesi[i] / somma * 100) / 100;
-    resto -= tot;
-    // passo 7 su 20 articoli: nessun articolo ripetuto nello stesso carico
+    // Prezzo unitario sempre con due decimali
+    const prezzo = i === n - 1 ? cent(resto / q) : cent(c.totArt * pesi[i] / somma / q);
+    const tot = cent(prezzo * q);
+    resto = cent(resto - tot);
+    // passo 7: nessun articolo ripetuto nello stesso carico
     const art = ARTICOLI[(c.id + i * 7) % ARTICOLI.length];
-    return { pos: i + 1, cod: art.codice, descr: art.descr, qta: q, tot, prezzo: tot / q, sconto: 0, etichette: q, barcode: art.barcode, articolo: art };
+    return { pos: i + 1, cod: art.codice, descr: art.descr, qta: q, tot, prezzo, sconto: 0, etichette: q, barcode: art.barcode, articolo: art };
   });
 }

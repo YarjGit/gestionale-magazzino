@@ -1,6 +1,8 @@
-// Articoli di esempio: usati da Articoli e dalla stampa etichette.
+// Articoli: usati da Articoli, scheda carico e stampa etichette.
+// Se c'è js/dati-articoli-reali.js (creato da strumenti/importa-articoli.ps1, solo su questo PC)
+// si usano gli articoli veri; altrimenti, come online, questi di esempio:
 // [codice, descrizione, giacenza, costo, prezzo, barcode, indice fornitore]
-const ARTICOLI = [
+const ARTICOLI = typeof ARTICOLI_REALI !== "undefined" ? ARTICOLI_REALI : [
   ["A01", "Calici", 0, 130, 163, "8030969000011", 0],
   ["A01/P", "Calice ceramica avorio", 1, 16.65, 54, "9770042735161", 0],
   ["A01/P CHIRO'", "Calice Chiro' avorio", 0, 16.39, 40, "9770042738001", 0],

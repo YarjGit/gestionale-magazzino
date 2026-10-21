@@ -14,6 +14,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 ## Come lavoriamo
 - L'utente manda uno screenshot per ogni schermata del gestionale attuale; si rifà la schermata **simile ma mai identica**: cambiare sempre qualcosa nella grafica e dire cosa è cambiato.
 - Prima la grafica (prototipo), la logica si decide insieme dopo. I pulsanti che salvano o stampano mostrano un avviso.
+- **Prezzi sempre con due decimali**: arrotondare prezzi unitari e totali al centesimo (anche quelli scritti a mano).
 - Misure come il gestionale reale: righe tabella ~41 px, voci menu ~38 px, titolo 18 px (non "zoomato").
 - Domande aperte e prossimi passi: `PROGETTO.md`.
 
@@ -30,4 +31,8 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
 - **A fine lavoro (o quando l'utente lo chiede):** commit con messaggio in italiano e `git push` su `origin main`. Il sito si aggiorna da solo in 1–2 minuti.
 - Il repository è **pubblico**: prima di ogni commit controllare che non entrino dati reali (screenshot, export JSON, email, IBAN, matricole).
 - Autore dei commit: YarjGit con l'email noreply di GitHub, non l'email personale.
-- Export articoli reali del gestionale attuale (JSON, 6.724 articoli, 45 campi, senza giacenze): per ora in Download sul PC di lavoro; servirà per l'import.
+- Export articoli reali del gestionale attuale (JSON, 6.724 articoli, 45 campi, senza giacenze): `riferimenti/articoli-export.json` (solo PC di lavoro).
+  `strumenti/importa-articoli.ps1` lo converte in `prototipo/js/dati-articoli-reali.js` (escluso da GitHub): se il file c'è, il prototipo locale usa gli articoli veri, online restano quelli di esempio.
+  Nell'export fornitore e alcune aliquote sono codici interni (GUID): per collegarli servono gli export di Fornitori e Aliquote. Aliquote riconosciute dai prezzi: `4570c2b4…` = 4%, `9bc97d64…` e `3c5611a4…` = 0% (quale codice a zero: da confermare).
+- Fornitori trascritti dagli screenshot (231, senza doppioni): `riferimenti/fornitori/fornitori-da-screenshot.csv` (solo PC di lavoro).
+- Prossimo passo concordato: database **Supabase** (l'utente ha già un account).
