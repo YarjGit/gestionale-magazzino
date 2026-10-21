@@ -166,26 +166,35 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from utenti_autorizzati where email = auth.jwt() ->> 'email');
 $$;
 
--- Sicurezza: tutte le tabelle chiuse a chiave, aperte solo agli utenti autorizzati
-do $$
-declare t text;
-begin
-  foreach t in array array['sedi','aliquote_iva','fornitori','clienti','articoli','tipi_movimento',
-                           'movimenti','movimenti_righe','utenti_autorizzati'] loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists solo_autorizzati on %I', t);
-    execute format('create policy solo_autorizzati on %I for all to authenticated using (e_autorizzato()) with check (e_autorizzato())', t);
-  end loop;
-end $$;
+-- Sicurezza (Row Level Security): tutte le tabelle chiuse a chiave, aperte solo agli utenti autorizzati
+alter table sedi               enable row level security;
+alter table aliquote_iva       enable row level security;
+alter table fornitori          enable row level security;
+alter table clienti            enable row level security;
+alter table articoli           enable row level security;
+alter table tipi_movimento     enable row level security;
+alter table movimenti          enable row level security;
+alter table movimenti_righe    enable row level security;
+alter table utenti_autorizzati enable row level security;
+
+create policy solo_autorizzati on sedi               for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on aliquote_iva       for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on fornitori          for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on clienti            for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on articoli           for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on tipi_movimento     for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on movimenti          for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on movimenti_righe    for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+create policy solo_autorizzati on utenti_autorizzati for all to authenticated using (e_autorizzato()) with check (e_autorizzato());
+
 alter view giacenze set (security_invoker = on);
 
--- Permessi: gli utenti che hanno fatto l'accesso possono usare le tabelle (le regole qui sopra decidono chi);
--- i visitatori senza accesso non vedono niente.
+-- Permessi: gli utenti che hanno fatto l'accesso possono usare le tabelle (le regole qui sopra decidono chi).
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
-revoke all on all tables in schema public from anon;
 grant execute on function e_autorizzato() to authenticated;
+-- I visitatori senza accesso (anon) non hanno nessuna regola che li lasci passare: non vedono niente.
 
 -- ---------- Dati di base ----------
 insert into tipi_movimento (codice, nome, segno) values
