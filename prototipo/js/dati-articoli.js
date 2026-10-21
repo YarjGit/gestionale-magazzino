@@ -1,3 +1,44 @@
+// Ricerca articoli comune a tutte le pagine: il testo scritto si divide in parole e
+// ogni parola deve comparire (anche a metà, in qualsiasi ordine) nel codice, nel nome o nel barcode.
+// Es. "calice avorio" trova "CALICE CERAMICA AVORIO"; "a0110" trova tutti i codici che lo contengono.
+const normalizza = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function corrispondeArticolo(a, testo) {
+  const parole = normalizza(testo).split(/\s+/).filter(Boolean);
+  if (!parole.length) return true;
+  // il testo in cui cercare si prepara una volta sola per articolo
+  if (a._ricerca === undefined) a._ricerca = normalizza(`${a.codice} ${a.descr} ${a.barcode}`);
+  return parole.every(p => a._ricerca.includes(p));
+}
+
+// Legge tutti gli articoli dal database e li mette in ARTICOLI al posto di quelli di esempio.
+// sedeId: sede di cui mostrare la giacenza (es. "cal-smm-roma"). Restituisce quanti articoli ha letto.
+async function caricaArticoliDalDb(db, sedeId) {
+  const letti = [];
+  for (let da = 0; ; da += 1000) {   // il database ne restituisce al massimo 1000 per volta
+    const { data, error } = await db.from("articoli")
+      .select("id, codice, descrizione, barcode, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)")
+      .order("codice").range(da, da + 999);
+    if (error) throw error;
+    letti.push(...data);
+    if (data.length < 1000) break;
+  }
+  const { data: giac, error: errGiac } = await db.from("giacenze").select("articolo_id, sede_id, quantita");
+  if (errGiac) throw errGiac;
+  const giacenza = new Map(giac.filter(g => g.sede_id === sedeId).map(g => [g.articolo_id, g.quantita]));
+  ARTICOLI.length = 0;
+  letti.forEach(a => ARTICOLI.push({
+    id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
+    costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
+    giac: giacenza.has(a.id) ? giacenza.get(a.id) : null,
+    forn: -1, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
+    importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
+  }));
+  return ARTICOLI.length;
+}
+
+// Id della sede di lavoro scelta in alto, come scritto nel database
+const ID_SEDI_DB = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale" };
+
 // Articoli: usati da Articoli, scheda carico e stampa etichette.
 // Se c'è js/dati-articoli-reali.js (creato da strumenti/importa-articoli.ps1, solo su questo PC)
 // si usano gli articoli veri; altrimenti, come online, questi di esempio:

@@ -203,7 +203,7 @@
     if (!t) return [];
     const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
     if (esatto.length) return esatto;
-    return ARTICOLI.filter(a => (a.codice + " " + a.descr + " " + a.barcode).toLowerCase().includes(t)).slice(0, 12);
+    return ARTICOLI.filter(a => corrispondeArticolo(a, t)).slice(0, 12);
   };
   let attivo = 0;
   function mostraSuggerimenti() {
@@ -328,6 +328,13 @@
     : avviso("Aggiungi almeno un'etichetta");
 
   disegna();
+
+  // Dopo l'accesso la ricerca (e la pistola) usa i 6.724 articoli del database
+  dbPronto.then(async db => {
+    if (!db) return;
+    const n = await caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]);
+    avviso(`Ricerca pronta su ${n.toLocaleString("it-IT")} articoli`);
+  }).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>
 </body>
 </html>

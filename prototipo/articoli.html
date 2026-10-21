@@ -165,7 +165,7 @@
           <div class="coppia"><input id="fCodDa" type="text" placeholder="da" aria-label="Da codice"><input id="fCodA" type="text" placeholder="a" aria-label="A codice"></div>
         </div>
         <div class="f c3"><label for="fProv">Provenienza</label><select id="fProv"><option value="">Tutte</option></select></div>
-        <div class="f c3"><label for="fCod">Codice o barcode</label><input id="fCod" type="text" placeholder="Inizia con…"></div>
+        <div class="f c3"><label for="fCod">Codice, nome o barcode</label><input id="fCod" type="text" placeholder="Anche solo una parte…"></div>
         <div class="f c2"><label for="fImp">Importato</label><select id="fImp"><option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option></select></div>
         <div class="f c2"><label for="fAnno">Anno listino</label><input id="fAnno" type="number" placeholder="es. 2026"></div>
         <div class="f c2"><label for="fPrMin">Prezzo da – a</label>
@@ -191,7 +191,7 @@
       </div>
       <div class="cerca">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="cerca" type="search" placeholder="Cerca codice, descrizione o barcode…">
+        <input id="cerca" type="search" placeholder="Cerca codice, nome o barcode (anche più parole)…">
       </div>
     </div>
 
@@ -266,8 +266,8 @@
   const CAMPI = ["fForn", "fCodDa", "fCodA", "fProv", "fCod", "fImp", "fAnno", "fPrMin", "fPrMax", "fIva"];
 
   function filtra() {
-    const q = $("cerca").value.trim().toLowerCase();
-    const cod = $("fCod").value.trim().toLowerCase();
+    const q = $("cerca").value;
+    const cod = $("fCod").value;
     const t = TABS.find(x => x.k === tab);
     return ARTICOLI.filter(a => {
       if (!t.f(a)) return false;
@@ -276,13 +276,13 @@
       if ($("fProv").value && a.prov !== $("fProv").value) return false;
       if ($("fCodDa").value && a.codice.toLowerCase() < $("fCodDa").value.toLowerCase()) return false;
       if ($("fCodA").value && a.codice.toLowerCase() > $("fCodA").value.toLowerCase() + "￿") return false;
-      if (cod && !a.codice.toLowerCase().startsWith(cod) && !a.barcode.startsWith(cod)) return false;
+      if (!corrispondeArticolo(a, cod)) return false;
       if ($("fImp").value && a.importato !== ($("fImp").value === "si")) return false;
       if ($("fAnno").value && a.anno !== +$("fAnno").value) return false;
       if ($("fPrMin").value && a.prezzo < +$("fPrMin").value) return false;
       if ($("fPrMax").value && a.prezzo > +$("fPrMax").value) return false;
       if ($("fIva").value && a.iva !== +$("fIva").value) return false;
-      if (q && ![a.codice, a.descr, a.barcode].join(" ").toLowerCase().includes(q)) return false;
+      if (!corrispondeArticolo(a, q)) return false;
       return true;
     });
   }
@@ -423,29 +423,10 @@
   dbPronto.then(async db => {
     if (!db) return;
     $("totali").innerHTML = "<span>⏳ Caricamento articoli dal database…</span>";
-    const letti = [];
-    for (let da = 0; ; da += 1000) {
-      const { data, error } = await db.from("articoli")
-        .select("id, codice, descrizione, barcode, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, fornitore_id, aliquote_iva(aliquota)")
-        .order("codice").range(da, da + 999);
-      if (error) throw error;
-      letti.push(...data);
-      if (data.length < 1000) break;
-    }
-    const { data: giac, error: errGiac } = await db.from("giacenze").select("articolo_id, sede_id, quantita");
-    if (errGiac) throw errGiac;
     // Giacenza mostrata: quella della sede di lavoro scelta in alto
-    const sede = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale" }[trovaSede(leggiSede()).nome];
-    const giacenza = new Map(giac.filter(g => g.sede_id === sede).map(g => [g.articolo_id, g.quantita]));
-    ARTICOLI.length = 0;
-    letti.forEach(a => ARTICOLI.push({
-      id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
-      costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
-      giac: giacenza.has(a.id) ? giacenza.get(a.id) : null,
-      forn: -1, prov: trovaSede(leggiSede()).nome,
-      iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
-      importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
-    }));
+    const sede = trovaSede(leggiSede()).nome;
+    await caricaArticoliDalDb(db, ID_SEDI_DB[sede]);
+    ARTICOLI.forEach(a => a.prov = sede);
     pagina = 1;
     disegna();
     avviso(`${ARTICOLI.length.toLocaleString("it-IT")} articoli caricati dal database`);

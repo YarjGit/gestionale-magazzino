@@ -32,7 +32,7 @@
     ["Ricami d'Arte Esempio SRLS", "05544320000", "", "001102", "Laboratorio Confezione Sede Centrale"]
   ].map(([nome, piva, cf, cod, sede]) => ({ nome: nome.toUpperCase(), piva, cf, cod, sede }));
 
-  avviaAnagrafica({
+  const pagina = avviaAnagrafica({
     titolo: "Fornitori",
     sezione: "Configurazione",
     nuovo: "Nuovo fornitore",
@@ -53,6 +53,20 @@
     ],
     dati
   });
+
+  // Dopo l'accesso: i fornitori veri dal database al posto di quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const { data, error } = await db.from("fornitori")
+      .select("codice, ragione_sociale, partita_iva, codice_fiscale, sedi(nome)")
+      .order("ragione_sociale");
+    if (error) throw error;
+    pagina.aggiorna(data.map(f => ({
+      nome: f.ragione_sociale, piva: f.partita_iva || "", cf: f.codice_fiscale || "",
+      cod: f.codice, sede: f.sedi ? f.sedi.nome : ""
+    })));
+    avviso(`${data.length} fornitori caricati dal database`);
+  }).catch(err => avviso("Errore nel leggere i fornitori: " + err.message));
 </script>
 </body>
 </html>

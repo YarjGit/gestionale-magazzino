@@ -616,7 +616,7 @@
     const t = testo.trim().toLowerCase();
     if (!t) return [];
     const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
-    return esatto.length ? esatto : ARTICOLI.filter(a => (a.codice + " " + a.descr + " " + a.barcode).toLowerCase().includes(t)).slice(0, 12);
+    return esatto.length ? esatto : ARTICOLI.filter(a => corrispondeArticolo(a, t)).slice(0, 12);
   };
   let suggAttivo = 0;
   function mostraSugg() {
@@ -746,6 +746,10 @@
 
   // Un carico nuovo si apre già in modifica, sulla scheda Dettagli
   if (nuovo) modalita(true);
+
+  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database
+  dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]))
+    .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>
 </body>
 </html>

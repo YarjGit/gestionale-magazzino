@@ -42,7 +42,7 @@ function avviaAnagrafica(cfg) {
         ${filtri.map(f => `<div class="filtro-ana"><label for="${f.id}">${f.label}</label><select id="${f.id}"><option value="">Tutti</option>${f.opzioni.map(o => `<option>${esc(o)}</option>`).join("")}</select></div>`).join("")}
         <div class="cerca">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="cerca" type="search" placeholder="Cerca…">
+          <input id="cerca" type="search" placeholder="Cerca (anche più parole, anche a metà)…">
         </div>
       </div>
       <div class="table-wrap">
@@ -82,7 +82,10 @@ function avviaAnagrafica(cfg) {
   let ordine = cfg.ordine || { k: cfg.colonne[0].k, dir: 1 };
   let pagina = 1;
 
-  const testoRiga = r => cfg.colonne.map(c => r[c.k]).join(" ").toLowerCase();
+  // Ricerca a parole: ognuna deve comparire (anche a metà, in qualsiasi ordine) in una delle colonne
+  const pulisci = s => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const testoRiga = r => pulisci(cfg.colonne.map(c => r[c.k]).join(" "));
+  const corrisponde = (r, testo) => pulisci(testo).split(/\s+/).filter(Boolean).every(p => testoRiga(r).includes(p));
   const cella = (c, r) => {
     if (c.html) return c.html(r);
     const v = esc(r[c.k]);
@@ -92,14 +95,14 @@ function avviaAnagrafica(cfg) {
   };
 
   function filtra() {
-    const q = $("cerca").value.trim().toLowerCase();
+    const q = $("cerca").value;
     const t = tabs.find(x => x.k === tab);
     return cfg.dati.filter(r =>
       (!t || t.f(r)) &&
       filtri.every(f => !$(f.id).value || String(r[f.campo]) === $(f.id).value) &&
       (!cfg.filtroDate || ((!$("fDal").value || r[cfg.filtroDate].slice(0, 10) >= $("fDal").value) &&
                            (!$("fAl").value || r[cfg.filtroDate].slice(0, 10) <= $("fAl").value))) &&
-      (!q || testoRiga(r).includes(q)));
+      corrisponde(r, q));
   }
 
   function disegna() {
@@ -190,4 +193,13 @@ function avviaAnagrafica(cfg) {
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   disegna();
+
+  // Per le pagine che leggono dal database: sostituisce le righe e ridisegna
+  return {
+    aggiorna(nuoviDati) {
+      cfg.dati.splice(0, cfg.dati.length, ...nuoviDati);
+      pagina = 1;
+      disegna();
+    }
+  };
 }
