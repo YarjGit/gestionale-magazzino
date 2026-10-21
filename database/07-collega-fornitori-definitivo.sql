@@ -935,12 +935,15 @@ with norm as (
   select n.* from norm n
   join sito s on upper(regexp_replace(s.codice, '[^A-Za-z0-9,]', '', 'g')) = n.chiave
 ), famiglie as (
-  select distinct upper(replace(famiglia, ' ', '')) as fam from sul_sito
+  select distinct upper(regexp_replace(famiglia, '[^A-Za-z0-9,]', '', 'g')) as fam from sul_sito
   where famiglia not ilike 'G07663%'
+  union   -- anche i codici del sito che nel gestionale esistono solo con lo slash (es. B1126 -> B1126/1)
+  select distinct upper(regexp_replace(split_part(codice, '/', 1), '[^A-Za-z0-9,]', '', 'g')) from sito
+  where codice not ilike 'G07663%'
 ), nostri as (
   select id from norm where codice not like '%/%'
   union select id from sul_sito where codice not ilike 'G07663%'
-  union select n.id from norm n join famiglie f on upper(replace(n.famiglia, ' ', '')) = f.fam
+  union select n.id from norm n join famiglie f on upper(regexp_replace(n.famiglia, '[^A-Za-z0-9,]', '', 'g')) = f.fam
   union select id from norm where codice ilike 'A0110/%' or codice ilike 'A0210/%'   -- calici e patene in ceramica
 )
 update articoli set fornitore_id = (select id from fornitori where codice = 'PROPRIA'), modificato_il = now()
