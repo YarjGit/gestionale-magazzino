@@ -198,6 +198,7 @@ function avviso(testo) {
       <div class="user-menu">
         <a href="#" class="todo">Profilo</a>
         <a href="#" data-azione="cambia-sede">Cambia sede</a>
+        <a href="#" data-azione="password">Imposta password</a>
         <a href="login.html" data-azione="esci">Esci</a>
       </div>
     </div>`;
@@ -344,6 +345,11 @@ function avviso(testo) {
         await db.auth.signOut();
         location.replace("login.html");
       };
+      user.querySelector('[data-azione="password"]').onclick = e => {
+        e.preventDefault();
+        user.classList.remove("open");
+        apriImpostaPassword(db, email);
+      };
       // Entrato ma non in "utenti_autorizzati": non vedrà nessun dato
       const { data: autorizzato } = await db.rpc("e_autorizzato");
       if (!autorizzato) {
@@ -371,6 +377,48 @@ function caricaScript(src) {
     document.head.appendChild(s);
   });
 }
+// Finestra "Imposta password": chi è entrato (anche con il link via email) sceglie la password per le volte dopo
+function apriImpostaPassword(db, email) {
+  let finestra = document.getElementById("finestraPassword");
+  if (!finestra) {
+    finestra = document.createElement("div");
+    finestra.id = "finestraPassword";
+    finestra.className = "modal-bg";
+    finestra.innerHTML = `
+      <form class="modal" role="dialog" aria-label="Imposta password" style="width:min(420px,100%)">
+        <h2>Imposta la tua password</h2>
+        <p>Dalla prossima volta entrerai con la tua email e questa password.</p>
+        <div class="f" style="margin-bottom:10px"><label for="pw1">Nuova password (almeno 8 caratteri)</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="f"><label for="pw2">Ripeti la password</label><input id="pw2" type="password" autocomplete="new-password" minlength="8" required></div>
+        <p id="pwEsito" style="margin:10px 0 0" hidden></p>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+          <button type="button" class="btn btn-ghost" id="pwAnnulla">Annulla</button>
+          <button type="submit" class="btn btn-primary" id="pwSalva">Salva password</button>
+        </div>
+      </form>`;
+    document.body.appendChild(finestra);
+    finestra.querySelector("#pwAnnulla").onclick = () => finestra.classList.remove("show");
+    finestra.querySelector("form").onsubmit = async ev => {
+      ev.preventDefault();
+      const p1 = finestra.querySelector("#pw1").value, p2 = finestra.querySelector("#pw2").value;
+      const esito = finestra.querySelector("#pwEsito");
+      const mostra = (t, ok) => { esito.hidden = false; esito.style.color = ok ? "var(--ok)" : "var(--ko)"; esito.textContent = t; };
+      if (p1.length < 8) return mostra("La password deve avere almeno 8 caratteri.");
+      if (p1 !== p2) return mostra("Le due password non sono uguali.");
+      finestra.querySelector("#pwSalva").disabled = true;
+      const { error } = await db.auth.updateUser({ password: p1 });
+      finestra.querySelector("#pwSalva").disabled = false;
+      if (error) return mostra("Non salvata: " + error.message);
+      mostra(`Fatto! Da ora entri con ${email} e questa password.`, true);
+      setTimeout(() => finestra.classList.remove("show"), 1800);
+    };
+  }
+  finestra.querySelector("form").reset();
+  finestra.querySelector("#pwEsito").hidden = true;
+  finestra.classList.add("show");
+  finestra.querySelector("#pw1").focus();
+}
+
 var clientDb = null;   // "var": esiste già quando il blocco qui sopra chiama apriDb()
 async function apriDb() {
   if (clientDb) return clientDb;

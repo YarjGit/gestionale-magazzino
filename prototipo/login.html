@@ -263,7 +263,16 @@
     color: var(--text);
   }
   .form-email input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,143,255,0.2); }
-  .form-email .btn-accedi { margin-top: 12px; }
+  .form-email label { font-size: 0.82rem; font-weight: 600; }
+  .form-email .btn-accedi { margin-top: 14px; }
+  .link-btn {
+    display: block; width: 100%;
+    margin-top: 10px;
+    border: none; background: none;
+    color: #1570d6; font: 500 0.82rem "Inter", sans-serif;
+    text-decoration: underline; cursor: pointer;
+  }
+  .link-btn:disabled { opacity: 0.6; cursor: wait; }
   .btn-accedi:disabled { opacity: 0.6; cursor: wait; }
   .btn-google:disabled { opacity: 0.55; cursor: not-allowed; }
   .btn-google small { font-weight: 500; color: var(--muted); }
@@ -312,14 +321,17 @@
     <h1>Gestionale Magazzino</h1>
     <p class="sub">Accedi per gestire giacenze, carichi e trasferimenti</p>
 
-    <!-- Accesso con link via email (Supabase). Google si aggiungerà dopo. -->
+    <!-- Accesso con email e password; il link via email serve la prima volta o se si dimentica la password -->
     <form class="form-email" id="formEmail">
-      <label for="email">La tua email di lavoro</label>
-      <input id="email" type="email" autocomplete="email" placeholder="nome@esempio.it" required>
-      <button class="btn-accedi" type="submit" id="btnInvia">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 6l8 7 8-7"/></svg>
-        Inviami il link di accesso
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" placeholder="nome@esempio.it" required>
+      <label for="password" style="margin-top:10px;display:block">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="La tua password">
+      <button class="btn-accedi" type="submit" id="btnEntra">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+        Entra
       </button>
+      <button class="link-btn" type="button" id="btnInvia">Prima volta o password dimenticata? Ricevi un link via email</button>
     </form>
     <div class="esito" id="esito" hidden></div>
 
@@ -335,7 +347,7 @@
       Accedi con Google <small>(in arrivo)</small>
     </button>
 
-    <p class="hint">Ricevi un link via email: aprilo e sei dentro. Poi sceglierai la sede da cui lavori.</p>
+    <p class="hint">Dopo l'accesso sceglierai la sede da cui lavori.</p>
 
     <p class="footer">© 2026 Gestionale Magazzino · Accesso riservato al personale</p>
   </main>
@@ -383,9 +395,31 @@
   const errUrl = new URLSearchParams(location.hash.slice(1)).get("error_description");
   if (errUrl) mostra("Il link non è più valido (" + errUrl.replace(/\+/g, " ") + "). Chiedine uno nuovo qui sotto.", true);
 
+  const leggiEmail = () => document.getElementById("email").value.trim().toLowerCase();
+
+  // Accesso normale: email + password
   document.getElementById("formEmail").addEventListener("submit", async e => {
     e.preventDefault();
-    const email = document.getElementById("email").value.trim().toLowerCase();
+    const password = document.getElementById("password").value;
+    if (!password) { mostra("Scrivi la password. Se è la prima volta o non la ricordi, usa il link qui sotto.", true); return; }
+    const btn = document.getElementById("btnEntra");
+    btn.disabled = true;
+    try { sessionStorage.removeItem("sede"); } catch (err) {}
+    const { error } = await db.auth.signInWithPassword({ email: leggiEmail(), password });
+    btn.disabled = false;
+    if (error) {
+      mostra(/invalid/i.test(error.message)
+        ? "Email o password non corrette. Se non hai ancora una password, usa il link qui sotto."
+        : "Accesso non riuscito: " + error.message, true);
+      return;
+    }
+    location.replace("dashboard.html");
+  });
+
+  // Prima volta o password dimenticata: link via email (poi "Imposta password" dal menu in alto a destra)
+  document.getElementById("btnInvia").addEventListener("click", async () => {
+    const email = leggiEmail();
+    if (!document.getElementById("email").checkValidity() || !email) { mostra("Scrivi prima la tua email.", true); document.getElementById("email").focus(); return; }
     const btn = document.getElementById("btnInvia");
     btn.disabled = true;
     try { sessionStorage.removeItem("sede"); } catch (err) {}
@@ -400,7 +434,8 @@
         : "Non è stato possibile inviare il link: " + error.message, true);
       return;
     }
-    mostra(`✉️ Ti abbiamo inviato un link a <b>${email.replace(/</g, "&lt;")}</b>.<br>Aprilo <b>da questo computer</b> e sarai dentro. Controlla anche lo spam.`);
+    mostra(`✉️ Ti abbiamo inviato un link a <b>${email.replace(/</g, "&lt;")}</b>.<br>Aprilo <b>in questo browser</b> e sarai dentro (controlla anche lo spam).
+      Poi, dal menu con il tuo nome in alto a destra, scegli <b>Imposta password</b>: dalla volta dopo entri con email e password.`);
   });
 </script>
 </body>
