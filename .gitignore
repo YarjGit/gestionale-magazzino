@@ -1,0 +1,11 @@
+# Il repository è pubblico: niente dati reali.
+# Screenshot del gestionale attuale (contengono dati veri)
+riferimenti/
+# Export dal gestionale attuale, se finiscono nella cartella
+*.json
+!prototipo/**/*.json
+
+# Impostazioni locali di Claude e di Windows
+.claude/
+Thumbs.db
+desktop.ini
