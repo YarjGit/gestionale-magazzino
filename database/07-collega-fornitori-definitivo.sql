@@ -5,8 +5,8 @@
 --      a) codici SENZA slash;
 --      b) articoli in vendita sul sito (codici confrontati tenendo solo lettere, numeri e virgole:
 --         "A01 10-11" sul sito = "A0110/11" nel gestionale);
---      c) le "famiglie" dei prodotti del sito con lo slash: stessa parte prima dello slash
---         (es. sul sito F05/1 -> tutti i F05/… sono nostri, come A0110/… e R0333/…).
+--      c) le "famiglie" dei prodotti del sito: stessa parte prima dello slash
+--         (es. sul sito F05/1 -> tutti i F05/… sono nostri; sul sito A0720 -> anche A0720/1).
 --      d) calici A0110/… e patene A0210/… in ceramica (confermato dal magazzino).
 --      Eccezione: G07663/… sono camicie di Coco Cler, anche se sono sul sito.
 --   2. Codici CON lo slash: lettera + 2 cifre di prefisso + codice fornitore, prima dello slash
@@ -936,7 +936,7 @@ with norm as (
   join sito s on upper(regexp_replace(s.codice, '[^A-Za-z0-9,]', '', 'g')) = n.chiave
 ), famiglie as (
   select distinct upper(replace(famiglia, ' ', '')) as fam from sul_sito
-  where codice like '%/%' and famiglia not ilike 'G07663%'
+  where famiglia not ilike 'G07663%'
 ), nostri as (
   select id from norm where codice not like '%/%'
   union select id from sul_sito where codice not ilike 'G07663%'
