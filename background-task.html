@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Background Task – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="background-task" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Operazioni lunghe che il programma fa da solo (es. ricalcolo giacenze, importazioni).
+  // Come nel gestionale attuale, per ora nessuna in corso.
+  avviaAnagrafica({
+    titolo: "Background Task",
+    sezione: "Setup",
+    csv: "background-task",
+    chiave: "cod",
+    testoVuoto: "Qui compariranno le operazioni che il programma esegue da solo, come il ricalcolo delle giacenze.",
+    ordine: { k: "avviato", dir: -1 },
+    tabs: [
+      { k: "corso", t: "In corso", colore: "#2f8bff", f: r => r.completato < 100 },
+      { k: "fatti", t: "Completati", colore: "#18a058", f: r => r.completato === 100 },
+      { k: "errori", t: "Con errori", colore: "#c62828", f: r => !!r.errori }
+    ],
+    azioniRiga: ["Vedi dettagli", "Vedi errori", "Interrompi"],
+    colonne: [
+      { k: "descr", t: "Descrizione", larg: 260 },
+      { k: "passo", t: "Passo", larg: 180 },
+      { k: "completato", t: "Completato", html: r => `<td><div class="avanz"><div class="bar"><span style="width:${r.completato}%"></span></div><small>${r.completato}%</small></div></td>` },
+      { k: "avviato", t: "Avviato" },
+      { k: "da", t: "Avviato da" },
+      { k: "cod", t: "Codice" },
+      { k: "errori", t: "Ultimi errori", larg: 200 }
+    ],
+    dati: []
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fornitori – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="fornitori" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Dati inventati per il prototipo
+  const dati = [
+    ["Bottega Artigiana Esempio Studio Pittorico", "02126900000", "", "000704", ""],
+    ["Arredi Sacri Esempio SNC", "00901010000", "", "900012", "Magazzino Centrale"],
+    ["Proart Esempio snc", "02712050000", "02712050000", "914", ""],
+    ["Import Esempio SRL", "01287650000", "", "000200", ""],
+    ["Diffusione Esempio S.R.L.", "02904890000", "", "000148", ""],
+    ["Oreficeria Sacra Esempio", "00739380000", "", "000542", ""],
+    ["Tessuti Liturgici Esempio SRL", "02571930000", "", "000354", ""],
+    ["Office Superstore Esempio", "04269720000", "", "002226", ""],
+    ["Fornitori vari", "", "", "000999", ""],
+    ["Ferramenta Esempio SAS", "01709370000", "", "007032", ""],
+    ["Ceramiche Artistiche Esempio", "03312450000", "", "000811", "Laboratorio Ceramiche"],
+    ["Ricami d'Arte Esempio SRLS", "05544320000", "", "001102", "Laboratorio Confezione Sede Centrale"]
+  ].map(([nome, piva, cf, cod, sede]) => ({ nome: nome.toUpperCase(), piva, cf, cod, sede }));
+
+  avviaAnagrafica({
+    titolo: "Fornitori",
+    sezione: "Configurazione",
+    nuovo: "Nuovo fornitore",
+    csv: "fornitori",
+    chiave: "nome",
+    tabs: [
+      { k: "piva", t: "Con P.IVA", colore: "#18a058", f: r => !!r.piva },
+      { k: "nopiva", t: "Senza P.IVA", colore: "#e58a00", f: r => !r.piva },
+      { k: "sede", t: "Collegati a una sede", colore: "#2f8bff", f: r => !!r.sede }
+    ],
+    azioniRiga: ["Modifica", "Vedi carichi", "Vedi ordini", "Nuovo ordine a questo fornitore"],
+    colonne: [
+      { k: "nome", t: "Ragione sociale", link: true, larg: 380 },
+      { k: "piva", t: "Partita IVA" },
+      { k: "cf", t: "Codice fiscale" },
+      { k: "cod", t: "Codice" },
+      { k: "sede", t: "Sede collegata", larg: 230 }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

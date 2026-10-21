@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aumento Giacenza – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="aumento-giacenza" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Rettifica in aumento: nessun cliente né fornitore
+  avviaElenco({
+    titolo: "Aumento Giacenza",
+    nuovo: "Nuovo aumento",
+    csv: "aumento-giacenza",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.testo("causale", "Causale", 260),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 8790, stato: "Definitivo", data: "2026-10-15", causale: "", totArt: 322, tot: 322, nArt: 6, lab: "Laboratori Sede Centrale" },
+      { id: 8787, stato: "Definitivo", data: "2026-10-15", causale: "", totArt: 112, tot: 112, nArt: 4, lab: "Laboratori Sede Centrale" },
+      { id: 8657, stato: "Definitivo", data: "2026-09-25", causale: "Merce ritrovata in inventario", totArt: 2088, tot: 2088, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 8450, stato: "Definitivo", data: "2026-08-20", causale: "", totArt: 1010.1, tot: 1010.1, nArt: 9, lab: "Laboratorio Ceramiche" },
+      { id: 7295, stato: "Definitivo", data: "2026-07-14", causale: "", totArt: 1174.6, tot: 1174.6, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 7262, stato: "Definitivo", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 7261, stato: "Annullato", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 7260, stato: "Annullato", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 7209, stato: "Definitivo", data: "2026-07-06", causale: "", totArt: 1719, tot: 1719, nArt: 20, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 7195, stato: "Definitivo", data: "2026-07-03", causale: "Natale CRAL", totArt: 870, tot: 870, nArt: 4, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attività Utenti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .utente { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .iniziali {
+    display: grid; place-items: center;
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .ip { font: 500 0.78rem "JetBrains Mono", monospace; color: var(--muted); }
+  .quando b { font-weight: 600; }
+  .quando small { color: var(--muted); margin-left: 6px; }
+</style>
+</head>
+<body data-page="attivita-utenti" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Registro di chi entra e cosa fa nel gestionale. Nomi e indirizzi IP inventati.
+  const UTENTI = { "Mario Rossi": "#2f8bff", "Anna Verdi": "#7c3aed", "Luca Bianchi": "#18a058", "Amministratore": "#64748b" };
+  const ATTIVITA = {
+    "Accesso": ["#ddf5e8", "var(--ok)", "→"],
+    "Uscita": ["#f1f3f7", "#64748b", "←"],
+    "Accesso non riuscito": ["#fde4e4", "var(--ko)", "!"],
+    "Nuovo movimento": ["#e8f1ff", "#1f5fbf", "+"],
+    "Modifica articolo": ["#fff3dd", "#b26a00", "✎"],
+    "Stampa etichette": ["#f3e8ff", "#7c3aed", "🏷"]
+  };
+  const dati = [
+    ["2026-10-21 09:02", "Mario Rossi", "Accesso", "", "192.168.1.20"],
+    ["2026-10-21 09:15", "Mario Rossi", "Nuovo movimento", "Carico da fornitore #8816", "192.168.1.20"],
+    ["2026-10-21 09:31", "Mario Rossi", "Stampa etichette", "33 etichette", "192.168.1.20"],
+    ["2026-10-20 16:40", "Anna Verdi", "Accesso", "", "10.0.0.15"],
+    ["2026-10-20 16:52", "Anna Verdi", "Modifica articolo", "A0110/11 – prezzo", "10.0.0.15"],
+    ["2026-10-20 17:39", "Anna Verdi", "Uscita", "", "10.0.0.15"],
+    ["2026-10-19 08:58", "Luca Bianchi", "Accesso non riuscito", "Password errata", "10.0.0.31"],
+    ["2026-10-19 08:59", "Luca Bianchi", "Accesso", "", "10.0.0.31"],
+    ["2026-10-17 18:04", "Amministratore", "Accesso", "", "192.168.1.2"],
+    ["2026-10-16 07:06", "Mario Rossi", "Accesso", "", "192.168.1.20"]
+  ].map(([quando, utente, attivita, dettagli, ip]) => ({ quando, utente, attivita, dettagli, ip, id: quando + " " + utente }));
+
+  const iniziali = n => n.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const dataOra = q => {
+    const [d, o] = q.split(" ");
+    return `<span class="quando"><b>${d.split("-").reverse().join("/")}</b><small>${o}</small></span>`;
+  };
+
+  avviaAnagrafica({
+    titolo: "Attività Utenti",
+    sezione: "Setup",
+    csv: "attivita-utenti",
+    chiave: "id",
+    ordine: { k: "quando", dir: -1 },
+    filtroDate: "quando",
+    filtri: [
+      { id: "fUtente", label: "Utente", campo: "utente", opzioni: Object.keys(UTENTI) },
+      { id: "fAtt", label: "Attività", campo: "attivita", opzioni: Object.keys(ATTIVITA) }
+    ],
+    tabs: [
+      { k: "acc", t: "Accessi", colore: "#18a058", f: r => ["Accesso", "Uscita"].includes(r.attivita) },
+      { k: "lav", t: "Operazioni", colore: "#2f8bff", f: r => !["Accesso", "Uscita", "Accesso non riuscito"].includes(r.attivita) },
+      { k: "err", t: "Non riusciti", colore: "#c62828", f: r => r.attivita === "Accesso non riuscito" }
+    ],
+    azioniRiga: ["Vedi dettagli", "Tutte le attività di questo utente"],
+    colonne: [
+      { k: "quando", t: "Quando", html: r => `<td>${dataOra(r.quando)}</td>` },
+      { k: "utente", t: "Utente", html: r => `<td><div class="utente"><span class="iniziali" style="background:${UTENTI[r.utente]}">${iniziali(r.utente)}</span>${r.utente}</div></td>` },
+      { k: "attivita", t: "Attività", html: r => { const [bg, c, i] = ATTIVITA[r.attivita]; return `<td><span class="pill" style="background:${bg};color:${c}">${i} ${r.attivita}</span></td>`; } },
+      { k: "dettagli", t: "Dettagli", larg: 260 },
+      { k: "ip", t: "Indirizzo IP", html: r => `<td><span class="ip">${r.ip}</span></td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

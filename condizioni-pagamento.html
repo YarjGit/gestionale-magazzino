@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Condizioni Pagamento – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="condizioni-pagamento" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  const dati = [
+    ["00", "Contrassegno", 0], ["01", "Già effettuato", 0], ["02", "Ricevimento fattura", 0],
+    ["03", "Bonifico a 30 gg.", 30], ["04", "Bonifico a 60 gg.", 60], ["05", "Bonifico a 90 gg.", 90]
+  ].map(([cod, descr, giorni]) => ({ cod, descr: descr.toUpperCase(), giorni, sede: "Magazzino Centrale" }));
+
+  avviaAnagrafica({
+    titolo: "Condizioni Pagamento",
+    sezione: "Configurazione",
+    nuovo: "Nuova condizione",
+    csv: "condizioni-pagamento",
+    tabs: [
+      { k: "subito", t: "Immediato", colore: "#18a058", f: r => r.giorni === 0 },
+      { k: "diff", t: "Dilazionato", colore: "#2f8bff", f: r => r.giorni > 0 }
+    ],
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", larg: 300 },
+      // In più rispetto al gestionale attuale: i giorni di scadenza
+      { k: "giorni", t: "Scadenza", num: true, html: r => `<td class="num"><span class="pill" style="background:${r.giorni ? "#e8f1ff" : "#ddf5e8"};color:${r.giorni ? "#1f5fbf" : "var(--ok)"}">${r.giorni ? r.giorni + " giorni" : "immediato"}</span></td>` },
+      { k: "sede", t: "Sede", larg: 260 }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

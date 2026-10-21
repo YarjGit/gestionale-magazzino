@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preventivi – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="preventivi" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  const CLIENTI_PREV = CLIENTI.concat(["Congresso Internazionale Esempio (Germania)", "Caserma Esempio - Servizio Amministrativo"]);
+
+  avviaElenco({
+    titolo: "Preventivi",
+    nuovo: "Nuovo preventivo",
+    csv: "preventivi",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Cliente", elenco: CLIENTI_PREV },
+    azioniRiga: ["Modifica", "Stampa preventivo PDF", "Trasforma in ordine cliente", "Duplica"],
+    colonne: [
+      COL.numero("Protocollo / Mov."),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Cliente", 260),
+      COL.testo("causale", "Causale", 140),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 8681, prot: "2026-000006", doc: "n.1/2026", dataDoc: "2026-09-29", stato: "Definitivo", data: "2026-09-29", cp: 6, causale: "", totArt: 7421.23, tot: 7421.23, nArt: 240, lab: "Laboratori Sede Centrale" },
+      { id: 7217, prot: "2026-000005", stato: "Definitivo", data: "2026-07-07", cp: 7, causale: "", totArt: 27, tot: 27, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 7216, prot: "2026-000004", stato: "Definitivo", data: "2026-07-07", cp: 7, causale: "", totArt: 200, tot: 200, nArt: 17, lab: "Laboratori Sede Centrale" },
+      { id: 6764, prot: "2026-000003", stato: "Definitivo", data: "2026-05-14", cp: 1, causale: "", totArt: 1499, tot: 1499, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 6632, prot: "2026-000002", stato: "Definitivo", data: "2026-04-24", cp: 0, causale: "", totArt: 750, tot: 750, nArt: 3, lab: "Laboratori Sede Centrale" },
+      { id: 2019, prot: "2026-000001", stato: "Annullato", data: "2026-01-06", cp: 4, causale: "", totArt: 3700, tot: 3700, nArt: 10, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

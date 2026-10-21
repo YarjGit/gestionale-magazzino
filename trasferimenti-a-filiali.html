@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trasferimenti a Filiali – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="trasferimenti-a-filiali" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Speculare a Trasferimenti da Filiali: qui la merce esce verso un'altra sede
+  avviaElenco({
+    titolo: "Trasferimenti a Filiali",
+    nuovo: "Nuovo trasferimento",
+    csv: "trasferimenti-a-filiali",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Sede di destinazione", elenco: SEDI_CP },
+    azioniRiga: ["Modifica", "Stampa DDT", "Stampa etichette", "Duplica"],
+    colonne: [
+      COL.numero("Protocollo / Mov."),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Verso sede", 200),
+      COL.testo("causale", "Causale", 160),
+      COL.avanzamento("ricevuti", "Ricevuto", "nArt"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 8811, prot: "2026-000245", stato: "Provvisorio", data: "2026-10-20", cp: sede("CAL Bari"), causale: "Riassortimento Natale", tot: 1240.5, nArt: 48, ricevuti: 0, lab: "Laboratori Sede Centrale" },
+      { id: 8805, prot: "2026-000243", stato: "Definitivo", data: "2026-10-16", cp: sede("CAL Milano"), causale: "", tot: 860.2, nArt: 31, ricevuti: 31, lab: "Laboratori Sede Centrale" },
+      { id: 8793, prot: "2026-000240", stato: "Definitivo", data: "2026-10-14", cp: sede("CAL Palermo"), causale: "", tot: 395.89, nArt: 13, ricevuti: 9, lab: "Laboratori Sede Centrale" },
+      { id: 8761, prot: "2026-000236", stato: "Definitivo", data: "2026-10-08", cp: sede("CAL Firenze"), causale: "", tot: 2105, nArt: 72, ricevuti: 72, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 8740, stato: "Annullato", data: "2026-10-03", cp: sede("CAL Cagliari"), causale: "", tot: 0, nArt: 0, ricevuti: 0, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

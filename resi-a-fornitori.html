@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resi Inviati a Fornitori – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="resi-a-fornitori" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Il reso può andare a un fornitore o a una sede interna (es. e-commerce della sede centrale)
+  const DESTINATARI = FORNITORI.concat(["Sede Centrale - E-commerce"]);
+
+  avviaElenco({
+    titolo: "Resi Inviati a Fornitori",
+    nuovo: "Nuovo reso",
+    csv: "resi-a-fornitori",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Fornitore", elenco: DESTINATARI },
+    azioniRiga: ["Modifica", "Stampa DDT di reso", "Duplica"],
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Fornitore", 210),
+      COL.data("bolla", "Bolla"),
+      COL.testo("causale", "Causale", 160),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 6179, stato: "Definitivo", data: "2026-02-14", cp: 1, bolla: "", causale: "", totArt: 65.88, tot: 65.88, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 5145, stato: "Definitivo", data: "2026-02-09", cp: 1, bolla: "", causale: "", totArt: 174.29, tot: 174.29, nArt: 21, lab: "Laboratori Sede Centrale" },
+      { id: 5134, stato: "Definitivo", data: "2026-02-06", cp: 9, bolla: "", causale: "Articoli venduti e-commerce", totArt: 1964.58, tot: 1964.58, nArt: 50, lab: "Laboratori Sede Centrale" },
+      { id: 3084, stato: "Definitivo", data: "2026-01-22", cp: 1, bolla: "", causale: "", totArt: 61, tot: 61, nArt: 20, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 3062, stato: "Definitivo", data: "2026-01-19", cp: 1, bolla: "", causale: "", totArt: 16.05, tot: 16.05, nArt: 3, lab: "Laboratori Sede Centrale" },
+      { id: 2023, stato: "Definitivo", data: "2026-01-07", cp: 9, bolla: "", causale: "", totArt: 708.61, tot: 708.61, nArt: 77, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

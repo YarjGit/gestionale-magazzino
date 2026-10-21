@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tipi Movimento – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .sigla { font: 500 0.78rem "JetBrains Mono", monospace; padding: 2px 6px; border-radius: 5px; background: #f1f3f7; }
+</style>
+</head>
+<body data-page="tipi-movimento" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Primi tipi dal gestionale attuale (ne ha 30); gli altri si aggiungeranno con l'import dei dati
+  const dati = [
+    ["054", "Note interne", "SCNI", "Cliente", "SCNI"],
+    ["032", "Carico da lab. interni", "CAR", "Fornitore", "CARL"],
+    ["031", "Carico da fornitore", "CAR", "Fornitore", "CAR"],
+    ["010", "Esistenza", "INV", "Inventario", "INV"],
+    ["019", "Reso da filiale", "CARR", "Cliente", "CARR"],
+    ["017", "Merce in conto deposito", "SCV", "Cliente", "SCCD"],
+    ["038", "Doni", "CARD", "Fornitore", "CARD"],
+    ["014", "Reso da visione", "CARV", "Cliente", "CARV"],
+    ["098", "Rettifiche positive", "RPOS", "Fornitore", "RPOS"],
+    ["016", "Scarico a labor. interni", "SCLI", "Fornitore", "SCLI"]
+  ].map(([cod, descr, cont, anag, contMag]) => ({ cod, descr, cont, anag, contMag, totale: "" }));
+
+  const COLORI_ANAG = { Cliente: ["#f3e8ff", "#7c3aed"], Fornitore: ["#e8f1ff", "#1f5fbf"], Inventario: ["#fff3dd", "#b26a00"] };
+
+  avviaAnagrafica({
+    titolo: "Tipi Movimento",
+    sezione: "Configurazione",
+    nuovo: "Nuovo tipo movimento",
+    csv: "tipi-movimento",
+    filtri: [{ id: "fAnag", label: "Tipo anagrafica", campo: "anag", opzioni: ["Cliente", "Fornitore", "Inventario"] }],
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", larg: 280 },
+      { k: "cont", t: "Contatore", html: r => `<td><span class="sigla">${r.cont}</span></td>` },
+      { k: "anag", t: "Tipo anagrafica", html: r => `<td><span class="pill" style="background:${COLORI_ANAG[r.anag][0]};color:${COLORI_ANAG[r.anag][1]}">${r.anag}</span></td>` },
+      { k: "contMag", t: "Contatore magazzino", html: r => `<td><span class="sigla">${r.contMag}</span></td>` },
+      { k: "totale", t: "Totale movimento" }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

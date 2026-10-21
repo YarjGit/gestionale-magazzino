@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Totali Movimenti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="totali-movimenti" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Raggruppamenti usati per i totali dei movimenti, come nel gestionale attuale
+  const dati = [
+    ["Carico", "01", "Carico da fornitore"], ["Carico", "02", "Reso da cliente"], ["Carico", "03", "Carico da laboratorio"],
+    ["Carico", "04", "Carico da filiale"], ["Carico", "05", "Carichi vari"], ["Carico", "06", "Rettifiche positive"],
+    ["Carico", "07", "(non usato)"], ["Carico", "08", "Diff. di inventario positive"],
+    ["Ordine", "01", "Ordini, preventivi e conf. ordine"],
+    ["Scarico", "01", "Vendite"], ["Scarico", "02", "Reso a fornitori"], ["Scarico", "03", "Scarico a laboratori"],
+    ["Scarico", "04", "Scarico a filiali"], ["Scarico", "05", "Scarichi vari"], ["Scarico", "06", "Rettifiche negative"]
+  ].map(([tipo, cod, descr]) => ({ tipo, cod, descr, id: tipo + " " + cod }));
+
+  const STILE = {
+    Carico: ["#ddf5e8", "var(--ok)", "↓"],
+    Scarico: ["#fde4e4", "var(--ko)", "↑"],
+    Ordine: ["#e8f1ff", "#1f5fbf", "◷"]
+  };
+
+  avviaAnagrafica({
+    titolo: "Totali Movimenti",
+    sezione: "Configurazione",
+    nuovo: "Nuovo totale",
+    csv: "totali-movimenti",
+    chiave: "id",
+    tabs: [
+      { k: "c", t: "Carichi", colore: "#18a058", f: r => r.tipo === "Carico" },
+      { k: "o", t: "Ordini", colore: "#2f8bff", f: r => r.tipo === "Ordine" },
+      { k: "s", t: "Scarichi", colore: "#c62828", f: r => r.tipo === "Scarico" }
+    ],
+    colonne: [
+      { k: "tipo", t: "Tipo totale", html: r => `<td><span class="pill" style="background:${STILE[r.tipo][0]};color:${STILE[r.tipo][1]}">${STILE[r.tipo][2]} ${r.tipo}</span></td>` },
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", larg: 420, html: r => `<td style="${r.descr.startsWith("(") ? "color:var(--muted);font-style:italic" : ""}">${r.descr}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

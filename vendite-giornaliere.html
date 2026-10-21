@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendite Giornaliere – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="vendite-giornaliere" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Un movimento per giorno: è lo scarico di magazzino del venduto (la parte fiscale resta al commercialista)
+  const giorno = (data, totArt, nArt) => ({
+    id: +data.replace(/-/g, ""), stato: "Definitivo", data,
+    causale: `Riepilogo vendite giornaliere del ${data.split("-").reverse().join("/")}`,
+    totArt, tot: totArt, nArt, lab: "Laboratori Sede Centrale"
+  });
+
+  avviaElenco({
+    titolo: "Vendite Giornaliere",
+    nuovo: "Nuova giornata",
+    csv: "vendite-giornaliere",
+    stati: [STATO.definitivo],
+    statiBarrati: [],
+    statiValidazione: [],
+    colonne: [
+      COL.giorno("data", "Giorno"),
+      COL.testo("causale", "Causale", 340),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      giorno("2026-10-21", 308.8, 7),
+      giorno("2026-10-20", 211.5, 11),
+      giorno("2026-10-19", 1655.6, 32),
+      giorno("2026-10-17", 270.5, 8),
+      giorno("2026-10-16", 2494.9, 74),
+      giorno("2026-10-15", 225, 25),
+      giorno("2026-10-14", 3155, 68),
+      giorno("2026-10-13", 225.1, 19),
+      giorno("2026-10-12", 1252.9, 67),
+      giorno("2026-10-09", 399.7, 64)
+    ]
+  });
+</script>
+</body>
+</html>

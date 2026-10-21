@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scarichi a Clienti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="scarichi-clienti" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Il cliente può essere anche una sede interna (es. Magazzino Centrale)
+  const CLIENTI_E_SEDI = CLIENTI.concat(SEDI_CP);
+  const cli = nome => CLIENTI_E_SEDI.findIndex(c => (c.nome || c) === nome);
+
+  avviaElenco({
+    titolo: "Scarichi a Clienti",
+    nuovo: "Nuovo scarico",
+    csv: "scarichi-clienti",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Cliente", elenco: CLIENTI_E_SEDI },
+    azioniRiga: ["Modifica", "Stampa DDT", "Stampa proforma", "Duplica"],
+    colonne: [
+      COL.numero("Protocollo / Mov."),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Cliente", 240),
+      COL.data("bolla", "Bolla"),
+      COL.testo("causale", "Causale", 160),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 3112, prot: "2026-000021", stato: "Definitivo", data: "2026-01-28", cp: cli("Magazzino Centrale"), bolla: "", causale: "", totArt: 40, tot: 40, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 3044, prot: "2026-000010", stato: "Definitivo", data: "2026-01-15", cp: cli("Magazzino Centrale"), bolla: "", causale: "", totArt: 121, tot: 121, nArt: 3, lab: "Laboratori Sede Centrale" },
+      { id: 3043, prot: "2026-000009", stato: "Annullato", data: "2026-01-15", cp: cli("Laboratori Sede Centrale"), bolla: "", causale: "", totArt: 0, tot: 0, nArt: 0, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

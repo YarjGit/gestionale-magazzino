@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casse – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .matricola { font: 500 0.82rem "JetBrains Mono", monospace; padding: 2px 8px; border-radius: 6px; background: #f1f3f7; }
+</style>
+</head>
+<body data-page="casse" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Registratori di cassa delle sedi. Matricola INVENTATA: quella vera si inserirà nel programma definitivo.
+  // Il gestionale non invia nulla al registratore: serve solo a sapere a quale cassa appartengono le vendite.
+  const dati = [
+    { cod: "01", descr: "MF", tipo: "Registratore telematico", matricola: "XX 00000000", sede: "CAL SMM Roma" }
+  ];
+
+  avviaAnagrafica({
+    titolo: "Casse",
+    sezione: "Configurazione",
+    nuovo: "Nuova cassa",
+    csv: "casse",
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", larg: 200 },
+      { k: "tipo", t: "Tipo", html: r => `<td><span class="pill" style="background:#e8f1ff;color:#1f5fbf">${r.tipo}</span></td>` },
+      { k: "matricola", t: "Matricola fiscale", html: r => `<td><span class="matricola">${r.matricola}</span></td>` },
+      { k: "sede", t: "Sede", html: r => `<td><span class="pallino" style="background:${trovaSede(r.sede).colore}"></span>${r.sede}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firewall Rules – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .ip { font: 500 0.84rem "JetBrains Mono", monospace; }
+</style>
+</head>
+<body data-page="firewall-rules" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Indirizzi IP bloccati o consentiti per l'accesso al gestionale.
+  // Come nel gestionale attuale, per ora nessuna regola.
+  avviaAnagrafica({
+    titolo: "Firewall Rules",
+    sezione: "Setup",
+    nuovo: "Nuova regola",
+    csv: "firewall-rules",
+    chiave: "ip",
+    testoVuoto: "Nessun indirizzo bloccato: tutti possono raggiungere la pagina di accesso.",
+    tabs: [
+      { k: "bloc", t: "Bloccati", colore: "#c62828", f: r => r.bloccato },
+      { k: "cons", t: "Consentiti", colore: "#18a058", f: r => !r.bloccato }
+    ],
+    azioniRiga: ["Modifica", "Sblocca", "Vedi accessi da questo IP"],
+    colonne: [
+      { k: "ip", t: "Indirizzo IP", html: r => `<td><a href="#" class="ana-link ip" data-az="Modifica">${r.ip}</a></td>` },
+      { k: "bloccato", t: "Stato", html: r => `<td><span class="pill" style="background:${r.bloccato ? "#fde4e4" : "#ddf5e8"};color:${r.bloccato ? "var(--ko)" : "var(--ok)"}">${r.bloccato ? "⛔ Bloccato" : "✔ Consentito"}</span></td>` },
+      { k: "gruppo", t: "Gruppo", larg: 260 },
+      { k: "note", t: "Note", larg: 300 }
+    ],
+    dati: []
+  });
+</script>
+</body>
+</html>

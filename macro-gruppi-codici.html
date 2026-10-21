@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macro Gruppi di Codici – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .lettera {
+    display: inline-grid; place-items: center;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    color: #fff;
+    font: 700 0.85rem "JetBrains Mono", monospace;
+  }
+  .esempio { font: 500 0.78rem "JetBrains Mono", monospace; color: var(--muted); }
+</style>
+</head>
+<body data-page="macro-gruppi-codici" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script src="js/macro-gruppi.js"></script>
+<script>
+  const dati = MACRO_GRUPPI;
+
+  avviaAnagrafica({
+    titolo: "Macro Gruppi di Codici",
+    sezione: "Configurazione",
+    nuovo: "Nuovo macro gruppo",
+    csv: "macro-gruppi-codici",
+    azioniRiga: ["Modifica", "Vedi gruppi di codici", "Vedi articoli"],
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td>${letteraMacro(r.cod)}</td>` },
+      { k: "descr", t: "Descrizione", link: true, larg: 400 },
+      // In più: ricorda che i codici articolo del gruppo iniziano con questa lettera (da confermare)
+      { k: "esempio", t: "Codici articolo", html: r => `<td><span class="esempio">${r.cod}0001, ${r.cod}0002…</span></td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

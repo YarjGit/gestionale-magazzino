@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spedizionieri – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="spedizionieri" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Nel gestionale attuale telefono e fax sono scritti dentro la ragione sociale: qui hanno colonne proprie.
+  // Tracking: indirizzo con {numero} al posto del numero di spedizione (da compilare).
+  const dati = [
+    { cod: "01", nome: "Euroitaly", tel: "", sede: "CAL SMM Roma", tracking: "" },
+    { cod: "02", nome: "BRT Corriere Espresso", tel: "076 0000000", sede: "CAL SMM Roma", tracking: "" }
+  ];
+
+  avviaAnagrafica({
+    titolo: "Spedizionieri",
+    sezione: "Configurazione",
+    nuovo: "Nuovo spedizioniere",
+    csv: "spedizionieri",
+    chiave: "nome",
+    colonne: [
+      { k: "nome", t: "Ragione sociale", link: true, larg: 300 },
+      { k: "cod", t: "Codice" },
+      { k: "tel", t: "Telefono" },
+      { k: "sede", t: "Sede", html: r => `<td><span class="pallino" style="background:${trovaSede(r.sede).colore}"></span>${r.sede}</td>` },
+      { k: "tracking", t: "Link di tracciamento", html: r => `<td>${r.tracking ? `<span class="testo-medio-ana">${r.tracking}</span>` : '<span style="color:var(--muted);font-style:italic">da impostare</span>'}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stampa etichette – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .barra-comandi { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .barra-comandi .f { width: 130px; }
+  .barra-comandi .f input { text-align: right; }
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; margin-top: 6px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; border-radius: 99px; background: #dfe4ec; cursor: pointer; transition: background 0.2s; }
+  .switch span::before { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::before { transform: translateX(18px); }
+  .barra-comandi .spazio { flex: 1; }
+  .formato-info { color: var(--muted); font-size: 0.82rem; }
+
+  /* Aggiunta articolo: a mano o con la pistola */
+  .aggiungi { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .aggiungi .cerca-art { flex: 1; min-width: 280px; position: relative; }
+  .aggiungi .cerca-art input { padding-left: 38px; font-size: 0.95rem; }
+  .aggiungi .cerca-art .ico { position: absolute; left: 11px; bottom: 9px; color: var(--muted); }
+  .suggerimenti {
+    display: none;
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    max-height: 260px; overflow-y: auto;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(20,30,50,0.15);
+    z-index: 20;
+  }
+  .suggerimenti.show { display: block; }
+  .sugg { display: flex; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; }
+  .sugg:hover, .sugg.attivo { background: #eef5ff; }
+  .sugg .codice { min-width: 90px; }
+  .sugg small { margin-left: auto; color: var(--muted); font-family: "JetBrains Mono", monospace; }
+  .qta-box { display: flex; align-items: center; }
+  .qta-box button { width: 34px; height: 34px; border: 1px solid var(--line); background: #f1f3f7; font-size: 1.1rem; cursor: pointer; }
+  .qta-box button:first-child { border-radius: 8px 0 0 8px; }
+  .qta-box button:last-child { border-radius: 0 8px 8px 0; }
+  .qta-box input { width: 60px; height: 34px; border: 1px solid var(--line); border-left: none; border-right: none; text-align: center; font-weight: 700; }
+  .pistola { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.8rem; }
+  .pistola .led { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(24,160,88,0.15); }
+
+  .codice { font: 500 0.8rem "JetBrains Mono", monospace; color: var(--accent); }
+  .bc { font: 500 0.76rem "JetBrains Mono", monospace; color: var(--muted); }
+  .bc .tipo { margin-left: 6px; font-family: "Inter", sans-serif; font-size: 0.68rem; padding: 0 5px; border-radius: 4px; background: #f1f3f7; }
+  .bc .tipo.c128 { background: #fff3dd; color: #b26a00; }
+  .n-et { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .n-et input { width: 56px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; text-align: right; font-weight: 700; }
+  tr.lampeggia { animation: lampeggia 1s ease-out; }
+  @keyframes lampeggia { from { background: #d7f5e3; } to { background: transparent; } }
+
+  /* Anteprima: foglio A4 o rotolo */
+  .anteprima-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 10px; flex-wrap: wrap; }
+  .anteprima-head h2 { font-size: 0.95rem; }
+  .anteprima-head .pagine { color: var(--muted); font-size: 0.85rem; }
+  .fogli { display: flex; gap: 18px; flex-wrap: wrap; padding: 16px; background: #e9edf3; border-radius: 12px; min-height: 160px; }
+  .foglio {
+    width: 360px; aspect-ratio: 210 / 297;
+    padding: 4.5% 2.5%;
+    background: #fff; box-shadow: 0 4px 16px rgba(20,30,50,0.15);
+    display: grid; gap: 0;
+  }
+  .foglio.f3x8 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(8, 1fr); }
+  .foglio.f4x10 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(10, 1fr); }
+  .rotolo { display: flex; flex-direction: column; gap: 8px; }
+  .rotolo .cella { width: 200px; height: 100px; background: #fff; box-shadow: 0 2px 8px rgba(20,30,50,0.12); border-radius: 4px; }
+  .cella {
+    overflow: hidden;
+    border: 1px dashed #dde3ec;
+    padding: 3px 4px;
+    display: flex; flex-direction: column;
+    font-size: 7px; line-height: 1.15;
+  }
+  .rotolo .cella { font-size: 10px; padding: 6px 8px; border: none; }
+  .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
+  .cella .c { font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  .cella .d { overflow: hidden; max-height: 2.3em; }
+  .cella .p { font-weight: 700; font-size: 1.25em; }
+  .cella svg { width: 100%; flex: 1; min-height: 0; margin-top: auto; }
+  .cella .n { text-align: center; font-family: "JetBrains Mono", monospace; letter-spacing: 0.05em; }
+
+  .modal .campi-imp { display: grid; gap: 12px; }
+  .modal .campi-imp label { display: flex; align-items: center; gap: 8px; }
+  .modal select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .modal-azioni { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .modal { width: min(520px, 100%); }
+</style>
+</head>
+<body data-page="carichi-fornitori">
+
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Stampa etichette</h1>
+      <div class="crumbs">
+        <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+        <span>-</span><span>Movimenti</span><span>-</span><a href="carichi-fornitori.html">Carichi da Fornitori</a><span>-</span><span id="crumbOrigine">Etichette</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="barra-comandi">
+      <div class="f"><label for="totale">Totale etichette</label><input id="totale" disabled></div>
+      <div class="f"><label for="salta">Salta etichette</label><input id="salta" type="number" min="0" value="0" title="Posizioni già usate sul primo foglio"></div>
+      <div class="f" style="width:auto"><label for="nascondiPrezzo">Nascondi prezzo</label><label class="switch"><input type="checkbox" id="nascondiPrezzo"><span></span></label></div>
+      <span class="formato-info" id="formatoInfo"></span>
+      <span class="spazio"></span>
+      <button class="btn btn-primary" id="btnStampa">🖨️ Stampa</button>
+      <button class="btn btn-light" id="btnChiudi">‹ Chiudi</button>
+      <button class="btn btn-light" id="btnImpostazioni">⚙️ Impostazioni</button>
+    </div>
+
+    <div class="aggiungi">
+      <div class="f cerca-art">
+        <label for="cercaArt">Aggiungi etichetta <span class="pistola" title="La pistola scrive il codice e preme Invio"><span class="led"></span>pronto per la pistola</span></label>
+        <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+        <input id="cercaArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off" autofocus>
+        <div class="suggerimenti" id="suggerimenti"></div>
+      </div>
+      <div class="f" style="width:auto"><label>Quantità</label>
+        <div class="qta-box"><button id="meno" aria-label="Meno">−</button><input id="qta" type="number" min="1" value="1" aria-label="Quantità"><button id="piu" aria-label="Più">+</button></div>
+      </div>
+      <button class="btn btn-primary" id="btnAggiungi">Aggiungi</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Anno</th><th>Codice</th><th>Descrizione</th><th>Barcode</th><th class="num">Pr. acq.</th><th class="num">Pr. vend.</th><th class="num">Etichette</th><th style="width:40px"></th></tr></thead>
+        <tbody id="righe"></tbody>
+      </table>
+    </div>
+
+    <div class="anteprima-head">
+      <h2>Anteprima</h2>
+      <span class="pagine" id="pagine"></span>
+    </div>
+    <div class="fogli" id="fogli"></div>
+  </section>
+</main>
+
+<div class="modal-bg" id="modalImp">
+  <div class="modal" role="dialog" aria-labelledby="titoloImp">
+    <h2 id="titoloImp">Impostazioni etichette</h2>
+    <p>Valgono per questa stampa. Le misure vere le decidiamo quando sappiamo che etichette e stampante usate.</p>
+    <div class="campi-imp">
+      <div><label for="formato" style="font-weight:600">Formato</label>
+        <select id="formato">
+          <option value="f3x8">Foglio A4 adesivo – 3 × 8 (24 etichette 70 × 37 mm)</option>
+          <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52 × 29 mm)</option>
+          <option value="rotolo">Rotolo per stampante etichette – 50 × 25 mm</option>
+        </select>
+      </div>
+      <label><input type="checkbox" id="mostraCodice" checked> Mostra codice articolo</label>
+      <label><input type="checkbox" id="mostraDescr" checked> Mostra descrizione</label>
+      <label><input type="checkbox" id="mostraNumero" checked> Mostra le cifre sotto il barcode</label>
+    </div>
+    <div class="modal-azioni"><button class="btn btn-primary" id="chiudiImp">Fatto</button></div>
+  </div>
+</div>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/dati-carichi.js"></script>
+<script src="js/barcode.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const PER_FOGLIO = { f3x8: 24, f4x10: 40, rotolo: Infinity };
+
+  // ---------- Da dove arrivo ----------
+  // ?carico=8815 → etichette del carico (una per pezzo; &perPezzo=0 → una per articolo; &righe=1,3 → solo quelle righe)
+  const qs = new URLSearchParams(location.search);
+  const caricoId = +qs.get("carico");
+  const carico = CARICHI.find(c => c.id === caricoId);
+  const ritorno = carico ? `carico.html?id=${carico.id}` : "carichi-fornitori.html";
+
+  // righe: [{ art, n }]
+  let righe = [];
+  if (carico) {
+    const solo = qs.get("righe") ? qs.get("righe").split(",").map(Number) : null;
+    const perPezzo = qs.get("perPezzo") !== "0";
+    righe = righeCarico(carico).filter(r => !solo || solo.includes(r.pos)).map(r => ({ art: r.articolo, n: perPezzo ? r.qta : 1 }));
+    $("crumbOrigine").innerHTML = `<a href="${ritorno}">Carico #${carico.id}</a><span> - </span>Etichette`;
+  }
+
+  // ---------- Aggiunta: a mano o con la pistola ----------
+  // La pistola si comporta come una tastiera: scrive il barcode e preme Invio
+  const trova = testo => {
+    const t = testo.trim().toLowerCase();
+    if (!t) return [];
+    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
+    if (esatto.length) return esatto;
+    return ARTICOLI.filter(a => (a.codice + " " + a.descr + " " + a.barcode).toLowerCase().includes(t)).slice(0, 12);
+  };
+  let attivo = 0;
+  function mostraSuggerimenti() {
+    const lista = trova($("cercaArt").value);
+    attivo = Math.min(attivo, Math.max(0, lista.length - 1));
+    $("suggerimenti").innerHTML = lista.length
+      ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>${a.barcode}</small></div>`).join("")
+      : `<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>`;
+    $("suggerimenti").classList.toggle("show", !!$("cercaArt").value.trim());
+    return lista;
+  }
+  function aggiungi(art) {
+    const n = Math.max(1, +$("qta").value || 1);
+    const esistente = righe.find(r => r.art === art);
+    if (esistente) esistente.n += n; else righe.push({ art, n });
+    $("cercaArt").value = "";
+    $("qta").value = 1;
+    $("suggerimenti").classList.remove("show");
+    disegna(art.codice);
+    avviso(`${art.codice}: +${n} etichett${n === 1 ? "a" : "e"}`);
+    $("cercaArt").focus();
+  }
+  $("cercaArt").oninput = () => { attivo = 0; mostraSuggerimenti(); };
+  $("cercaArt").onkeydown = e => {
+    const lista = trova($("cercaArt").value);
+    if (e.key === "ArrowDown") { attivo = Math.min(attivo + 1, lista.length - 1); mostraSuggerimenti(); e.preventDefault(); }
+    if (e.key === "ArrowUp") { attivo = Math.max(attivo - 1, 0); mostraSuggerimenti(); e.preventDefault(); }
+    if (e.key === "Escape") $("suggerimenti").classList.remove("show");
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (lista[attivo]) aggiungi(lista[attivo]);
+      else if ($("cercaArt").value.trim()) avviso(`Nessun articolo con codice o barcode "${$("cercaArt").value.trim()}"`);
+    }
+  };
+  $("suggerimenti").onclick = e => {
+    const s = e.target.closest(".sugg[data-cod]");
+    if (s) aggiungi(ARTICOLI.find(a => a.codice === s.dataset.cod));
+  };
+  $("btnAggiungi").onclick = () => {
+    const lista = trova($("cercaArt").value);
+    if (lista[attivo]) aggiungi(lista[attivo]); else { avviso("Scrivi o spara un codice prima di aggiungere"); $("cercaArt").focus(); }
+  };
+  $("meno").onclick = () => $("qta").value = Math.max(1, +$("qta").value - 1);
+  $("piu").onclick = () => $("qta").value = +$("qta").value + 1;
+  document.addEventListener("click", e => { if (!e.target.closest(".cerca-art")) $("suggerimenti").classList.remove("show"); });
+
+  // ---------- Elenco e anteprima ----------
+  const opzioni = () => ({
+    formato: $("formato").value,
+    prezzo: !$("nascondiPrezzo").checked,
+    codice: $("mostraCodice").checked,
+    descr: $("mostraDescr").checked,
+    numero: $("mostraNumero").checked
+  });
+
+  function etichettaHtml(a, o) {
+    return `<div class="cella">
+      ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
+      ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
+      ${o.prezzo ? `<div class="p">${euro(a.prezzo)}</div>` : ""}
+      ${barcodeSvg(a.barcode)}
+      ${o.numero ? `<div class="n">${a.barcode}</div>` : ""}
+    </div>`;
+  }
+
+  function disegna(evidenzia) {
+    const o = opzioni();
+    const totale = righe.reduce((s, r) => s + r.n, 0);
+    const salta = Math.max(0, +$("salta").value || 0);
+    $("totale").value = totale;
+    $("formatoInfo").textContent = $("formato").selectedOptions[0].textContent;
+
+    $("righe").innerHTML = righe.length ? righe.map((r, i) => `
+      <tr data-i="${i}" class="${r.art.codice === evidenzia ? "lampeggia" : ""}">
+        <td>${r.art.anno}</td>
+        <td><span class="codice">${esc(r.art.codice)}</span></td>
+        <td><div class="testo-lungo" style="max-width:360px">${esc(r.art.descr)}</div></td>
+        <td><span class="bc">${r.art.barcode}<span class="tipo${eanValido(r.art.barcode) ? "" : " c128"}" title="${eanValido(r.art.barcode) ? "" : "La cifra di controllo non è da EAN-13: stampato come Code 128"}">${tipoBarcode(r.art.barcode)}</span></span></td>
+        <td class="num">${numero(r.art.costo)}</td>
+        <td class="num"><b>${numero(r.art.prezzo)}</b></td>
+        <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div></td>
+        <td><button class="icon-btn" data-togli="${i}" title="Togli">✕</button></td>
+      </tr>`).join("")
+      : `<tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>`;
+
+    // celle: prima quelle da saltare (solo sui fogli A4), poi un'etichetta per copia
+    const copie = righe.flatMap(r => Array(r.n).fill(r.art));
+    if (o.formato === "rotolo") {
+      $("fogli").innerHTML = copie.length ? `<div class="rotolo">${copie.slice(0, 30).map(a => etichettaHtml(a, o)).join("")}</div>` +
+        (copie.length > 30 ? `<p style="align-self:flex-end;color:var(--muted)">… e altre ${copie.length - 30}</p>` : "") : "";
+      $("pagine").textContent = copie.length ? `${copie.length} etichette sul rotolo` : "";
+    } else {
+      const per = PER_FOGLIO[o.formato];
+      const celle = Array(copie.length ? Math.min(salta, per - 1) : 0).fill(null).concat(copie);
+      const fogli = [];
+      for (let i = 0; i < celle.length; i += per) fogli.push(celle.slice(i, i + per));
+      $("fogli").innerHTML = fogli.map(f => `<div class="foglio ${o.formato}">${f.map(a => a ? etichettaHtml(a, o) : '<div class="cella saltata" title="Saltata"></div>').join("")}${'<div class="cella" style="border-color:#eef1f5"></div>'.repeat(per - f.length)}</div>`).join("");
+      $("pagine").textContent = fogli.length ? `${fogli.length} fogl${fogli.length === 1 ? "io" : "i"} A4${salta ? ` · ${Math.min(salta, per - 1)} posizioni saltate sul primo` : ""}` : "";
+    }
+    if (!copie.length) $("fogli").innerHTML = '<div class="vuoto" style="margin:auto"><b>L\'anteprima comparirà qui</b></div>';
+  }
+
+  $("righe").oninput = e => {
+    const i = e.target.dataset.i;
+    if (i == null) return;
+    righe[i].n = Math.max(0, +e.target.value || 0);
+    disegna();
+    $("righe").querySelector(`input[data-i="${i}"]`).focus();
+  };
+  $("righe").onclick = e => {
+    const b = e.target.closest("[data-togli]");
+    if (b) { righe.splice(+b.dataset.togli, 1); disegna(); }
+  };
+  ["salta", "nascondiPrezzo", "formato", "mostraCodice", "mostraDescr", "mostraNumero"].forEach(id => $(id).addEventListener("input", () => disegna()));
+
+  $("btnImpostazioni").onclick = () => $("modalImp").classList.add("show");
+  $("chiudiImp").onclick = () => $("modalImp").classList.remove("show");
+  $("modalImp").onclick = e => { if (e.target.id === "modalImp") $("modalImp").classList.remove("show"); };
+  $("btnChiudi").onclick = () => location.href = ritorno;
+  $("btnStampa").onclick = () => righe.length
+    ? avviso("Stampa: la colleghiamo alla vostra stampante quando sappiamo modello e formato")
+    : avviso("Aggiungi almeno un'etichetta");
+
+  disegna();
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sedi – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .sede-nome { display: flex; align-items: center; gap: 10px; max-width: 230px; font-weight: 600; text-transform: uppercase; font-size: 0.84rem; }
+  .sede-nome .testo { overflow: hidden; text-overflow: ellipsis; }
+  .email { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  .colore {
+    flex: none;
+    width: 30px; height: 22px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .colore.vuoto { background: repeating-linear-gradient(45deg, #f1f3f7, #f1f3f7 4px, #fff 4px, #fff 8px); }
+  .email { color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body data-page="sedi" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Stesso elenco del tasto colorato in alto (js/sedi.js), con i dati anagrafici.
+  // Indirizzi e codici dal gestionale attuale dove visibili; email di esempio.
+  const INFO = {
+    "CAL Bari": ["Bari", "", "900014", "Negozio", 2025, 13],
+    "CAL Cagliari": ["Cagliari", "", "900016", "Negozio", 2025, 11],
+    "CAL Centrale di Zugliano": ["Zugliano", "Via S. Rocco 2", "900019", "Negozio", 2025, 15],
+    "CAL Cinisello Balsamo": ["Cinisello Balsamo", "Viale G. Matteotti 57/B", "900015", "Negozio", 2025, 9],
+    "CAL Firenze": ["Firenze", "Piazza Duomo 14r", "900006", "Negozio", 2025, 6],
+    "CAL Milano": ["Milano", "Via della Signora 2/A", "900008", "Negozio", 2025, 10],
+    "CAL Palermo": ["Palermo", "", "900010", "Negozio", 2025, 12],
+    "Laboratorio Ceramiche": ["Roma", "Via Portuense 739", "910001", "Magazzino", 2025, 17],
+    "CAL Sede di Roma": ["Roma", "Via Portuense 739", "900001", "Negozio", 2025, 16],
+    "CAL Roma per Estero": ["Roma", "Largo Brancaccio 57", "900013", "Negozio", 2026, 8]
+  };
+
+  const dati = SEDI.map((s, i) => {
+    const [citta, indirizzo, cod, tipo, anno, vecchio] = INFO[s.nome] ||
+      ["Roma", "", String(900020 + i), s.gruppo === "Laboratori e magazzino" ? "Magazzino" : "Negozio", 2025, ""];
+    return { nome: s.nome, colore: s.colore, gruppo: s.gruppo, citta: citta.toUpperCase(), indirizzo, cod, tipo, anno: String(anno), vecchio,
+      email: s.nome.toLowerCase().replace(/[^a-z]+/g, ".").replace(/^\.|\.$/g, "") + "@esempio.it" };
+  });
+
+  avviaAnagrafica({
+    titolo: "Sedi",
+    sezione: "Setup",
+    nuovo: "Nuova sede",
+    csv: "sedi",
+    chiave: "nome",
+    filtri: [{ id: "fTipo", label: "Tipo sede", campo: "tipo", opzioni: ["Negozio", "Magazzino"] }],
+    tabs: [
+      { k: "neg", t: "Negozi CAL", colore: "#d4009c", f: r => r.gruppo === "Negozi CAL" },
+      { k: "lab", t: "Laboratori e magazzino", colore: "#990000", f: r => r.gruppo === "Laboratori e magazzino" },
+      { k: "altri", t: "Altri punti vendita", colore: "#94a3b8", f: r => r.gruppo === "Altri punti vendita" }
+    ],
+    azioniRiga: ["Modifica", "Cambia colore", "Vedi giacenze della sede", "Coordinate bancarie"],
+    colonne: [
+      { k: "nome", t: "Nome", html: r => `<td><a href="#" class="ana-link" data-az="Modifica"><span class="sede-nome"><span class="colore${r.colore ? "" : " vuoto"}" style="${r.colore ? `background:${r.colore}` : ""}" title="${r.colore || "Nessun colore"}"></span><span class="testo" title="${r.nome}">${r.nome}</span></span></a></td>` },
+      { k: "citta", t: "Città", larg: 110 },
+      { k: "indirizzo", t: "Indirizzo", larg: 140 },
+      { k: "email", t: "Email", html: r => `<td><span class="email" title="${r.email}">${r.email}</span></td>` },
+      { k: "cod", t: "Codice" },
+      { k: "tipo", t: "Tipo", html: r => `<td><span class="pill" style="background:${r.tipo === "Negozio" ? "#e8f1ff" : "#fff3dd"};color:${r.tipo === "Negozio" ? "#1f5fbf" : "#b26a00"}">${r.tipo}</span></td>` },
+      { k: "anno", t: "Anno" },
+      { k: "vecchio", t: "Vecchio" }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

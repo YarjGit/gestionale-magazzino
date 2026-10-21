@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carico – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  /* ---------- Intestazione ---------- */
+  .scheda-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .scheda-head h1 { display: flex; align-items: center; gap: 10px; }
+  .scheda-head .num { font: 600 1rem "JetBrains Mono", monospace; color: var(--accent); }
+  .totale-top { margin-left: auto; text-align: right; }
+  .totale-top .t { color: var(--muted); font-size: 0.8rem; }
+  .totale-top .v { font-size: 1.3rem; font-weight: 700; }
+  .totale-top .p { color: var(--muted); font-size: 0.8rem; }
+
+  .banner {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 12px; padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .banner.ann { background: #fde4e4; color: var(--ko); }
+  .banner.mod { background: #fff3dd; color: #b26a00; }
+
+  /* ---------- Schede (tab) ---------- */
+  .schede {
+    display: flex; align-items: center; gap: 4px;
+    border-bottom: 1px solid var(--line);
+    margin: -4px -4px 14px;
+    padding: 0 4px;
+    flex-wrap: wrap;
+  }
+  .scheda-tab {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 12px;
+    border: none; border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .scheda-tab:hover { color: var(--text); }
+  .scheda-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .scheda-tab .n { padding: 0 7px; border-radius: 99px; background: var(--page-bg); font-size: 0.72rem; }
+  .scheda-tab.active .n { background: #e8f1ff; }
+  .schede .spazio { flex: 1; }
+  .interr { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+  .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; border-radius: 99px; background: #dfe4ec; transition: background 0.2s; }
+  .switch span::before { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::before { transform: translateX(16px); }
+
+  .pannello-tab[hidden] { display: none; }
+
+  /* ---------- Dettagli ---------- */
+  .dettagli { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  .gruppo {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .gruppo + .gruppo { margin-top: 12px; }
+  .gruppo h3 {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .campi { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 14px; }
+  .s1 { grid-column: span 1; } .s2 { grid-column: span 2; } .s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s6 { grid-column: span 6; }
+  .f textarea {
+    width: 100%; min-height: 70px; resize: vertical;
+    padding: 7px 10px;
+    border: 1px solid var(--line); border-radius: 8px;
+    background: #fbfcfe; font: inherit;
+  }
+  .f input:disabled, .f select:disabled, .f textarea:disabled {
+    background: #f4f6f9; color: var(--text); opacity: 1; cursor: default;
+  }
+  .f .aiuto { font-size: 0.72rem; color: var(--muted); }
+  .stato-sel { display: flex; align-items: center; gap: 8px; }
+  .stato-sel .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+  .in-modifica .f input:not(:disabled), .in-modifica .f select:not(:disabled), .in-modifica .f textarea:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+
+  /* Riepilogo importi a destra */
+  .riepilogo {
+    position: sticky; top: 84px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .riepilogo h3 { padding: 12px 14px; margin: 0; background: #f6f8fb; border-bottom: 1px solid var(--line); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .voce-imp { display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
+  .voce-imp + .voce-imp { border-top: 1px dashed #edf0f5; }
+  .voce-imp label { flex: 1; font-size: 0.86rem; }
+  .voce-imp label small { color: var(--muted); }
+  .voce-imp input {
+    width: 120px; padding: 6px 9px;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: #f4f6f9; text-align: right; font: 500 0.88rem "JetBrains Mono", monospace;
+  }
+  .in-modifica .voce-imp input:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+  .voce-imp.fissa input { background: #eef2f7; }
+  .totale-compl {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: #fffbe6;
+    border-top: 2px solid #f0d878;
+    font-weight: 700;
+  }
+  .totale-compl .v { font: 700 1.15rem "JetBrains Mono", monospace; }
+
+  /* ---------- Articoli ---------- */
+  .art-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .art-toolbar .info { color: var(--muted); font-size: 0.85rem; }
+  .codice { font: 500 0.8rem "JetBrains Mono", monospace; color: var(--accent); }
+  .barcode { font: 500 0.76rem "JetBrains Mono", monospace; color: var(--muted); }
+  td.chk, th.chk { width: 34px; text-align: center; }
+  td.chk input, th.chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .qta { display: inline-block; min-width: 36px; padding: 1px 8px; border-radius: 6px; background: #e8f1ff; color: #1f5fbf; font-weight: 700; text-align: center; }
+  tfoot td { padding: 9px 7px; background: #f6f8fb; font-weight: 700; border-top: 1px solid var(--line); }
+
+  .nota-viola { margin-bottom: 12px; padding: 9px 12px; border: 1px solid #c7b4f5; border-radius: 9px; background: #f6f1ff; color: #5b2fc0; font-size: 0.86rem; }
+  .collega { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .collega .f { min-width: 220px; }
+
+  /* Aggiunta articoli (anche con la pistola) */
+  .aggiungi-art { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; padding: 12px; border: 1px dashed #b9cdf0; border-radius: 10px; background: #f7faff; }
+  .aggiungi-art .cerca-art { flex: 1; min-width: 280px; position: relative; }
+  .pistola { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--muted); font-size: 0.75rem; font-weight: 500; }
+  .pistola .led { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(24,160,88,0.15); }
+  .suggerimenti { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20,30,50,0.15); z-index: 20; }
+  .suggerimenti.show { display: block; }
+  .sugg { display: flex; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; }
+  .sugg:hover, .sugg.attivo { background: #eef5ff; }
+  .sugg .codice { min-width: 90px; }
+  .sugg small { margin-left: auto; color: var(--muted); font-family: "JetBrains Mono", monospace; }
+  .solo-modifica { display: none; }
+  .in-modifica .solo-modifica { display: table-cell; }
+  .num-mod { width: 64px; padding: 3px 6px; border: 1px solid #b9cdf0; border-radius: 6px; text-align: right; font-weight: 600; }
+  .num-mod.largo { width: 80px; }
+  tr.lampeggia { animation: lampeggia 1.2s ease-out; }
+  @keyframes lampeggia { from { background: #d7f5e3; } to { background: transparent; } }
+  /* Confronto arrivato / ordinato */
+  .arrivo { display: inline-block; min-width: 36px; padding: 1px 8px; border-radius: 6px; font-weight: 700; text-align: center; background: #e8f1ff; color: #1f5fbf; }
+  .arrivo.completo { background: #ddf5e8; color: var(--ok); }
+  .arrivo.parziale { background: #fff3dd; color: #b26a00; }
+  .arrivo.troppo { background: #fde4e4; color: var(--ko); }
+  .art-cella b { display: block; font-weight: 500; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- Storico ---------- */
+  .timeline { position: relative; margin-left: 10px; padding-left: 22px; border-left: 2px solid var(--line); }
+  .evento { position: relative; padding: 0 0 18px; }
+  .evento::before {
+    content: ""; position: absolute; left: -29px; top: 3px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent);
+  }
+  .evento.ok::before { border-color: var(--ok); }
+  .evento .quando { color: var(--muted); font-size: 0.8rem; }
+  .evento .cosa { font-weight: 600; margin-top: 2px; }
+  .evento .dett { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+
+  /* ---------- Movimenti collegati ---------- */
+  .collegato {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .collegato + .collegato { margin-top: 10px; }
+  .collegato .ico { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #e8f1ff; color: #1f5fbf; font-size: 1.1rem; }
+  .collegato .testo { flex: 1; }
+  .collegato .testo b { display: block; }
+  .collegato .testo span { color: var(--muted); font-size: 0.85rem; }
+
+  /* ---------- Anteprima etichette ---------- */
+  .etichette {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+    max-height: 55vh;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .etichetta {
+    border: 1px dashed #b7c0cf;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #fff;
+    font-size: 0.75rem;
+  }
+  .etichetta .c { font: 600 0.78rem "JetBrains Mono", monospace; }
+  .etichetta .d { margin-top: 2px; height: 2.4em; overflow: hidden; line-height: 1.2; }
+  .etichetta .pr { margin-top: 4px; font-size: 0.95rem; font-weight: 700; }
+  .etichetta svg { display: block; width: 100%; height: 34px; margin-top: 4px; }
+  .etichetta .bc { text-align: center; font: 500 0.66rem "JetBrains Mono", monospace; letter-spacing: 0.08em; }
+  .modal-azioni { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+  .modal { width: min(900px, 100%); }
+
+  .btn-verde { background: linear-gradient(135deg, #22b573, #18a058); color: #fff; box-shadow: 0 6px 16px rgba(24,160,88,0.3); }
+  .btn-verde:hover { filter: brightness(1.06); }
+
+  @media (max-width: 1100px) {
+    .dettagli { grid-template-columns: 1fr; }
+    .riepilogo { position: static; }
+  }
+  @media (max-width: 700px) {
+    .campi { grid-template-columns: 1fr 1fr; }
+    .s1, .s2 { grid-column: span 1; } .s3, .s4, .s6 { grid-column: span 2; }
+    .totale-top { margin-left: 0; text-align: left; }
+  }
+</style>
+</head>
+<body data-page="carichi-fornitori">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnEtichette">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>
+    Etichette movimento
+  </button>
+  <div class="dd" id="ddStampa" style="position:relative">
+    <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
+    <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
+      <button data-az="Proforma su carta intestata">Proforma su carta intestata</button>
+      <button data-az="Documento di carico">Documento di carico</button>
+      <button data-az="Elenco articoli">Elenco articoli</button>
+    </div>
+  </div>
+  <button class="btn btn-light" id="btnExcel">📤 Excel</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+    Modifica
+  </button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/dati-carichi.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  // ?id=8815 apre un carico esistente; ?nuovo=1 apre un carico vuoto già in modifica
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const id = +qs.get("id");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const car = nuovo
+    ? { id: null, stato: "Definitivo", data: oggi, dataDoc: oggi, cp: -1, bolla: "", doc: "", causale: "", totArt: 0, tot: 0, nArt: 0, lab: leggiSede() || "CAL SMM Roma" }
+    : CARICHI.find(c => c.id === id);
+
+  if (!car) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Carico #${esc(id || "")} non trovato</b>
+      <span><a href="carichi-fornitori.html" style="color:var(--accent)">Torna all'elenco dei carichi</a></span></div></div>`;
+    document.querySelectorAll(".top-actions .btn").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
+    $("btnChiudi").onclick = () => location.href = "carichi-fornitori.html";
+    throw new Error("carico non trovato");
+  }
+
+  document.title = `${nuovo ? "Nuovo carico" : `Carico #${car.id}`} – Gestionale Magazzino`;
+  const fornitore = FORNITORI[car.cp] || "";
+  const stato = Object.values(STATO).find(s => s.nome === car.stato);
+  const annullato = car.stato === "Annullato";
+
+  // Righe articolo del carico (da dati-carichi.js: articoli veri dell'anagrafica)
+  const RIGHE = nuovo ? [] : righeCarico(car);
+
+  // ---------- Struttura della pagina ----------
+  const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const inp = (val, extra = "") => `<input class="mod" value="${esc(val)}" ${extra} disabled>`;
+
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuovo carico da fornitore" : `Carico da fornitore <span class="num">#${car.id}</span>`}
+          <span class="pill" id="pillStato" style="background:${stato.colore}1f;color:${stato.colore}">${stato.icona} ${car.stato}</span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="carichi-fornitori.html">Carichi da Fornitori</a><span>-</span><span>${nuovo ? "Nuovo" : "#" + car.id}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Totale articoli</div>
+        <div class="v" id="topTotale">${euro(car.totArt)}</div>
+        <div class="p" id="topPezzi">${car.nArt} pezzi · ${RIGHE.length} righe</div>
+      </div>
+    </div>
+    ${annullato ? '<div class="banner ann">✕ Questo movimento è annullato: non incide sulle giacenze e non si può modificare.</div>' : ""}
+    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo carico: scegli il fornitore e aggiungi gli articoli nella scheda Articoli." : "Stai modificando il carico. Ricordati di salvare."}</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="collegati">🚚 Movimenti collegati <span class="n">${nuovo ? 0 : 1}</span></button>
+        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">${RIGHE.length}</span></button>
+        <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <span class="spazio"></span>
+        <label class="interr" title="Ipotesi: un'etichetta per ogni pezzo invece che una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
+        <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli">
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>📄 Documento</h3>
+              <div class="campi">
+                ${campo("s2", "Tipo di movimento", `<select class="mod" disabled>${opz(["Carico da fornitore", "Carico da lab. interni", "Doni"], "Carico da fornitore")}</select>`)}
+                ${campo("s2", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato" style="background:${stato.colore}"></span><select class="mod" id="selStato" disabled>${opz(["Provvisorio", "Definitivo", "Annullato"], car.stato)}</select><button class="btn btn-light" id="btnProvv" style="padding:6px 10px;font-size:0.8rem" hidden></button></div>`)}
+                ${campo("s2", "Aliquota IVA", `<select class="mod" disabled>${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
+                ${campo("s2", "Data documento", inp(car.dataDoc || "", 'type="date"'))}
+                ${campo("s2", "Data bolla", inp(car.bolla || "", 'type="date"'))}
+                ${campo("s1", "Numero bolla", inp((car.doc || "").replace(/^n\./, "").replace(/ DDT$/, "")))}
+                ${campo("s1", "Porto", `<select class="mod" disabled>${opz(["Franco", "Assegnato"], "Franco")}</select>`)}
+                ${campo("s2", "Riferimento fattura", inp(""))}
+                ${campo("s1", "Anno", inp(car.data.slice(0, 4), 'style="text-align:right"'))}
+                ${campo("s1", "ID", `<input value="${car.id ?? ""}" placeholder="nuovo" disabled style="text-align:right">`, "assegnato al salvataggio")}
+                ${campo("s2", "Data carico", inp(car.data, 'type="date"'))}
+              </div>
+            </div>
+
+            <div class="gruppo">
+              <h3>🏭 Fornitore e pagamento</h3>
+              <div class="campi">
+                ${campo("s4", "Fornitore", `<select class="mod" id="selFornitore" disabled>${car.cp < 0 ? '<option value="" selected>— scegli il fornitore —</option>' : ""}${FORNITORI.map((f, i) => `<option${i === car.cp ? " selected" : ""}>${String(600 + i * 9)}: ${esc(f)}</option>`).join("")}</select>`)}
+                ${campo("s2", "Sconto %", inp("", 'type="number" min="0" max="100" style="text-align:right"'))}
+                ${campo("s3", "Condizione di pagamento", `<select class="mod" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."])}</select>`)}
+                ${campo("s3", "Sede che riceve", `<input value="${esc(car.lab)}" disabled>`)}
+              </div>
+            </div>
+
+            <div class="gruppo">
+              <h3>🚚 Spedizione</h3>
+              <div class="campi">
+                ${campo("s2", "Spedizioniere", `<select class="mod" disabled><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"])}</select>`)}
+                ${campo("s2", "Tracking number", inp(""))}
+                ${campo("s2", "Tempo di consegna", inp(""))}
+              </div>
+            </div>
+
+            <div class="gruppo">
+              <h3>📝 Note</h3>
+              <div class="campi">
+                ${campo("s3", "Causale", `<textarea class="mod" disabled>${esc(car.causale)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" disabled></textarea>`, "stampate sul documento")}
+              </div>
+            </div>
+          </div>
+
+          <aside class="riepilogo">
+            <h3>Riepilogo importi</h3>
+            <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="${numero(car.totArt)}" disabled></div>
+            ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map((s, i) =>
+              `<div class="voce-imp"><label>+ ${s}</label><input class="mod spesa" data-i="${i}" value="${car.tot - car.totArt && i === 1 ? numero(car.tot - car.totArt) : ""}" placeholder="0,00" disabled></div>`).join("")}
+            <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl"></span></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- MOVIMENTI COLLEGATI -->
+      <div class="pannello-tab" id="tab-collegati" hidden>
+        ${nuovo ? `
+        <div class="nota-viola">💡 È importante collegare le consegne agli ordini corrispondenti (se ci sono): così gli articoli arrivati risultano evasi e la giacenza virtuale resta giusta.</div>
+        <div class="collega">
+          <div class="f" style="flex:2"><label for="colFornitore">Fornitore</label><select id="colFornitore"><option value="">— scegli il fornitore —</option>${FORNITORI.map((f, i) => `<option value="${i}">${esc(f)}</option>`).join("")}</select></div>
+          <div class="f" style="flex:2"><label for="colOrdine">Ordine a fornitore</label><select id="colOrdine" disabled><option value="">— prima scegli il fornitore —</option></select></div>
+          <button class="btn btn-primary" id="btnCollega" disabled>🔗 Collega ordine</button>
+          <button class="btn btn-light" id="btnSalta">Salta ›</button>
+        </div>
+        <div id="ordiniCollegati"></div>` : `<div class="collegato">
+          <div class="ico">📋</div>
+          <div class="testo"><b>Ordine a fornitore 2026-000170</b><span>${esc(fornitore)} · da cui è nato questo carico (esempio)</span></div>
+          <a class="btn btn-light" href="ordini-fornitori.html">Apri</a>
+        </div>`}
+      </div>
+
+      <!-- RIGHE -->
+      <div class="pannello-tab" id="tab-articoli" hidden>
+        <div class="aggiungi-art" id="barraAggiungi" hidden>
+          <div class="f cerca-art">
+            <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
+            <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
+            <div class="suggerimenti" id="suggArt"></div>
+          </div>
+          <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
+          <div class="f" style="width:120px"><label for="addPrezzo">Costo unit.</label><input id="addPrezzo" placeholder="dall'articolo" style="text-align:right"></div>
+          <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+        </div>
+        <div class="nota-viola" id="notaPrezzi" hidden>💶 In questa scheda si indicano i <b>prezzi di acquisto</b>.</div>
+        <div class="art-toolbar">
+          <button class="btn btn-light" id="etichetteSel">🏷️ Etichette dei selezionati</button>
+          <label class="interr" style="margin-left:0"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
+          <span class="info" id="infoEtichette"></span>
+          <div class="cerca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="cercaArt" type="search" placeholder="Cerca codice, descrizione o barcode…"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th class="chk"><input type="checkbox" id="selTutti" checked title="Seleziona tutti"></th><th>#</th><th>Articolo</th>
+              <th class="num" title="Quantità ordinata (se il carico è collegato a un ordine)">Ordinata</th><th class="num" title="Quantità arrivata">Spedita</th>
+              <th class="num" title="Giacenza attuale nella sede">Giac.</th><th class="num">Anno giac.</th><th class="num">Etichette</th>
+              <th class="num">Costo</th><th class="num">IVA</th><th class="num">Sconto %</th><th class="num">Prezzo totale</th><th class="solo-modifica" style="width:36px"></th></tr></thead>
+            <tbody id="righeArt"></tbody>
+            <tfoot><tr><td colspan="3">Totale</td><td class="num" id="totOrd"></td><td class="num" id="totQta"></td><td colspan="2"></td><td class="num" id="totEt"></td><td colspan="3"></td><td class="num" id="totArt"></td><td class="solo-modifica"></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- RIORDINI -->
+      <div class="pannello-tab" id="tab-riordini" hidden>
+        <div class="vuoto"><b>Nessun riordino</b><span>Qui compariranno gli ordini creati con gli articoli non arrivati in questo carico.</span></div>
+      </div>
+
+      <!-- STORICO -->
+      <div class="pannello-tab" id="tab-storico" hidden>
+        ${nuovo ? '<div class="vuoto"><b>Carico non ancora salvato</b><span>Dopo il salvataggio qui comparirà chi lo ha creato e modificato.</span></div>' : ""}
+        <div class="timeline" ${nuovo ? "hidden" : ""}>
+          <div class="evento"><div class="quando">${dataIt(car.data)} · 09:12 · Mario Rossi</div><div class="cosa">Carico creato</div><div class="dett">Stato: Provvisorio · fornitore ${esc(fornitore)}</div></div>
+          <div class="evento"><div class="quando">${dataIt(car.data)} · 09:40 · Mario Rossi</div><div class="cosa">Aggiunti ${RIGHE.length} articoli</div><div class="dett">${car.nArt} pezzi per ${euro(car.totArt)}</div></div>
+          <div class="evento"><div class="quando">${dataIt(car.data)} · 09:44 · Mario Rossi</div><div class="cosa">Stampate le etichette</div><div class="dett">${car.nArt} etichette</div></div>
+          <div class="evento ok"><div class="quando">${dataIt(car.data)} · 10:02 · Anna Verdi</div><div class="cosa">Stato cambiato in ${car.stato}</div><div class="dett">${annullato ? "Il movimento non incide più sulle giacenze" : "Giacenze aggiornate"}</div></div>
+        </div>
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Totali (si aggiornano quando cambiano righe o spese) ----------
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+  function ricalcola() {
+    car.totArt = Math.round(RIGHE.reduce((s, a) => s + a.tot, 0) * 100) / 100;
+    car.nArt = RIGHE.reduce((s, a) => s + a.qta, 0);
+    const spese = [...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0);
+    $("impArticoli").value = numero(car.totArt);
+    $("totCompl").textContent = numero(car.totArt + spese);
+    $("topTotale").textContent = euro(car.totArt);
+    $("topPezzi").textContent = `${car.nArt} pezzi · ${RIGHE.length} righe`;
+    $("nRigheTab").textContent = RIGHE.length;
+  }
+  document.querySelectorAll(".spesa").forEach(i => i.oninput = ricalcola);
+  ricalcola();
+
+  // ---------- Stato: pulsante "Rendi provvisorio / definitivo" ----------
+  function mostraStato() {
+    const s = Object.values(STATO).find(x => x.nome === $("selStato").value);
+    $("dotStato").style.background = s.colore;
+    $("pillStato").style.background = s.colore + "1f";
+    $("pillStato").style.color = s.colore;
+    $("pillStato").textContent = `${s.icona} ${s.nome}`;
+    $("btnProvv").textContent = s.nome === "Definitivo" ? "Rendi provvisorio" : "Rendi definitivo";
+  }
+  $("selStato").onchange = mostraStato;
+  $("btnProvv").onclick = () => {
+    $("selStato").value = $("selStato").value === "Definitivo" ? "Provvisorio" : "Definitivo";
+    mostraStato();
+  };
+  mostraStato();
+
+  // ---------- Articoli ----------
+  const selezionati = new Set(RIGHE.map(a => a.pos));
+  let ultimaAggiunta = null;
+  // Totale riga: quantità arrivata × costo, meno lo sconto
+  const totRiga = r => Math.round(r.qta * r.prezzo * (1 - (r.sconto || 0) / 100) * 100) / 100;
+  // Le etichette seguono la quantità arrivata finché non vengono cambiate a mano
+  const aggiornaRiga = r => { r.tot = totRiga(r); if (!r.etichetteMan) r.etichette = r.qta; };
+  const classeArrivo = r => r.ordinata == null ? "" : r.qta === r.ordinata ? "completo" : r.qta < r.ordinata ? "parziale" : "troppo";
+
+  function disegnaArticoli() {
+    const q = $("cercaArt").value.trim().toLowerCase();
+    const ordine = (a, b) => $("ordinaCodice").checked ? a.cod.localeCompare(b.cod)
+      : $("nuoviInAlto").checked ? b.pos - a.pos : a.pos - b.pos;
+    const lista = RIGHE.filter(a => !q || [a.cod, a.descr, a.barcode].join(" ").toLowerCase().includes(q)).slice().sort(ordine);
+    const mod = document.body.classList.contains("in-modifica");
+    const campoNum = (r, campo, valore, cls = "") => mod
+      ? `<input class="num-mod ${cls}" data-campo="${campo}" data-riga="${r.pos}" value="${valore}">` : valore;
+    $("righeArt").innerHTML = lista.length ? lista.map(r => `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">
+        <td class="chk"><input type="checkbox" data-pos="${r.pos}" ${selezionati.has(r.pos) ? "checked" : ""}></td>
+        <td style="color:var(--muted)">${r.pos}</td>
+        <td class="art-cella" title="Barcode ${r.barcode}"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td>
+        <td class="num">${r.ordinata ?? '<span style="color:var(--muted)">—</span>'}</td>
+        <td class="num">${mod ? campoNum(r, "qta", r.qta) : `<span class="arrivo ${classeArrivo(r)}">${r.qta}</span>`}</td>
+        <td class="num">${r.articolo.giac ?? "—"}</td>
+        <td class="num" style="color:var(--muted)">${r.articolo.anno}</td>
+        <td class="num">${campoNum(r, "etichette", r.etichette)}</td>
+        <td class="num">${campoNum(r, "prezzo", numero(r.prezzo), "largo")}</td>
+        <td class="num" style="color:var(--muted)">${r.articolo.iva}%</td>
+        <td class="num">${campoNum(r, "sconto", r.sconto || 0)}</td>
+        <td class="num"><b>${numero(r.tot)}</b></td>
+        <td class="solo-modifica"><button class="icon-btn" data-togli="${r.pos}" title="Togli riga">✕</button></td>
+      </tr>`).join("") : `<tr><td colspan="13"><div class="vuoto"><b>${RIGHE.length ? "Nessun articolo trovato" : "Nessun articolo in questo carico"}</b>${!RIGHE.length && mod ? "<span>Spara un barcode con la pistola, cerca l'articolo qui sopra o collega un ordine in Movimenti collegati.</span>" : ""}</div></td></tr>`;
+    const collegato = RIGHE.some(r => r.ordinata != null);
+    $("totOrd").textContent = collegato ? RIGHE.reduce((s, a) => s + (a.ordinata || 0), 0) : "";
+    $("totQta").textContent = RIGHE.reduce((s, a) => s + a.qta, 0);
+    $("totEt").textContent = RIGHE.reduce((s, a) => s + a.etichette, 0);
+    $("totArt").textContent = numero(RIGHE.reduce((s, a) => s + a.tot, 0));
+    const scelti = RIGHE.filter(a => selezionati.has(a.pos));
+    const nEt = $("barcodeDup").checked ? scelti.reduce((s, a) => s + a.etichette, 0) : scelti.length;
+    $("infoEtichette").textContent = `${nEt} etichette da stampare` + ($("barcodeDup").checked ? " (colonna Etichette)" : " (una per articolo)");
+    $("selTutti").checked = scelti.length === RIGHE.length && RIGHE.length > 0;
+    disegnaRiordini();
+  }
+  $("righeArt").onchange = e => {
+    const rigaPos = +e.target.dataset.riga;
+    if (rigaPos) {
+      const r = RIGHE.find(x => x.pos === rigaPos);
+      const v = e.target.dataset.campo === "prezzo" ? num(e.target.value) : Math.max(0, +e.target.value || 0);
+      if (e.target.dataset.campo === "etichette") r.etichetteMan = true;
+      if (e.target.dataset.campo === "sconto") r.sconto = Math.min(100, v); else r[e.target.dataset.campo] = v;
+      aggiornaRiga(r);
+      ricalcola(); disegnaArticoli();
+      return;
+    }
+    const pos = +e.target.dataset.pos;
+    if (!pos) return;
+    e.target.checked ? selezionati.add(pos) : selezionati.delete(pos);
+    disegnaArticoli();
+  };
+  $("nuoviInAlto").onchange = disegnaArticoli;
+
+  // ---------- Collegamento a un ordine (solo carico nuovo) ----------
+  let ordineCollegato = null;
+  if (nuovo) {
+    const sincronizzaFornitore = i => {
+      $("colFornitore").value = i;
+      $("selFornitore").value = i === "" ? "" : $("selFornitore").options[[...$("selFornitore").options].findIndex(o => o.textContent.endsWith(": " + FORNITORI[i]))]?.value;
+      const ordini = ORDINI_APERTI.filter(o => String(o.cp) === String(i));
+      $("colOrdine").innerHTML = i === ""
+        ? '<option value="">— prima scegli il fornitore —</option>'
+        : ordini.length
+          ? '<option value="">— scegli l\'ordine —</option>' + ordini.map(o => `<option value="${o.prot}">${o.prot} del ${dataIt(o.data)} · ${o.righe.reduce((s, r) => s + r[1], 0)} pezzi</option>`).join("")
+          : '<option value="">Nessun ordine aperto per questo fornitore</option>';
+      $("colOrdine").disabled = !ordini.length;
+      $("btnCollega").disabled = true;
+    };
+    $("colFornitore").onchange = () => sincronizzaFornitore($("colFornitore").value);
+    $("selFornitore").addEventListener("change", () => {
+      const i = FORNITORI.findIndex(f => $("selFornitore").selectedOptions[0].textContent.endsWith(": " + f));
+      sincronizzaFornitore(i < 0 ? "" : String(i));
+    });
+    $("colOrdine").onchange = () => $("btnCollega").disabled = !$("colOrdine").value;
+    $("btnCollega").onclick = () => {
+      const o = ORDINI_APERTI.find(x => x.prot === $("colOrdine").value);
+      if (!o) return;
+      ordineCollegato = o;
+      // Le righe dell'ordine entrano con Spedita = 0: si riempiono sparando la merce che arriva
+      o.righe.forEach(([codice, qta]) => {
+        const art = ARTICOLI.find(a => a.codice === codice);
+        let r = RIGHE.find(x => x.articolo === art);
+        if (r) { r.ordinata = (r.ordinata || 0) + qta; return; }
+        r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: qta, qta: 0, prezzo: art.costo, sconto: 0, barcode: art.barcode, articolo: art };
+        aggiornaRiga(r);
+        RIGHE.push(r); selezionati.add(r.pos);
+      });
+      $("ordiniCollegati").innerHTML = `<div class="collegato"><div class="ico">📋</div>
+        <div class="testo"><b>Ordine a fornitore ${o.prot}</b><span>${esc(FORNITORI[o.cp])} · ${o.righe.length} articoli ordinati, ora nella scheda Articoli</span></div>
+        <span class="pill" style="background:#ddf5e8;color:var(--ok)">✔ Collegato</span></div>`;
+      document.querySelector('.scheda-tab[data-t="collegati"] .n').textContent = 1;
+      ricalcola(); disegnaArticoli();
+      avviso(`Ordine ${o.prot} collegato: spara la merce arrivata nella scheda Articoli`);
+      document.querySelector('.scheda-tab[data-t="articoli"]').click();
+      $("addArt").focus();
+    };
+    $("btnSalta").onclick = () => { document.querySelector('.scheda-tab[data-t="articoli"]').click(); $("addArt").focus(); };
+  }
+
+  // ---------- Riordini: ciò che è stato ordinato ma non è arrivato ----------
+  function disegnaRiordini() {
+    const mancanti = RIGHE.filter(r => r.ordinata != null && r.qta < r.ordinata);
+    document.querySelector('.scheda-tab[data-t="riordini"] .n').textContent = mancanti.length;
+    $("tab-riordini").innerHTML = mancanti.length ? `
+      <div class="nota-viola">🧩 Questi articoli erano nell'ordine ${ordineCollegato ? ordineCollegato.prot : ""} ma non sono arrivati tutti. Con il riordino si crea un nuovo ordine solo per la parte mancante.</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Arrivata</th><th class="num">Da riordinare</th></tr></thead>
+        <tbody>${mancanti.map(r => `<tr><td class="art-cella"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td><td class="num">${r.ordinata}</td><td class="num">${r.qta}</td><td class="num"><span class="arrivo parziale">${r.ordinata - r.qta}</span></td></tr>`).join("")}</tbody>
+      </table></div>
+      <div style="margin-top:12px;text-align:right"><button class="btn btn-primary" onclick="avviso('Riordino: verrà creato un ordine a fornitore con stato Riordino (da definire insieme)')">🧩 Crea riordino</button></div>`
+      : '<div class="vuoto"><b>Nessun riordino</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa riordinare.</span></div>';
+  }
+  $("righeArt").onclick = e => {
+    const b = e.target.closest("[data-togli]");
+    if (!b) return;
+    RIGHE.splice(RIGHE.findIndex(x => x.pos === +b.dataset.togli), 1);
+    selezionati.delete(+b.dataset.togli);
+    ricalcola(); disegnaArticoli();
+  };
+
+  // Aggiunta articolo: a mano o con la pistola (scrive il barcode e preme Invio)
+  const trovaArticoli = testo => {
+    const t = testo.trim().toLowerCase();
+    if (!t) return [];
+    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
+    return esatto.length ? esatto : ARTICOLI.filter(a => (a.codice + " " + a.descr + " " + a.barcode).toLowerCase().includes(t)).slice(0, 12);
+  };
+  let suggAttivo = 0;
+  function mostraSugg() {
+    const lista = trovaArticoli($("addArt").value);
+    suggAttivo = Math.min(suggAttivo, Math.max(0, lista.length - 1));
+    $("suggArt").innerHTML = lista.length
+      ? lista.map((a, i) => `<div class="sugg${i === suggAttivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>${a.barcode}</small></div>`).join("")
+      : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>';
+    $("suggArt").classList.toggle("show", !!$("addArt").value.trim());
+    return lista;
+  }
+  function aggiungiArticolo(art) {
+    const n = Math.max(1, +$("addQta").value || 1);
+    const prezzo = $("addPrezzo").value ? num($("addPrezzo").value) : null;
+    // Stesso articolo già in elenco (anche dall'ordine collegato): aumenta la quantità arrivata
+    let r = RIGHE.find(x => x.articolo === art && (prezzo == null || x.prezzo === prezzo));
+    if (r) r.qta += n;
+    else {
+      r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, qta: n, prezzo: prezzo ?? art.costo, sconto: 0, barcode: art.barcode, articolo: art };
+      RIGHE.push(r);
+      selezionati.add(r.pos);
+    }
+    aggiornaRiga(r);
+    ultimaAggiunta = r.pos;
+    $("addArt").value = ""; $("addQta").value = 1; $("addPrezzo").value = "";
+    $("suggArt").classList.remove("show");
+    ricalcola(); disegnaArticoli();
+    avviso(`${art.codice}: +${n} (${r.qta}${r.ordinata != null ? ` di ${r.ordinata} ordinati` : " in totale"})`);
+    $("addArt").focus();
+  }
+  $("addArt").oninput = () => { suggAttivo = 0; mostraSugg(); };
+  $("addArt").onkeydown = e => {
+    const lista = trovaArticoli($("addArt").value);
+    if (e.key === "ArrowDown") { suggAttivo = Math.min(suggAttivo + 1, lista.length - 1); mostraSugg(); e.preventDefault(); }
+    if (e.key === "ArrowUp") { suggAttivo = Math.max(suggAttivo - 1, 0); mostraSugg(); e.preventDefault(); }
+    if (e.key === "Escape") $("suggArt").classList.remove("show");
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (lista[suggAttivo]) aggiungiArticolo(lista[suggAttivo]);
+      else if ($("addArt").value.trim()) avviso(`Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
+    }
+  };
+  $("suggArt").onclick = e => {
+    const s = e.target.closest(".sugg[data-cod]");
+    if (s) aggiungiArticolo(ARTICOLI.find(a => a.codice === s.dataset.cod));
+  };
+  $("addBtn").onclick = () => {
+    const lista = trovaArticoli($("addArt").value);
+    if (lista[suggAttivo]) aggiungiArticolo(lista[suggAttivo]); else { avviso("Spara o scrivi un codice prima di aggiungere"); $("addArt").focus(); }
+  };
+  document.addEventListener("click", e => { if (!e.target.closest(".cerca-art")) $("suggArt").classList.remove("show"); });
+  $("selTutti").onchange = e => { RIGHE.forEach(a => e.target.checked ? selezionati.add(a.pos) : selezionati.delete(a.pos)); disegnaArticoli(); };
+  $("cercaArt").oninput = disegnaArticoli;
+  $("ordinaCodice").onchange = disegnaArticoli;
+  $("barcodeDup").onchange = disegnaArticoli;
+  disegnaArticoli();
+
+  // ---------- Etichette: apre la pagina di stampa già riempita ----------
+  const paginaEtichette = solo => {
+    const righe = solo ? `&righe=${[...selezionati].join(",")}` : "";
+    location.href = `etichette.html?carico=${car.id}&perPezzo=${$("barcodeDup").checked ? 1 : 0}${righe}`;
+  };
+  $("btnEtichette").onclick = () => paginaEtichette(false);
+  $("etichetteSel").onclick = () => selezionati.size ? paginaEtichette(true) : avviso("Seleziona almeno un articolo");
+
+  // ---------- Pulsanti in alto ----------
+  $("btnChiudi").onclick = () => location.href = "carichi-fornitori.html";
+  $("btnExcel").onclick = () => {
+    const csv = [["#", "Codice", "Descrizione", "Quantità", "Prezzo", "Totale", "Barcode"]]
+      .concat(RIGHE.map(a => [a.pos, a.cod, a.descr, a.qta, numero(a.prezzo), numero(a.tot), a.barcode]))
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `carico-${car.id}.csv`;
+    a.click();
+  };
+  $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
+  $("menuStampa").onclick = e => {
+    const b = e.target.closest("button");
+    if (b) avviso(`${b.dataset.az}: da definire insieme`);
+    $("menuStampa").classList.remove("show");
+  };
+  document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
+
+  // ---------- Modifica / nuovo: sblocca i campi; Salva e Annulla tornano in sola lettura ----------
+  if (annullato) $("btnModifica").hidden = true;
+  const modificabili = () => document.querySelectorAll(".mod");
+  let valoriPrima = [], righePrima = [];
+  // In modifica restano solo Annulla / Salva / Salva e chiudi, come nel gestionale attuale
+  const pulsantiLettura = ["btnEtichette", "ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    modificabili().forEach(el => el.disabled = !modifica);
+    pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
+    ["btnSalva", "btnAnnulla", "btnSalvaChiudi", "bannerModifica", "barraAggiungi", "btnProvv", "notaPrezzi"].forEach(id => $(id).hidden = !modifica);
+    disegnaArticoli();
+  }
+  function controlla() {
+    if (!$("selFornitore").value) { avviso("Scegli il fornitore"); $("selFornitore").focus(); return false; }
+    if (!RIGHE.some(r => r.qta > 0)) { avviso("Aggiungi almeno un articolo arrivato nella scheda Articoli"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    return true;
+  }
+  $("btnModifica").onclick = () => {
+    valoriPrima = [...modificabili()].map(el => el.value);
+    righePrima = RIGHE.map(r => ({ ...r }));
+    modalita(true);
+  };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) {
+      if (!RIGHE.length || confirm("Uscire senza salvare il nuovo carico?")) location.href = "carichi-fornitori.html";
+      return;
+    }
+    modificabili().forEach((el, i) => el.value = valoriPrima[i]);
+    RIGHE.splice(0, RIGHE.length, ...righePrima);
+    mostraStato(); ricalcola(); modalita(false);
+  };
+  $("btnSalva").onclick = () => {
+    if (!controlla()) return;
+    avviso(nuovo ? "Carico salvato (solo anteprima: il salvataggio vero arriverà con il database)" : "Modifiche salvate (solo anteprima)");
+    if (!nuovo) modalita(false);
+  };
+  $("btnSalvaChiudi").onclick = () => {
+    if (!controlla()) return;
+    avviso("Salvato (solo anteprima)");
+    setTimeout(() => location.href = "carichi-fornitori.html", 700);
+  };
+
+  // Un carico nuovo si apre già in modifica, sulla scheda Dettagli
+  if (nuovo) modalita(true);
+</script>
+</body>
+</html>

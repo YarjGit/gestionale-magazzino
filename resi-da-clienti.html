@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resi Ricevuti da Clienti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="resi-da-clienti" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  avviaElenco({
+    titolo: "Resi Ricevuti da Clienti",
+    nuovo: "Nuovo reso",
+    csv: "resi-da-clienti",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Cliente", elenco: CLIENTI },
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Cliente", 200),
+      COL.data("bolla", "Bolla"),
+      COL.testo("causale", "Causale", 160),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    // Come nel gestionale attuale, per ora nessun reso registrato
+    dati: []
+  });
+</script>
+</body>
+</html>

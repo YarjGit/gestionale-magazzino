@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azioni Applicazione – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="azioni-applicazione" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Azioni attive solo in un periodo (a cosa servono esattamente è da chiarire).
+  // Come nel gestionale attuale, per ora nessuna.
+  const oggi = new Date().toISOString().slice(0, 10);
+  const statoAzione = r => r.al && r.al < oggi ? "Scaduta" : r.dal > oggi ? "Programmata" : "Attiva";
+  const STILE = { Attiva: ["#ddf5e8", "var(--ok)"], Programmata: ["#e8f1ff", "#1f5fbf"], Scaduta: ["#f1f3f7", "#64748b"] };
+  const dataIt = d => d ? d.split("-").reverse().join("/") : "—";
+
+  avviaAnagrafica({
+    titolo: "Azioni Applicazione",
+    sezione: "Setup",
+    nuovo: "Nuova azione",
+    csv: "azioni-applicazione",
+    chiave: "descr",
+    tabs: [
+      { k: "att", t: "Attive ora", colore: "#18a058", f: r => statoAzione(r) === "Attiva" },
+      { k: "prog", t: "Programmate", colore: "#2f8bff", f: r => statoAzione(r) === "Programmata" },
+      { k: "scad", t: "Scadute", colore: "#94a3b8", f: r => statoAzione(r) === "Scaduta" }
+    ],
+    colonne: [
+      { k: "descr", t: "Descrizione", link: true, larg: 420 },
+      { k: "dal", t: "Attiva dal", html: r => `<td>${dataIt(r.dal)}</td>` },
+      { k: "al", t: "Attiva al", html: r => `<td>${dataIt(r.al)}</td>` },
+      // In più: lo stato calcolato in base alle date
+      { k: "stato", t: "Stato", html: r => { const s = statoAzione(r); return `<td><span class="pill" style="background:${STILE[s][0]};color:${STILE[s][1]}">${s}</span></td>`; } }
+    ],
+    dati: []
+  });
+</script>
+</body>
+</html>

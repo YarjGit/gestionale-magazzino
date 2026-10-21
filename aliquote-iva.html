@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aliquote IVA – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="aliquote-iva" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Tabella delle aliquote, come nel gestionale attuale
+  const dati = [
+    ["22", "Aliquota 22%", 22, "A"],
+    ["--", "Non assegnata", 0, "C"],
+    ["0", "Non assegnata", 0, "A"],
+    ["04", "Aliquota 4%", 4, "A"],
+    ["10", "Aliquota 10%", 10, "A"],
+    ["41", "N.I. art.41 D.L. 331/93", 0, "C"],
+    ["72", "Art.72 DPR 633/72", 0, "C"],
+    ["74", "Art.74 DPR 633/72", 0, "A"],
+    ["08", "N.I. art. 8c DPR 633/72", 0, "C"],
+    ["71", "N.I. art.71 DPR 633/72", 0, "C"],
+    ["81", "N.I. art.8 lett.a DPR 633/72", 0, "C"],
+    ["15", "Escluso art.15 DPR 633/72", 0, "C"]
+  ].map(([cod, descr, aliq, app]) => ({ cod, descr, aliq, app, note: "" }));
+
+  avviaAnagrafica({
+    titolo: "Aliquote IVA",
+    sezione: "Configurazione",
+    nuovo: "Nuova aliquota",
+    csv: "aliquote-iva",
+    tabs: [
+      { k: "imp", t: "Imponibili", colore: "#2f8bff", f: r => r.aliq > 0 },
+      { k: "zero", t: "Esenti / N.I.", colore: "#18a058", f: r => r.aliq === 0 }
+    ],
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", html: r => `<td style="${r.aliq === 0 ? "color:var(--ok)" : "font-weight:500"}">${r.descr}</td>` },
+      { k: "aliq", t: "Aliquota", num: true, html: r => `<td class="num"><span class="pill" style="background:${r.aliq ? "#e8f1ff" : "#ddf5e8"};color:${r.aliq ? "#1f5fbf" : "var(--ok)"}">${r.aliq}%</span></td>` },
+      { k: "note", t: "Annotazioni" },
+      { k: "app", t: "Applicazione IVA", html: r => `<td><span class="pill" style="background:#f1f3f7;color:#4a5568" title="Significato da confermare">${r.app}</span></td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

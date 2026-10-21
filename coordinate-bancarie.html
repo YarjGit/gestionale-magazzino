@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coordinate Bancarie – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .iban { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; letter-spacing: 0.02em; }
+  .copia { margin-left: 6px; border: none; background: none; color: var(--muted); cursor: pointer; }
+  .copia:hover { color: var(--accent); }
+</style>
+</head>
+<body data-page="coordinate-bancarie" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Dati INVENTATI: il conto vero si inserirà nel programma definitivo.
+  // Una riga per sede, così ogni documento stampa le coordinate giuste.
+  const dati = ["Magazzino Centrale", "CAL SMM Roma", "CAL Sede di Roma", "CAL Milano", "CAL Firenze", "CAL Palermo"].map((sede, i) => ({
+    sede, banca: "Banca Esempio", agenzia: "00000", indirizzo: "Via Esempio 1", cap: "00100", citta: "Roma",
+    abi: "00000", cab: "00000", conto: "000000000000", cod: "0" + (i + 1),
+    iban: "IT00 X000 0000 0000 0000 0000 000"
+  }));
+
+  avviaAnagrafica({
+    titolo: "Coordinate Bancarie",
+    sezione: "Configurazione",
+    nuovo: "Nuove coordinate",
+    csv: "coordinate-bancarie",
+    chiave: "sede",
+    colonne: [
+      { k: "sede", t: "Sede", link: true, larg: 200 },
+      { k: "banca", t: "Banca" },
+      { k: "agenzia", t: "Agenzia" },
+      { k: "citta", t: "Città" },
+      { k: "abi", t: "ABI" },
+      { k: "cab", t: "CAB" },
+      { k: "conto", t: "Conto" },
+      // In più rispetto al gestionale attuale: IBAN completo con pulsante per copiarlo
+      { k: "iban", t: "IBAN", html: r => `<td><span class="iban">${r.iban}</span><button class="copia" title="Copia IBAN" onclick="navigator.clipboard?.writeText('${r.iban.replace(/ /g, "")}'); avviso('IBAN copiato')">⧉</button></td>` },
+      { k: "cod", t: "Codice" }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

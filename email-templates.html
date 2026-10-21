@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Templates – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="email-templates" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Modelli di email (es. invio ordine al fornitore); come nel gestionale attuale, per ora nessuno
+  avviaAnagrafica({
+    titolo: "Email Templates",
+    sezione: "Configurazione",
+    nuovo: "Nuovo modello email",
+    csv: "email-templates",
+    azioniRiga: ["Modifica", "Invia email di prova", "Duplica"],
+    colonne: [
+      { k: "nome", t: "Nome modello", link: true, larg: 220 },
+      { k: "oggetto", t: "Oggetto", larg: 300 },
+      { k: "testo", t: "Testo", larg: 300 },
+      { k: "note", t: "Note", larg: 180 }
+    ],
+    dati: []
+  });
+</script>
+</body>
+</html>

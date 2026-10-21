@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sconti Clienti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="sconti-clienti" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  const dati = [["--", "Non assegnato", 0], ["A", "Listino A", 50], ["B", "Listino B", 33], ["C", "Listino C", 0], ["D", "Listino D", 25]]
+    .map(([cod, descr, sconto]) => ({ cod, descr: descr.toUpperCase(), sconto }));
+
+  avviaAnagrafica({
+    titolo: "Sconti Clienti",
+    sezione: "Configurazione",
+    nuovo: "Nuovo listino sconto",
+    csv: "sconti-clienti",
+    colonne: [
+      { k: "cod", t: "Codice", html: r => `<td><a href="#" class="ana-link num-mov" data-az="Modifica"><span class="id">${r.cod}</span></a></td>` },
+      { k: "descr", t: "Descrizione", larg: 300 },
+      // In più: barra dello sconto e prezzo di esempio su 100 €
+      { k: "sconto", t: "Sconto", num: true, html: r => `<td><div class="avanz" style="min-width:200px"><div class="bar"><span style="width:${r.sconto}%;background:var(--accent)"></span></div><small style="min-width:40px;font-weight:700;color:var(--text)">${r.sconto}%</small></div></td>` },
+      { k: "esempio", t: "Su 100 € paga", num: true, html: r => `<td class="num" style="color:var(--muted)">${euro(100 - r.sconto)}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diminuzione Giacenza – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="diminuzione-giacenza" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Rettifica in diminuzione: nessun cliente né fornitore, la causale spiega il motivo
+  avviaElenco({
+    titolo: "Diminuzione Giacenza",
+    nuovo: "Nuova diminuzione",
+    csv: "diminuzione-giacenza",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.testo("causale", "Causale", 300),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 8789, stato: "Definitivo", data: "2026-10-15", causale: "", totArt: 246, tot: 246, nArt: 3, lab: "Laboratori Sede Centrale" },
+      { id: 8655, stato: "Definitivo", data: "2026-09-25", causale: "", totArt: 245, tot: 245, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 8495, stato: "Definitivo", data: "2026-09-01", causale: "", totArt: 51, tot: 51, nArt: 12, lab: "Laboratori Sede Centrale" },
+      { id: 7191, stato: "Definitivo", data: "2026-07-02", causale: "Reso a laboratorio esterno", totArt: 150.8, tot: 150.8, nArt: 1, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 7186, stato: "Definitivo", data: "2026-07-02", causale: "Per Sydney", totArt: 146.2, tot: 146.2, nArt: 2, lab: "Laboratori Sede Centrale" },
+      { id: 6986, stato: "Definitivo", data: "2026-06-11", causale: "Per estero", totArt: 1496.9, tot: 1496.9, nArt: 9, lab: "Laboratori Sede Centrale" },
+      { id: 6830, stato: "Definitivo", data: "2026-05-21", causale: "Rosari e talare", totArt: 2581.1, tot: 2581.1, nArt: 8, lab: "Laboratori Sede Centrale" },
+      { id: 6819, stato: "Definitivo", data: "2026-05-20", causale: "Rosario argento", totArt: 2765.9, tot: 2765.9, nArt: 4, lab: "Laboratori Sede Centrale" },
+      { id: 6765, stato: "Definitivo", data: "2026-05-14", causale: "Vetri rubino", totArt: 100, tot: 100, nArt: 2, lab: "Laboratorio Ceramiche" },
+      { id: 6633, stato: "Definitivo", data: "2026-04-24", causale: "Rettifica casula magazzino precedente", totArt: 350, tot: 350, nArt: 1, lab: "Laboratorio Confezione Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

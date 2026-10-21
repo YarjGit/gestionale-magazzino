@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luoghi Consegna Merci – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="luoghi-consegna" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Indirizzi di consegna diversi dalla sede del cliente o del fornitore.
+  // Come nel gestionale attuale, per ora nessuno.
+  avviaAnagrafica({
+    titolo: "Luoghi Consegna Merci",
+    sezione: "Configurazione",
+    nuovo: "Nuovo luogo di consegna",
+    csv: "luoghi-consegna",
+    chiave: "indirizzo",
+    filtri: [{ id: "fPer", label: "Per", campo: "per", opzioni: ["Cliente", "Fornitore"] }],
+    colonne: [
+      { k: "indirizzo", t: "Indirizzo", link: true, larg: 300 },
+      { k: "citta", t: "Città" },
+      { k: "paese", t: "Paese" },
+      { k: "cliente", t: "Cliente", larg: 200 },
+      { k: "fornitore", t: "Fornitore", larg: 200 },
+      { k: "sede", t: "Sede" }
+    ],
+    dati: []
+  });
+</script>
+</body>
+</html>

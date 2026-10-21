@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clienti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="clienti" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Dati inventati per il prototipo
+  const dati = [
+    ["Rossi Luisa Bianca", "", "Negozio", "", "0776 000001", "Sora", "", "000479"],
+    ["Associazione Regionale Esempio", "", "Negozio", "", "", "Roma", "", "000220"],
+    ["Costumi d'Arte Esempio", "", "Negozio", "", "", "Roma", "", "000261"],
+    ["Ufficio Missionario Esempio", "", "Negozio", "", "06 0000001", "Roma", "", "000397"],
+    ["Associazione Culturale Esempio Onlus", "11651030000", "Negozio", "info@esempio.it", "393 0000001", "Roma", "", "000629"],
+    ["Istituto Religioso Esempio", "", "Istituto", "", "0775 000001", "Fiuggi", "", "000187"],
+    ["Parrocchia Esempio", "95000080000", "Parrocchia", "parrocchia@esempio.it", "", "Valmontone", "", "721"],
+    ["Commerciale Esempio S.R.L.", "", "Azienda", "", "", "Roma", "", "000203"],
+    ["Film Esempio S.R.L.", "10282340000", "Azienda", "", "340 0000001", "Roma", "", "000519"],
+    ["Ufficio Nazionale Esempio", "80245790000", "Ente", "", "06 0000002", "Roma", "", "000446"],
+    ["Congresso Internazionale Esempio", "", "Ente", "", "", "Altötting", "Germania", "000901"]
+  ].map(([nome, cf, tipo, email, tel, citta, nazione, cod]) => ({ nome: nome.toUpperCase(), cf, tipo, email, tel, citta: citta.toUpperCase(), nazione: nazione || "Italia", iva: "Esente (C.--)", cod }));
+
+  avviaAnagrafica({
+    titolo: "Clienti",
+    sezione: "Configurazione",
+    nuovo: "Nuovo cliente",
+    csv: "clienti",
+    chiave: "nome",
+    filtri: [{ id: "fTipo", label: "Tipo cliente", campo: "tipo", opzioni: ["Negozio", "Parrocchia", "Istituto", "Azienda", "Ente"] }],
+    tabs: [
+      { k: "it", t: "Italia", colore: "#18a058", f: r => r.nazione === "Italia" },
+      { k: "estero", t: "Estero", colore: "#7c4dff", f: r => r.nazione !== "Italia" }
+    ],
+    azioniRiga: ["Modifica", "Vedi scarichi", "Vedi ordini", "Nuovo preventivo"],
+    colonne: [
+      { k: "nome", t: "Nome o ragione sociale", link: true, larg: 260 },
+      { k: "cf", t: "Codice fiscale" },
+      { k: "tipo", t: "Tipo", html: r => `<td><span class="pill" style="background:#eef2f7;color:#4a5568">${r.tipo}</span></td>` },
+      { k: "email", t: "Email", larg: 150 },
+      { k: "tel", t: "Telefono" },
+      { k: "citta", t: "Città" },
+      { k: "nazione", t: "Nazione" },
+      { k: "cod", t: "Codice" }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

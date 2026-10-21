@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traduzioni – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .chiave { display: block; max-width: 380px; overflow: hidden; text-overflow: ellipsis; font: 500 0.78rem "JetBrains Mono", monospace; color: var(--muted); }
+  .testo-trad { font-weight: 500; }
+</style>
+</head>
+<body data-page="traduzioni" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Testi dell'interfaccia (il gestionale attuale ne ha 1.143): qui un campione.
+  const dati = [
+    ["Approval", "Approval.RichiestaApprovata", "Approvato"],
+    ["Approval", "Approval.RichiestaRifiutata", "Rifiutato"],
+    ["Approval", "Approval.Richieste", "Richieste"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.AvviaValidazione", "Avvia validazione"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.EliminatoRecord", "Eliminato record"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.ImpossibileEliminareRecord", "Impossibile eliminare il record"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.ImpossibileRipristinareRecord", "Impossibile ripristinare il record"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.InseritoRecord", "Inserito nuovo"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.InterrompiValidazione", "Interrompi validazione"],
+    ["Controllers", "Controllers.CRUDEntityControllerGeneric.RecordCancellati", "Record eliminati"],
+    ["Menu", "Menu.Movimenti.CarichiFornitori", "Carichi da Fornitori"],
+    ["Menu", "Menu.Magazzino.Giacenze", "Giacenze"],
+    ["Menu", "Menu.Debug", "Debug", true]
+  ].map(([gruppo, chiave, testo, nascosta]) => ({ gruppo, chiave, testo, nascosta: !!nascosta }));
+
+  avviaAnagrafica({
+    titolo: "Traduzioni",
+    sezione: "Setup",
+    nuovo: "Nuova traduzione",
+    csv: "traduzioni",
+    chiave: "chiave",
+    ordine: { k: "chiave", dir: 1 },
+    pulsanti: [{ label: "⚙️ Strumenti" }],
+    filtri: [{ id: "fGruppo", label: "Gruppo", campo: "gruppo", opzioni: ["Approval", "Controllers", "Menu"] }],
+    tabs: [
+      { k: "vis", t: "Visibili", colore: "#18a058", f: r => !r.nascosta },
+      { k: "nas", t: "Nascoste", colore: "#94a3b8", f: r => r.nascosta }
+    ],
+    colonne: [
+      { k: "gruppo", t: "Gruppo", html: r => `<td><span class="pill" style="background:#e8f1ff;color:#1f5fbf">${r.gruppo}</span></td>` },
+      { k: "chiave", t: "Chiave", html: r => `<td><a href="#" class="ana-link chiave" data-az="Modifica" title="${r.chiave}">${r.chiave}</a></td>` },
+      { k: "testo", t: "Testo mostrato", html: r => `<td><span class="testo-trad">${r.testo}</span></td>` },
+      { k: "nascosta", t: "Visibilità", html: r => `<td><span class="pill" style="background:${r.nascosta ? "#f1f3f7" : "#ddf5e8"};color:${r.nascosta ? "#64748b" : "var(--ok)"}">${r.nascosta ? "Nascosta" : "Visibile"}</span></td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Settings – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; vertical-align: middle; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; border-radius: 99px; background: #dfe4ec; cursor: pointer; transition: background 0.2s; }
+  .switch span::before { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s; }
+  .switch input:checked + span { background: var(--ko); }
+  .switch input:checked + span::before { transform: translateX(18px); }
+  .valore { font: 500 0.84rem "JetBrains Mono", monospace; }
+  .desc { color: var(--muted); font-size: 0.8rem; max-width: 420px; white-space: normal; }
+</style>
+</head>
+<body data-page="app-settings" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Impostazioni generali. In più rispetto al gestionale attuale: tipo di valore e spiegazione.
+  const dati = [
+    { nome: "Applicazione in manutenzione", tipo: "si-no", valore: false, desc: "Se attivo, solo gli amministratori possono entrare." },
+    { nome: "Aliquota IVA predefinita", tipo: "testo", valore: "23", desc: "Codice dell'aliquota proposta sui nuovi articoli (da verificare: in Aliquote IVA non c'è il codice 23)." },
+    { nome: "Background task disabilitati", tipo: "si-no", valore: false, desc: "Se attivo, le operazioni automatiche (es. ricalcolo giacenze) sono sospese." },
+    { nome: "Ultimo riavvio dell'applicazione", tipo: "data", valore: "2025-12-13", desc: "Aggiornato in automatico, non si modifica." }
+  ];
+
+  const valoreHtml = r => r.tipo === "si-no"
+    ? `<label class="switch" title="${r.valore ? "Attivo" : "Non attivo"}"><input type="checkbox" ${r.valore ? "checked" : ""} onchange="avviso('${r.nome}: ' + (this.checked ? 'attivato' : 'disattivato') + ' (solo anteprima)')"><span></span></label>`
+    : r.tipo === "data"
+      ? `<span class="valore">${r.valore.split("-").reverse().join("/")}</span>`
+      : `<span class="valore">${r.valore}</span>`;
+
+  avviaAnagrafica({
+    titolo: "App Settings",
+    sezione: "Setup",
+    csv: "app-settings",
+    chiave: "nome",
+    azioniRiga: ["Modifica"],
+    colonne: [
+      { k: "nome", t: "Impostazione", link: true, larg: 300 },
+      { k: "valore", t: "Valore", html: r => `<td>${valoreHtml(r)}</td>` },
+      { k: "desc", t: "A cosa serve", html: r => `<td><div class="desc">${r.desc}</div></td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

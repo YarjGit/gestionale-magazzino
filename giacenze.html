@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giacenze – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-top: 6px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; border-radius: 99px; background: #dfe4ec; cursor: pointer; transition: background 0.2s; }
+  .switch span::before { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::before { transform: translateX(20px); }
+
+  .dd { position: relative; }
+  .dd-menu {
+    display: none;
+    position: absolute; right: 0; top: calc(100% + 6px);
+    min-width: 250px; padding: 6px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(20,30,50,0.15);
+    z-index: 30;
+  }
+  .dd.open .dd-menu { display: block; }
+  .dd-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border: none; border-radius: 6px; background: none; text-align: left; cursor: pointer; }
+  .dd-menu button:hover { background: var(--page-bg); }
+  .dd-menu button.danger { color: var(--ko); }
+
+  .selezione { display: none; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 9px; background: #e8f1ff; color: #1f5fbf; font-weight: 600; }
+  .selezione.show { display: flex; }
+  .selezione .btn { padding: 6px 12px; }
+  td.chk, th.chk { width: 34px; text-align: center; }
+  td.chk input, th.chk input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  tr.sel { background: #eef5ff; }
+
+  .art { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+  .art .codice { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--accent); font-weight: 500; margin-right: 6px; }
+  .art .descr { font-weight: 500; }
+
+  /* Storico per anno: anno · carichi / scarichi (da confermare) */
+  .storico { display: flex; flex-direction: column; gap: 3px; }
+  .anno-chip {
+    display: inline-flex; gap: 6px; align-items: center;
+    padding: 1px 7px;
+    border-radius: 5px;
+    background: #f1f3f7;
+    font: 500 0.74rem "JetBrains Mono", monospace;
+    color: var(--muted);
+    width: max-content;
+  }
+  .anno-chip b { color: var(--text); font-weight: 600; }
+
+  .q {
+    display: inline-flex; align-items: center; gap: 5px;
+    min-width: 34px; padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    justify-content: center;
+  }
+  .q.ok { background: #ddf5e8; color: var(--ok); }
+  .q.scorta { background: #fff3dd; color: var(--warn); }
+  .q.zero { background: #f1f3f7; color: var(--muted); }
+  .q.neg { background: #fde4e4; color: var(--ko); }
+  .ricalc {
+    display: inline-grid; place-items: center;
+    width: 22px; height: 22px;
+    margin-left: 4px;
+    border: none; border-radius: 6px;
+    background: #fff3dd; color: var(--warn);
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  .ricalc:hover { background: #ffe6b8; }
+
+  .ordini { display: flex; gap: 4px; flex-wrap: wrap; }
+  .ord { padding: 1px 7px; border-radius: 5px; font-size: 0.74rem; font-weight: 600; background: #f1f3f7; color: var(--muted); white-space: nowrap; }
+  .ord.forn { background: #e8f1ff; color: #1f5fbf; }
+  .ord.cli { background: #f3e8ff; color: #7c3aed; }
+  .ord.neg { background: #fde4e4; color: var(--ko); }
+  .barcode { font-family: "JetBrains Mono", monospace; font-size: 0.74rem; color: var(--muted); }
+  .valore { color: var(--muted); }
+</style>
+</head>
+<body data-page="giacenze">
+
+<template id="top-actions">
+  <button class="top-toggle" id="btnRicalcola" style="border:none;background:none" title="Ricalcola le giacenze dell'anno dai movimenti">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+    Ricalcola giacenze 2026
+  </button>
+  <label class="top-toggle" title="Funzione da definire">
+    <input type="checkbox" id="soloValidare"> Validazione
+  </label>
+  <label class="top-toggle" title="Funzione da definire">
+    <input type="checkbox" id="recordAttuali" checked> Record attuali
+  </label>
+  <span class="spacer"></span>
+  <div class="dd" id="ddStrumenti">
+    <button class="btn btn-light" id="btnStrumenti">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      Strumenti ▾
+    </button>
+    <div class="dd-menu">
+      <button data-az="Ricalcola giacenze di tutte le sedi">🔄 Ricalcola giacenze di tutte le sedi</button>
+      <button data-az="Riporta giacenze all'anno successivo">📅 Riporta giacenze all'anno successivo</button>
+      <button data-az="esporta">📤 Esporta giacenze (CSV)</button>
+      <button data-az="Azzera giacenze negative" class="danger">⚠️ Azzera giacenze negative</button>
+    </div>
+  </div>
+  <button class="btn btn-light" id="btnInventario">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></svg>
+    Inventario
+  </button>
+  <button class="btn btn-primary" id="btnCrea">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    Nuova rettifica
+  </button>
+</template>
+
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Giacenze</h1>
+      <div class="crumbs">
+        <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+        <span>-</span><span>Magazzino</span><span>-</span><span>Giacenze</span>
+      </div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <section class="panel filtri" id="filtri">
+    <div class="filtri-head" id="filtriHead">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 9v6l-4 2v-8z"/></svg>
+      <h2>Filtri di ricerca</h2>
+      <span class="badge" id="filtriAttivi" hidden></span>
+      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="filtri-body">
+      <div class="grid-filtri">
+        <div class="f c2"><label for="fAnno">Anno</label><select id="fAnno"><option>2026</option><option>2025</option></select></div>
+        <div class="f c2"><label for="fCodDa">Codice da – a</label>
+          <div class="coppia"><input id="fCodDa" type="text" placeholder="da" aria-label="Da codice"><input id="fCodA" type="text" placeholder="a" aria-label="A codice"></div>
+        </div>
+        <div class="f c3"><label for="fProv">Provenienza</label><select id="fProv"><option value="">Tutte</option></select></div>
+        <div class="f c2"><label for="fSenzaCosto">Senza costo</label><label class="switch"><input type="checkbox" id="fSenzaCosto"><span></span></label></div>
+        <div class="f c3"><label for="fCat">Categoria</label><select id="fCat"><option value="">Tutte</option></select></div>
+      </div>
+      <div class="filtri-azioni"><button class="btn btn-ghost" id="azzera">Azzera filtri</button></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div class="tool-group">
+        <button title="Aggiorna" id="aggiorna"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+        <button title="Esporta in Excel (CSV)" id="esporta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 6M15 13l-6 6"/></svg></button>
+      </div>
+      <button class="btn btn-light" id="btnEtichette">🏷️ Etichette</button>
+      <div class="selezione" id="selezione">
+        <span id="nSel"></span>
+        <button class="btn btn-primary" id="etichetteSel">Stampa etichette</button>
+        <button class="btn btn-ghost" id="annullaSel">Deseleziona</button>
+      </div>
+      <div class="cerca">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="cerca" type="search" placeholder="Cerca codice, descrizione o barcode…">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="intestazione"></tr></thead>
+        <tbody id="righe"></tbody>
+      </table>
+    </div>
+
+    <div class="piede">
+      <div class="totali" id="totali"></div>
+      <div class="pagine">
+        <span>Righe</span>
+        <select id="perPagina"><option>10</option><option selected>25</option><option>50</option></select>
+        <span id="paginaInfo"></span>
+        <button id="prec" aria-label="Pagina precedente">‹</button>
+        <button id="succ" aria-label="Pagina successiva">›</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="row-menu" id="rowMenu">
+  <button data-az="Vedi movimenti dell'articolo">Vedi movimenti dell'articolo</button>
+  <button data-az="Giacenza nelle altre sedi">Giacenza nelle altre sedi</button>
+  <button data-az="Ricalcola giacenza">Ricalcola giacenza</button>
+  <button data-az="Stampa etichetta">Stampa etichetta</button>
+</div>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/categorie.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---------- Dati di esempio ----------
+  // storico: [anno, carichi, scarichi] (significato da confermare); ric = la quantità va ricalcolata
+  const GIACENZE = [
+    { cod: "A01", descr: "Calici", storico: [[2026, 0, 0]], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "8030969000011", scorta: 0 },
+    { cod: "A01/P", descr: "Calice cer. avorio", storico: [[2025, 2, 0], [2026, 0, 1]], costo: 18.5, qIni: 2, qAtt: 1, forn: 0, cli: 0, barcode: "9770042735161", scorta: 2, ric: true },
+    { cod: "A01/P CHIRO'", descr: "Calice Chiro' avorio", storico: [], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "9770042738001", scorta: 0 },
+    { cod: "A0101", descr: "Calice H17 pietra oll/met", storico: [[2026, 0, 0]], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "", scorta: 0 },
+    { cod: "A0105A", descr: "Calice H15 argentato antica e nuova alleanza", storico: [[2025, 1, 1]], costo: 325, qIni: 1, qAtt: 1, forn: 1, cli: 0, barcode: "8030969000058", scorta: 1 },
+    { cod: "A0110/11", descr: "Calice ceram. Tutto a tutti", storico: [[2025, 1, 0], [2026, 0, 3]], costo: 21.5, qIni: 1, qAtt: 3, forn: -4, cli: 0, barcode: "8030969000126", scorta: 2 },
+    { cod: "A0110/12", descr: "Calice ceram. Riuniti dal risorto", storico: [[2025, 3, 1]], costo: 30.5, qIni: 3, qAtt: 1, forn: 0, cli: 0, barcode: "8030969134180", scorta: 2 },
+    { cod: "A0110/14", descr: "Calice ceram. H16/DM9,5 cm gioia", storico: [[2025, 2, 2], [2026, 0, 1]], costo: 34, qIni: 2, qAtt: 3, forn: 0, cli: 0, barcode: "8030969172953", scorta: 2 },
+    { cod: "A0110/16", descr: "Calice cer. rosso \"Sanguev.\"", storico: [[2025, 2, 2]], costo: 31.5, qIni: 2, qAtt: 2, forn: 2, cli: 0, barcode: "8030969741173", scorta: 1 },
+    { cod: "A0110/17", descr: "Calice \"La vera vite\" ceramica", storico: [[2025, 1, 0]], costo: 38.5, qIni: 1, qAtt: 0, forn: 1, cli: 0, barcode: "8030969750465", scorta: 1 },
+    { cod: "B0201", descr: "Pisside dorata con coperchio", storico: [[2026, 5, 0]], costo: 95, qIni: 0, qAtt: 5, forn: 0, cli: 2, barcode: "8030969200015", scorta: 2 },
+    { cod: "B0202", descr: "Patena argentata D16", storico: [[2026, 0, 1]], costo: 38, qIni: 0, qAtt: -1, forn: 3, cli: 0, barcode: "8030969200022", scorta: 1 },
+    { cod: "F1001", descr: "Stola ricamata bianca", storico: [[2025, 20, 8], [2026, 0, 0]], costo: 22.5, qIni: 12, qAtt: 12, forn: 0, cli: 0, barcode: "8030969300012", scorta: 5 },
+    { cod: "F2001", descr: "Casula in seta avorio", storico: [[2026, 2, 0]], costo: 180, qIni: 0, qAtt: 2, forn: 0, cli: 1, barcode: "8030969310011", scorta: 3 },
+    { cod: "R0501", descr: "Rosario in legno d'ulivo", storico: [[2025, 60, 14], [2026, 0, 0]], costo: 1.9, qIni: 46, qAtt: 46, forn: 0, cli: 0, barcode: "8030969400019", scorta: 20 },
+    { cod: "R0502", descr: "Rosario argento 925", storico: [[2026, 4, 0]], costo: 0, qIni: 0, qAtt: 4, forn: 0, cli: 0, barcode: "8030969400026", scorta: 2 }
+  ].map(g => ({ ...g, descr: g.descr.toUpperCase(), prov: "Magazzino Centrale" }));
+
+  const statoQ = g => g.qAtt < 0 ? "neg" : g.qAtt === 0 ? "zero" : g.qAtt <= g.scorta ? "scorta" : "ok";
+
+  const COLONNE = [
+    { k: "cod", t: "Articolo", sort: g => g.cod, html: g => `<td><div class="art" title="${esc(g.cod + ": " + g.descr)}"><span class="codice">${esc(g.cod)}</span><span class="descr">${esc(g.descr)}</span></div></td>` },
+    { k: "storico", t: "Anni", sort: g => g.storico.length, html: g => `<td><div class="storico">${g.storico.map(([a, c, s]) => `<span class="anno-chip"><b>${a}</b>${c} / ${s}</span>`).join("") || '<span class="anno-chip">–</span>'}</div></td>` },
+    { k: "costo", t: "Costo", num: true, sort: g => g.costo, html: g => `<td class="num">${g.costo ? numero(g.costo) : '<span style="color:var(--ko)" title="Costo mancante">—</span>'}</td>` },
+    { k: "qIni", t: "Q. iniz.", num: true, sort: g => g.qIni, html: g => `<td class="num">${g.qIni}</td>` },
+    { k: "qAtt", t: "Q. attuale", num: true, sort: g => g.qAtt, html: g => `<td class="num"><span class="q ${statoQ(g)}" title="Scorta minima: ${g.scorta}">${g.qAtt}</span>${g.ric ? '<button class="ricalc" title="Quantità da ricalcolare" data-az="ricalcola">↻</button>' : ""}</td>` },
+    { k: "valore", t: "Valore", num: true, sort: g => g.qAtt * g.costo, html: g => `<td class="num valore">${g.qAtt > 0 && g.costo ? numero(g.qAtt * g.costo) : ""}</td>` },
+    { k: "ordini", t: "In ordine", sort: g => g.forn + g.cli, html: g => `<td><div class="ordini">${g.forn || g.cli ? (g.forn ? `<span class="ord ${g.forn < 0 ? "neg" : "forn"}" title="Ordinato ai fornitori">Forn ${g.forn}</span>` : "") + (g.cli ? `<span class="ord cli" title="Ordinato dai clienti">Cli ${g.cli}</span>` : "") : '<span class="ord">0</span>'}</div></td>` },
+    { k: "barcode", t: "Barcode", sort: g => g.barcode, html: g => `<td><span class="barcode">${g.barcode}</span></td>` }
+  ];
+
+  const TABS = [
+    { k: "", t: "Tutti", f: () => true },
+    { k: "disp", t: "Disponibili", colore: "#18a058", f: g => g.qAtt > g.scorta },
+    { k: "scorta", t: "Sotto scorta", colore: "#e58a00", f: g => g.qAtt > 0 && g.qAtt <= g.scorta },
+    { k: "zero", t: "Esauriti", colore: "#94a3b8", f: g => g.qAtt === 0 },
+    { k: "neg", t: "Negativi", colore: "#c62828", f: g => g.qAtt < 0 },
+    { k: "ric", t: "Da ricalcolare", colore: "#7c4dff", f: g => g.ric }
+  ];
+
+  let tab = "";
+  let ordine = { k: "cod", dir: 1 };
+  let pagina = 1;
+  const selezionati = new Set();
+
+  SEDI.forEach(s => $("fProv").insertAdjacentHTML("beforeend", `<option>${esc(s.nome)}</option>`));
+  CATEGORIE.forEach(c => $("fCat").insertAdjacentHTML("beforeend", `<option value="${c.cod}">${c.cod} – ${c.descr}</option>`));
+
+  const CAMPI = ["fCodDa", "fCodA", "fProv", "fCat"];
+
+  function filtra() {
+    const q = $("cerca").value.trim().toLowerCase();
+    const t = TABS.find(x => x.k === tab);
+    const anno = +$("fAnno").value;
+    return GIACENZE.filter(g => {
+      if (!t.f(g)) return false;
+      if (anno === 2025 && !g.storico.some(s => s[0] === 2025)) return false;
+      if ($("fSenzaCosto").checked && g.costo) return false;
+      if ($("fProv").value && g.prov !== $("fProv").value) return false;
+      if ($("fCat").value && !g.cod.startsWith($("fCat").value)) return false;
+      if ($("fCodDa").value && g.cod.toLowerCase() < $("fCodDa").value.toLowerCase()) return false;
+      if ($("fCodA").value && g.cod.toLowerCase() > $("fCodA").value.toLowerCase() + "￿") return false;
+      if (q && ![g.cod, g.descr, g.barcode].join(" ").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function disegna() {
+    const nf = CAMPI.filter(id => $(id).value).length + ($("fSenzaCosto").checked ? 1 : 0);
+    $("filtriAttivi").hidden = !nf;
+    $("filtriAttivi").textContent = nf === 1 ? "1 attivo" : `${nf} attivi`;
+
+    $("tabs").innerHTML = TABS.map(t => `<button class="tab${t.k === tab ? " active" : ""}" data-k="${t.k}">${t.colore ? `<span class="dot" style="background:${t.colore}"></span>` : ""}${t.t}<span class="n">${GIACENZE.filter(t.f).length}</span></button>`).join("");
+
+    const col = COLONNE.find(c => c.k === ordine.k);
+    const righe = filtra().sort((a, b) => {
+      const x = col.sort(a), y = col.sort(b);
+      return (x > y ? 1 : x < y ? -1 : 0) * ordine.dir;
+    });
+    const per = +$("perPagina").value;
+    const pagine = Math.max(1, Math.ceil(righe.length / per));
+    pagina = Math.min(pagina, pagine);
+    const visibili = righe.slice((pagina - 1) * per, pagina * per);
+
+    const tuttiSel = visibili.length && visibili.every(g => selezionati.has(g.cod));
+    $("intestazione").innerHTML = `<th class="chk"><input type="checkbox" id="selTutti" title="Seleziona la pagina" ${tuttiSel ? "checked" : ""}></th><th style="width:70px"></th>` +
+      COLONNE.map(c => {
+        const cls = ["sort", c.num ? "num" : "", ordine.k === c.k ? (ordine.dir > 0 ? "asc" : "desc") : ""].join(" ");
+        const freccia = ordine.k === c.k ? (ordine.dir > 0 ? "▲" : "▼") : "▾";
+        return `<th class="${cls}" data-k="${c.k}">${c.t}<span class="freccia">${freccia}</span></th>`;
+      }).join("");
+
+    $("righe").innerHTML = visibili.length ? visibili.map(g => `
+      <tr data-cod="${esc(g.cod)}" class="${selezionati.has(g.cod) ? "sel" : ""}">
+        <td class="chk"><input type="checkbox" class="sel-riga" ${selezionati.has(g.cod) ? "checked" : ""} aria-label="Seleziona ${esc(g.cod)}"></td>
+        <td><div class="azioni">
+          <button class="icon-btn" title="Apri articolo" data-az="apri"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+          <button class="icon-btn altro" title="Altre azioni"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+        </div></td>
+        ${COLONNE.map(c => c.html(g)).join("")}
+      </tr>`).join("") : `<tr><td colspan="${2 + COLONNE.length}"><div class="vuoto"><b>Nessun articolo con questi filtri</b><span>Prova a cambiare o azzerare i filtri.</span></div></td></tr>`;
+
+    const pos = righe.filter(g => g.qAtt > 0);
+    $("totali").innerHTML = `
+      <span>Articoli: <b>${righe.length}</b></span>
+      <span>Pezzi: <b>${pos.reduce((s, g) => s + g.qAtt, 0)}</b></span>
+      <span>Valore a costo: <b>${euro(pos.reduce((s, g) => s + g.qAtt * g.costo, 0))}</b></span>
+      <span>Sotto scorta: <b>${righe.filter(g => g.qAtt <= g.scorta && g.scorta > 0).length}</b></span>`;
+    $("paginaInfo").textContent = `Pagina ${pagina} di ${pagine}`;
+    $("prec").disabled = pagina <= 1;
+    $("succ").disabled = pagina >= pagine;
+
+    $("selezione").classList.toggle("show", selezionati.size > 0);
+    $("btnEtichette").hidden = selezionati.size > 0;
+    $("nSel").textContent = selezionati.size === 1 ? "1 articolo selezionato" : `${selezionati.size} articoli selezionati`;
+    $("selTutti").onchange = e => {
+      visibili.forEach(g => e.target.checked ? selezionati.add(g.cod) : selezionati.delete(g.cod));
+      disegna();
+    };
+  }
+
+  // ---------- Eventi ----------
+  $("tabs").onclick = e => { const b = e.target.closest(".tab"); if (b) { tab = b.dataset.k; pagina = 1; disegna(); } };
+  $("intestazione").onclick = e => {
+    const th = e.target.closest("th.sort");
+    if (!th) return;
+    ordine = { k: th.dataset.k, dir: ordine.k === th.dataset.k ? -ordine.dir : 1 };
+    disegna();
+  };
+  ["cerca", "fCodDa", "fCodA"].forEach(id => $(id).addEventListener("input", () => { pagina = 1; disegna(); }));
+  ["fAnno", "fProv", "fCat", "fSenzaCosto", "perPagina"].forEach(id => $(id).addEventListener("change", () => { pagina = 1; disegna(); }));
+  $("azzera").onclick = () => { CAMPI.forEach(id => $(id).value = ""); $("fSenzaCosto").checked = false; disegna(); };
+  $("filtriHead").onclick = () => $("filtri").classList.toggle("chiusi");
+  $("prec").onclick = () => { pagina--; disegna(); };
+  $("succ").onclick = () => { pagina++; disegna(); };
+  $("aggiorna").onclick = () => { disegna(); avviso("Elenco aggiornato"); };
+  $("recordAttuali").onchange = $("soloValidare").onchange = () => avviso("Funzione da definire insieme");
+  $("btnRicalcola").onclick = () => avviso("Ricalcolo giacenze 2026: logica da definire insieme");
+  $("btnInventario").onclick = () => avviso("Inventario: schermata da costruire");
+  $("btnCrea").onclick = () => avviso("Nuova rettifica: schermata da costruire");
+
+  // Selezione righe ed etichette
+  $("righe").addEventListener("change", e => {
+    if (!e.target.classList.contains("sel-riga")) return;
+    const cod = e.target.closest("tr").dataset.cod;
+    e.target.checked ? selezionati.add(cod) : selezionati.delete(cod);
+    disegna();
+  });
+  $("annullaSel").onclick = () => { selezionati.clear(); disegna(); };
+  $("btnEtichette").onclick = () => avviso("Seleziona gli articoli con le caselle a sinistra");
+  $("etichetteSel").onclick = () => avviso(`Stampa etichette per ${selezionati.size} articoli: la definiamo insieme`);
+
+  const esporta = () => {
+    const csv = [["Codice", "Descrizione", "Costo", "Q. iniziale", "Q. attuale", "Valore", "Ordinato fornitori", "Ordinato clienti", "Barcode"]]
+      .concat(filtra().map(g => [g.cod, g.descr, numero(g.costo), g.qIni, g.qAtt, numero(Math.max(0, g.qAtt) * g.costo), g.forn, g.cli, g.barcode]))
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "giacenze.csv";
+    a.click();
+  };
+  $("esporta").onclick = esporta;
+
+  $("btnStrumenti").onclick = e => { e.stopPropagation(); $("ddStrumenti").classList.toggle("open"); };
+  $("ddStrumenti").querySelector(".dd-menu").onclick = e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    $("ddStrumenti").classList.remove("open");
+    if (b.dataset.az === "esporta") esporta(); else avviso(`${b.dataset.az}: da definire insieme`);
+  };
+
+  // Menu azioni della riga e ricalcolo singolo
+  const rowMenu = $("rowMenu");
+  let rigaMenu = null;
+  $("righe").addEventListener("click", e => {
+    const btn = e.target.closest(".icon-btn, .ricalc");
+    if (!btn) return;
+    e.stopPropagation();
+    const cod = btn.closest("tr").dataset.cod;
+    if (btn.dataset.az === "apri") { location.href = "articoli.html"; return; }
+    if (btn.dataset.az === "ricalcola") { avviso(`Ricalcolo giacenza ${cod}: logica da definire insieme`); return; }
+    rigaMenu = cod;
+    const box = btn.getBoundingClientRect();
+    rowMenu.classList.add("show");
+    rowMenu.style.top = Math.min(box.bottom + 4, innerHeight - rowMenu.offsetHeight - 8) + "px";
+    rowMenu.style.left = Math.min(box.left, innerWidth - rowMenu.offsetWidth - 8) + "px";
+  });
+  rowMenu.onclick = e => {
+    const b = e.target.closest("button");
+    if (b) avviso(`${b.dataset.az} ${rigaMenu}: da definire insieme`);
+    rowMenu.classList.remove("show");
+  };
+  document.addEventListener("click", () => { rowMenu.classList.remove("show"); $("ddStrumenti").classList.remove("open"); });
+  window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
+
+  disegna();
+</script>
+</body>
+</html>

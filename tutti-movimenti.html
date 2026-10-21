@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutti i Movimenti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="tutti-movimenti" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  // Riepilogo di tutti i tipi di movimento: qui non si crea nulla, si consulta.
+  // Nel programma vero questi dati arriveranno dal database insieme a quelli delle singole pagine.
+  const CONTROPARTI = FORNITORI.map(nome => ({ nome, tipo: "F" }))
+    .concat(CLIENTI.map(nome => ({ nome, tipo: "C" })))
+    .concat(SEDI_CP.map(s => ({ ...s, tipo: "S" })));
+  const cp = nome => CONTROPARTI.findIndex(c => c.nome === nome);
+  const vendite = (data, tot, nArt, id, prot) => ({
+    id, prot, tipo: "Vendite Giornaliere", stato: "Definitivo", data, cp: null,
+    causale: `Riepilogo vendite giornaliere del ${data.split("-").reverse().join("/")}`, totArt: tot, tot, nArt, lab: "Laboratori Sede Centrale"
+  });
+
+  avviaElenco({
+    titolo: "Tutti i Movimenti",
+    csv: "tutti-movimenti",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.riordino, STATO.evaso, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio", "Riordino"],
+    controparte: {
+      filtri: [{ label: "Fornitore", tipo: "F" }, { label: "Cliente", tipo: "C" }],
+      elenco: CONTROPARTI
+    },
+    filtriExtra: [{ id: "fTipo", label: "Tipo movimento", campo: "tipo", opzioni: Object.keys(TIPI_MOVIMENTO) }],
+    azioniRiga: ["Apri nella sua pagina", "Stampa documento", "Stampa etichette"],
+    colonne: [
+      COL.numero("Protocollo / Mov."),
+      COL.tipo(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Fornitore / Cliente", 160),
+      COL.testo("causale", "Causale", 110),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      vendite("2026-10-21", 308.8, 7, 8822, "2026-000247"),
+      vendite("2026-10-20", 211.5, 11, 8820, "2026-000246"),
+      { id: 8819, prot: "2026-000183", tag: { testo: "da inevasi", colore: "#7c4dff" }, tipo: "Ordine a Fornitore", stato: "Riordino", data: "2026-10-20", cp: cp("Tessuti Liturgici Esempio SRL"), causale: "Ordine creato con gli articoli non evasi", tot: 120.53, nArt: 5, lab: "Laboratori Sede Centrale" },
+      { id: 8816, doc: "n.247", dataDoc: "2026-10-14", tipo: "Carico da Fornitore", stato: "Annullato", data: "2026-10-19", cp: cp("Arredi Sacri Esempio SNC"), causale: "", tot: 0, nArt: 0, lab: "Laboratorio Ceramiche" },
+      { id: 8815, doc: "n.247", dataDoc: "2026-10-14", tipo: "Carico da Fornitore", stato: "Definitivo", data: "2026-10-19", cp: cp("Arredi Sacri Esempio SNC"), causale: "", tot: 986.55, nArt: 33, lab: "Laboratori Sede Centrale" },
+      { id: 8814, doc: "n.774", dataDoc: "2026-10-16", tipo: "Carico da Fornitore", stato: "Definitivo", data: "2026-10-19", cp: cp("Tessuti Liturgici Esempio SRL"), causale: "", tot: 770.67, nArt: 36, lab: "Laboratorio Confezione Sede Centrale" },
+      vendite("2026-10-19", 1655.6, 32, 8812, "2026-000245"),
+      { id: 8811, prot: "2026-000245", tipo: "Trasferimento a Filiale", stato: "Provvisorio", data: "2026-10-20", cp: cp("CAL Bari"), causale: "Riassortimento Natale", tot: 1240.5, nArt: 48, lab: "Laboratori Sede Centrale" },
+      vendite("2026-10-17", 270.5, 8, 8809, "2026-000244"),
+      { id: 8808, prot: "2026-000184", tipo: "Ordine a Fornitore", stato: "Definitivo", data: "2026-10-21", cp: cp("Ricami d'Arte Esempio SRLS"), causale: "Commissione camice su misura", tot: 1239.72, nArt: 17, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 8802, prot: "2026-000242", doc: "n.310", dataDoc: "2026-10-14", tipo: "Trasferimento da Filiale", stato: "Definitivo", data: "2026-10-15", cp: cp("Magazzino Centrale"), causale: "", tot: 3896.81, nArt: 160, lab: "Laboratori Sede Centrale" },
+      { id: 8790, tipo: "Aumento Giacenza", stato: "Definitivo", data: "2026-10-15", cp: null, causale: "", tot: 322, nArt: 6, lab: "Laboratori Sede Centrale" },
+      { id: 8789, tipo: "Diminuzione Giacenza", stato: "Definitivo", data: "2026-10-15", cp: null, causale: "", tot: 246, nArt: 3, lab: "Laboratori Sede Centrale" },
+      { id: 8681, prot: "2026-000006", tipo: "Preventivo", stato: "Definitivo", data: "2026-09-29", cp: cp("Istituto Religioso Esempio"), causale: "", tot: 7421.23, nArt: 240, lab: "Laboratori Sede Centrale" },
+      { id: 8503, tipo: "Riallineamento", stato: "Definitivo", data: "2026-09-03", cp: null, causale: "", tot: 45.6, nArt: -2, lab: "Laboratori Sede Centrale" },
+      { id: 6179, tipo: "Reso a Fornitore", stato: "Definitivo", data: "2026-02-14", cp: cp("Tessuti Liturgici Esempio SRL"), causale: "", tot: 65.88, nArt: 1, lab: "Laboratori Sede Centrale" },
+      { id: 3112, prot: "2026-000021", tipo: "Scarico a Cliente", stato: "Definitivo", data: "2026-01-28", cp: cp("Magazzino Centrale"), causale: "", tot: 40, nArt: 1, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modelli Stampa – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .formato { font: 500 0.78rem "JetBrains Mono", monospace; padding: 2px 7px; border-radius: 5px; background: #f1f3f7; }
+  .proposta { margin-left: 6px; font-size: 0.7rem; padding: 1px 6px; border-radius: 5px; background: #fff3dd; color: #b26a00; font-weight: 600; }
+</style>
+</head>
+<body data-page="modelli-stampa" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // "Standard" c'è nel gestionale attuale. Gli altri due sono una PROPOSTA per le cose chieste all'inizio:
+  // la proforma su carta intestata e le etichette dei prodotti al carico.
+  const dati = [
+    { nome: "Standard", uso: "Documenti", formato: "A4", info: "", stampante: "", sede: "CAL SMM Roma" },
+    { nome: "Proforma su carta intestata", uso: "Documenti", formato: "A4", info: "Logo e intestazione della sede", stampante: "", sede: "Magazzino Centrale", proposta: true },
+    { nome: "Etichetta prodotto", uso: "Etichette", formato: "50×25 mm", info: "Codice, descrizione, prezzo, barcode", stampante: "Stampante etichette", sede: "Magazzino Centrale", proposta: true }
+  ];
+
+  const COLORI_USO = { Documenti: ["#e8f1ff", "#1f5fbf"], Etichette: ["#f3e8ff", "#7c3aed"] };
+
+  avviaAnagrafica({
+    titolo: "Modelli Stampa",
+    sezione: "Configurazione",
+    nuovo: "Nuovo modello",
+    csv: "modelli-stampa",
+    chiave: "nome",
+    tabs: [
+      { k: "doc", t: "Documenti", colore: "#2f8bff", f: r => r.uso === "Documenti" },
+      { k: "eti", t: "Etichette", colore: "#7c3aed", f: r => r.uso === "Etichette" }
+    ],
+    azioniRiga: ["Modifica", "Anteprima", "Stampa di prova", "Duplica"],
+    colonne: [
+      { k: "nome", t: "Nome", html: r => `<td><a href="#" class="ana-link" data-az="Modifica" style="display:inline">${r.nome}</a>${r.proposta ? '<span class="proposta" title="Non c\'è nel gestionale attuale">proposta</span>' : ""}</td>` },
+      { k: "uso", t: "Uso", html: r => `<td><span class="pill" style="background:${COLORI_USO[r.uso][0]};color:${COLORI_USO[r.uso][1]}">${r.uso}</span></td>` },
+      { k: "formato", t: "Formato", html: r => `<td><span class="formato">${r.formato}</span></td>` },
+      { k: "info", t: "Informazioni", larg: 260 },
+      { k: "stampante", t: "Stampante", html: r => `<td>${r.stampante || '<span style="color:var(--muted);font-style:italic">predefinita</span>'}</td>` },
+      { k: "sede", t: "Sede", html: r => `<td><span class="pallino" style="background:${trovaSede(r.sede).colore}"></span>${r.sede}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>

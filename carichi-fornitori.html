@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carichi da Fornitori – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="carichi-fornitori" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-carichi.js"></script>
+<script>
+  avviaElenco({
+    titolo: "Carichi da Fornitori",
+    nuovo: "Nuovo carico",
+    csv: "carichi-fornitori",
+    dettaglio: "carico.html",
+    paginaEtichette: "etichette.html",
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Fornitore", elenco: FORNITORI },
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Carico"),
+      COL.controparte("Fornitore", 190),
+      COL.data("bolla", "Bolla"),
+      COL.testo("causale", "Causale", 110),
+      COL.euro("totArt", "Imp. articoli"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: CARICHI
+  });
+</script>
+</body>
+</html>

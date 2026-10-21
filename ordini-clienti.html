@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ordini da Clienti – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="ordini-clienti" data-top="elenco">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script>
+  avviaElenco({
+    titolo: "Ordini da Clienti",
+    nuovo: "Nuovo ordine cliente",
+    csv: "ordini-clienti",
+    stati: [STATO.provvisorio, STATO.definitivo, STATO.evaso, STATO.annullato],
+    statiBarrati: ["Annullato"],
+    statiValidazione: ["Provvisorio"],
+    controparte: { filtro: "Cliente", elenco: CLIENTI },
+    azioniRiga: ["Modifica", "Prepara scarico", "Stampa proforma", "Duplica"],
+    colonne: [
+      COL.numero(),
+      COL.stato(),
+      COL.data("data", "Data"),
+      COL.controparte("Cliente", 240),
+      COL.testo("causale", "Causale", 160),
+      COL.avanzamento("consegnati", "Consegnato", "nArt"),
+      COL.euro("tot", "Totale", true),
+      COL.intero("nArt", "Pezzi")
+    ],
+    dati: [
+      { id: 7039, stato: "Annullato", data: "2026-06-17", cp: 2, causale: "", tot: 986, nArt: 134, consegnati: 0, lab: "Laboratori Sede Centrale" },
+      { id: 7038, stato: "Annullato", data: "2026-06-17", cp: 3, causale: "", tot: 557, nArt: 103, consegnati: 0, lab: "Laboratori Sede Centrale" },
+      { id: 6455, stato: "Annullato", data: "2026-03-30", cp: 3, causale: "", tot: 557, nArt: 103, consegnati: 0, lab: "Laboratori Sede Centrale" },
+      { id: 6393, stato: "Annullato", data: "2026-03-20", cp: 2, causale: "", tot: 1130, nArt: 126, consegnati: 0, lab: "Laboratori Sede Centrale" },
+      { id: 6146, stato: "Annullato", data: "2026-02-10", cp: 2, causale: "", tot: 799.8, nArt: 131, consegnati: 0, lab: "Laboratori Sede Centrale" },
+      { id: 2020, stato: "Annullato", data: "2026-01-06", cp: 4, causale: "", tot: 1850, nArt: 5, consegnati: 0, lab: "Laboratori Sede Centrale" }
+    ]
+  });
+</script>
+</body>
+</html>

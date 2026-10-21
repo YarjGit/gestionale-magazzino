@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contatori – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+</head>
+<body data-page="contatori" data-top="anagrafica">
+<main class="content"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Numerazione dei documenti per tipo, sede e anno
+  const dati = [
+    ["Preventivo", 2026, 6, "2026-09-29"],
+    ["Ordine inviato a fornitore", 2026, 184, "2026-10-21"],
+    ["Nessuno", 2026, 1, "2026-04-14"],
+    ["DDT", 2026, 1, "2026-09-29"],
+    ["Bolla di accompagnamento", 2026, 247, "2026-10-21"],
+    ["Preventivo", 2025, 41, "2025-12-18"],
+    ["Ordine inviato a fornitore", 2025, 512, "2025-12-30"],
+    ["Bolla di accompagnamento", 2025, 903, "2025-12-31"]
+  ].map(([tipo, anno, num, data]) => ({ tipo, sede: "CAL SMM Roma", anno: String(anno), num, data, id: tipo + " " + anno }));
+
+  const dataIt = iso => iso.split("-").reverse().join("/");
+
+  avviaAnagrafica({
+    titolo: "Contatori",
+    sezione: "Configurazione",
+    nuovo: "Nuovo contatore",
+    csv: "contatori",
+    chiave: "id",
+    filtri: [{ id: "fAnno", label: "Anno", campo: "anno", opzioni: ["2026", "2025"] }],
+    azioniRiga: ["Modifica", "Reimposta numerazione"],
+    colonne: [
+      { k: "tipo", t: "Tipo di contatore", link: true, larg: 260 },
+      { k: "sede", t: "Sede", html: r => `<td><span class="pallino" style="background:${trovaSede(r.sede).colore}"></span>${r.sede}</td>` },
+      { k: "anno", t: "Anno" },
+      { k: "num", t: "Ultimo numero", num: true },
+      // In più: il numero che verrà assegnato al prossimo documento
+      { k: "prossimo", t: "Prossimo", html: r => `<td class="num-mov"><span class="id">${r.anno}-${String(r.num + 1).padStart(6, "0")}</span></td>` },
+      { k: "data", t: "Data ultimo documento", html: r => `<td>${dataIt(r.data)}</td>` }
+    ],
+    dati
+  });
+</script>
+</body>
+</html>
