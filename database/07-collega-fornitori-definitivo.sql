@@ -11,7 +11,7 @@
 --      Eccezione: G07663/… sono camicie di Coco Cler, anche se sono sul sito.
 --   2. Codici CON lo slash: lettera + 2 cifre di prefisso + codice fornitore, prima dello slash
 --      (R09301 -> 301 Fontanini, D15319 -> 319 Graziani, A014 -> 4 Calandrini, R02188 -> 188 ALPA).
---      Con 2 cifre o meno (es. R05/4) il fornitore non si sa: resta senza.
+--      Con 2 cifre o meno (es. R05/4) il fornitore non si sa: resta senza. Restano senza anche gli R029/… (icone e trittici).
 -- Gli articoli non vengono toccati: cambia solo il fornitore collegato.
 -- Per annullare: update articoli set fornitore_id = null;
 
@@ -949,6 +949,7 @@ where id in (select id from nostri);
 with a as (
   select id, substring(split_part(codice, '/', 1) from '(\d+)$') as cifre
   from articoli where fornitore_id is null and codice like '%/%'
+    and codice not ilike 'R029/%'   -- icone e trittici: Mollica o San Paolo? da decidere, restano senza
 ), b as (
   select id, ltrim(substr(cifre, 3), '0') as n from a where length(cifre) >= 3
 )
