@@ -272,7 +272,7 @@
     return ARTICOLI.filter(a => {
       if (!t.f(a)) return false;
       if ($("fSolo").checked && !(a.giac > 0)) return false;
-      if ($("fForn").value !== "" && a.forn !== +$("fForn").value) return false;
+      if ($("fForn").value !== "" && String(a.forn) !== $("fForn").value) return false;
       if ($("fProv").value && a.prov !== $("fProv").value) return false;
       if ($("fCodDa").value && a.codice.toLowerCase() < $("fCodDa").value.toLowerCase()) return false;
       if ($("fCodA").value && a.codice.toLowerCase() > $("fCodA").value.toLowerCase() + "￿") return false;
@@ -320,7 +320,7 @@
           <button class="icon-btn altro" title="Altre azioni"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
         </div></td>
         ${COLONNE.map(c => c.html(a)).join("")}
-      </tr>`).join("") : `<tr><td colspan="${2 + COLONNE.length}"><div class="vuoto"><b>Nessun articolo con questi filtri</b><span>Prova a cambiare o azzerare i filtri.</span></div></td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="${2 + COLONNE.length}"><div class="vuoto"><b>Nessun articolo con questi filtri</b><span>${$("fForn").value && !ARTICOLI.some(a => a.forn != null && a.forn !== -1) ? "Gli articoli non sono ancora collegati ai loro fornitori: il filtro Fornitore funzionerà dopo il collegamento." : "Prova a cambiare o azzerare i filtri."}</span></div></td></tr>`;
 
     const conGiac = righe.filter(a => a.giac > 0);
     $("totali").innerHTML = `
@@ -427,6 +427,10 @@
     const sede = trovaSede(leggiSede()).nome;
     await caricaArticoliDalDb(db, ID_SEDI_DB[sede]);
     ARTICOLI.forEach(a => a.prov = sede);
+    // Menu Fornitore: tutti i fornitori del database al posto dei 9 di esempio
+    const { data: forn, error } = await db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale");
+    if (error) throw error;
+    $("fForn").innerHTML = `<option value="">Tutti</option>` + forn.map(f => `<option value="${f.id}">${esc(f.ragione_sociale)} (${esc(f.codice)})</option>`).join("");
     pagina = 1;
     disegna();
     avviso(`${ARTICOLI.length.toLocaleString("it-IT")} articoli caricati dal database`);
