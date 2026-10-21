@@ -16,20 +16,20 @@
 <script src="js/layout.js"></script>
 <script src="js/anagrafica.js"></script>
 <script>
-  // Tabella delle aliquote, come nel gestionale attuale
+  // Le 12 aliquote del gestionale attuale
   const dati = [
     ["22", "Aliquota 22%", 22, "A"],
     ["--", "Non assegnata", 0, "C"],
     ["0", "Non assegnata", 0, "A"],
     ["04", "Aliquota 4%", 4, "A"],
-    ["10", "Aliquota 10%", 10, "A"],
     ["41", "N.I. art.41 D.L. 331/93", 0, "C"],
     ["72", "Art.72 DPR 633/72", 0, "C"],
     ["74", "Art.74 DPR 633/72", 0, "A"],
     ["08", "N.I. art. 8c DPR 633/72", 0, "C"],
     ["71", "N.I. art.71 DPR 633/72", 0, "C"],
     ["81", "N.I. art.8 lett.a DPR 633/72", 0, "C"],
-    ["15", "Escluso art.15 DPR 633/72", 0, "C"]
+    ["82", "N.I. art.8 lett.b DPR 633/72", 0, "C"],
+    ["38", "Art.38 quater DPR 633/72", 0, "C"]
   ].map(([cod, descr, aliq, app]) => ({ cod, descr, aliq, app, note: "" }));
 
   avviaAnagrafica({
