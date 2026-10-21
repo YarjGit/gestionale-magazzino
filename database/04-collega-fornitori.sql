@@ -1,3 +1,4 @@
+-- SOSTITUITO da 07-collega-fornitori-definitivo.sql: non usare più questo.
 -- Collega ogni articolo al suo fornitore leggendo il codice articolo.
 -- Regole (confermate dal magazzino):
 --   * codici SENZA slash = prodotti nostri -> fornitore "Produzione propria";
