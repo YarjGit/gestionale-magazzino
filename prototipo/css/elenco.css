@@ -182,7 +182,7 @@ tbody tr:last-child td { border-bottom: none; }
 td.stato-bar { width: 4px; padding: 0; }
 td.stato-bar span { display: block; width: 4px; height: 30px; border-radius: 0 3px 3px 0; }
 tr.barrato td { color: #a03030; }
-tr.barrato .testo-lungo { text-decoration: line-through; text-decoration-color: rgba(198,40,40,0.4); }
+tr.barrato .testo-lungo, tr.barrato .testo-medio { text-decoration: line-through; text-decoration-color: rgba(198,40,40,0.4); }
 
 .azioni { display: flex; gap: 2px; white-space: nowrap; }
 .icon-btn {
