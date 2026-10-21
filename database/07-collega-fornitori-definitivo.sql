@@ -7,6 +7,7 @@
 --         "A01 10-11" sul sito = "A0110/11" nel gestionale);
 --      c) le "famiglie" dei prodotti del sito con lo slash: stessa parte prima dello slash
 --         (es. sul sito F05/1 -> tutti i F05/… sono nostri, come A0110/… e R0333/…).
+--      d) calici A0110/… e patene A0210/… in ceramica (confermato dal magazzino).
 --      Eccezione: G07663/… sono camicie di Coco Cler, anche se sono sul sito.
 --   2. Codici CON lo slash: lettera + 2 cifre di prefisso + codice fornitore, prima dello slash
 --      (R09301 -> 301 Fontanini, D15319 -> 319 Graziani, A014 -> 4 Calandrini, R02188 -> 188 ALPA).
@@ -940,6 +941,7 @@ with norm as (
   select id from norm where codice not like '%/%'
   union select id from sul_sito where codice not ilike 'G07663%'
   union select n.id from norm n join famiglie f on upper(replace(n.famiglia, ' ', '')) = f.fam
+  union select id from norm where codice ilike 'A0110/%' or codice ilike 'A0210/%'   -- calici e patene in ceramica
 )
 update articoli set fornitore_id = (select id from fornitori where codice = 'PROPRIA'), modificato_il = now()
 where id in (select id from nostri);
