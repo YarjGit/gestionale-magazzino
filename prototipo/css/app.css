@@ -262,6 +262,20 @@ body.mini .collapse-btn { transform: rotate(180deg); }
 }
 .sedi-gruppo:first-child { margin-top: 0; }
 .sedi-grid .empty { grid-column: 1 / -1; }
+.sedi-grid > button { padding: 14px 14px; font-size: 0.86rem; }
+
+/* Sedi non ancora attive: spente, in un riquadro richiudibile */
+.sedi-spente { grid-column: 1 / -1; margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.sedi-spente summary { cursor: pointer; color: var(--muted); font-size: 0.8rem; font-weight: 600; padding: 4px 0; }
+.sedi-spente .sedi-grid { margin-top: 6px; gap: 4px 12px; }
+.sedi-sottogruppo { grid-column: 1 / -1; margin-top: 6px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #a3acbb; }
+.sede-spenta {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 4px;
+  color: #a3acbb; font-size: 0.78rem; text-transform: uppercase;
+  cursor: not-allowed;
+}
+.sede-spenta i { flex: none; width: 10px; height: 10px; border-radius: 3px; opacity: 0.45; }
 @media (max-width: 600px) { .sedi-grid { grid-template-columns: 1fr; } }
 
 /* Azioni della pagina nella barra in alto */

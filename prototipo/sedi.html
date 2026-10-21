@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/elenco.css">
 <style>
-  .sede-nome { display: flex; align-items: center; gap: 10px; max-width: 230px; font-weight: 600; text-transform: uppercase; font-size: 0.84rem; }
+  .sede-nome { display: flex; align-items: center; gap: 10px; max-width: 200px; font-weight: 600; text-transform: uppercase; font-size: 0.84rem; }
   .sede-nome .testo { overflow: hidden; text-overflow: ellipsis; }
-  .email { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  .email { display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
   .colore {
     flex: none;
     width: 30px; height: 22px;
@@ -47,7 +47,7 @@
   const dati = SEDI.map((s, i) => {
     const [citta, indirizzo, cod, tipo, anno, vecchio] = INFO[s.nome] ||
       ["Roma", "", String(900020 + i), s.gruppo === "Laboratori e magazzino" ? "Magazzino" : "Negozio", 2025, ""];
-    return { nome: s.nome, colore: s.colore, gruppo: s.gruppo, citta: citta.toUpperCase(), indirizzo, cod, tipo, anno: String(anno), vecchio,
+    return { nome: s.nome, colore: s.colore, gruppo: s.gruppo, attiva: s.attiva, citta: citta.toUpperCase(), indirizzo, cod, tipo, anno: String(anno), vecchio,
       email: s.nome.toLowerCase().replace(/[^a-z]+/g, ".").replace(/^\.|\.$/g, "") + "@esempio.it" };
   });
 
@@ -58,16 +58,19 @@
     csv: "sedi",
     chiave: "nome",
     filtri: [{ id: "fTipo", label: "Tipo sede", campo: "tipo", opzioni: ["Negozio", "Magazzino"] }],
+    ordine: { k: "attiva", dir: -1 },
     tabs: [
+      { k: "att", t: "Attive", colore: "#18a058", f: r => r.attiva },
       { k: "neg", t: "Negozi CAL", colore: "#d4009c", f: r => r.gruppo === "Negozi CAL" },
       { k: "lab", t: "Laboratori e magazzino", colore: "#990000", f: r => r.gruppo === "Laboratori e magazzino" },
       { k: "altri", t: "Altri punti vendita", colore: "#94a3b8", f: r => r.gruppo === "Altri punti vendita" }
     ],
-    azioniRiga: ["Modifica", "Cambia colore", "Vedi giacenze della sede", "Coordinate bancarie"],
+    azioniRiga: ["Modifica", "Attiva / disattiva", "Cambia colore", "Vedi giacenze della sede", "Coordinate bancarie"],
     colonne: [
+      { k: "attiva", t: "Stato", html: r => `<td><span class="pill" style="background:${r.attiva ? "#ddf5e8" : "#f1f3f7"};color:${r.attiva ? "var(--ok)" : "#8a94a6"}">${r.attiva ? "● Attiva" : "○ Spenta"}</span></td>` },
       { k: "nome", t: "Nome", html: r => `<td><a href="#" class="ana-link" data-az="Modifica"><span class="sede-nome"><span class="colore${r.colore ? "" : " vuoto"}" style="${r.colore ? `background:${r.colore}` : ""}" title="${r.colore || "Nessun colore"}"></span><span class="testo" title="${r.nome}">${r.nome}</span></span></a></td>` },
-      { k: "citta", t: "Città", larg: 110 },
-      { k: "indirizzo", t: "Indirizzo", larg: 140 },
+      { k: "citta", t: "Città", larg: 100 },
+      { k: "indirizzo", t: "Indirizzo", larg: 110 },
       { k: "email", t: "Email", html: r => `<td><span class="email" title="${r.email}">${r.email}</span></td>` },
       { k: "cod", t: "Codice" },
       { k: "tipo", t: "Tipo", html: r => `<td><span class="pill" style="background:${r.tipo === "Negozio" ? "#e8f1ff" : "#fff3dd"};color:${r.tipo === "Negozio" ? "#1f5fbf" : "#b26a00"}">${r.tipo}</span></td>` },

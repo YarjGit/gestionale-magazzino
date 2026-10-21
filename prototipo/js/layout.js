@@ -257,16 +257,23 @@ function avviso(testo) {
   };
   let sedeAttiva = leggiSede() ? mostraSede(leggiSede()) : null;
 
+  // Prima le sedi attive, grandi; sotto le altre, spente e non cliccabili, divise per gruppo
+  const bottoneSede = s => s.attiva
+    ? `<button class="${s.colore ? "" : "plain"}${s === sedeAttiva ? " current" : ""}"
+        style="${s.colore ? `background:${s.colore};color:${coloreTesto(s.colore)}` : ""}"
+        data-nome="${s.nome}">${s.nome}</button>`
+    : `<span class="sede-spenta" title="Non ancora attiva: si accende quando la sede inizia a usare il gestionale">
+        <i style="background:${s.colore || "#dfe4ec"}"></i>${s.nome}</span>`;
   const disegnaSedi = (grid, filtro) => {
     const f = (filtro || "").toLowerCase();
-    const html = GRUPPI_SEDI.map(g => {
-      const lista = SEDI.filter(s => s.gruppo === g && s.nome.toLowerCase().includes(f));
-      if (!lista.length) return "";
-      return `<div class="sedi-gruppo">${g}</div>` + lista.map(s =>
-        `<button class="${s.colore ? "" : "plain"}${s === sedeAttiva ? " current" : ""}"
-          style="${s.colore ? `background:${s.colore};color:${coloreTesto(s.colore)}` : ""}"
-          data-nome="${s.nome}">${s.nome}</button>`).join("");
+    const trova = s => s.nome.toLowerCase().includes(f);
+    const attive = SEDI.filter(s => s.attiva && trova(s));
+    const spente = GRUPPI_SEDI.map(g => {
+      const lista = SEDI.filter(s => !s.attiva && s.gruppo === g && trova(s));
+      return lista.length ? `<div class="sedi-sottogruppo">${g}</div>` + lista.map(bottoneSede).join("") : "";
     }).join("");
+    const html = (attive.length ? `<div class="sedi-gruppo">Sedi attive</div>` + attive.map(bottoneSede).join("") : "") +
+      (spente ? `<details class="sedi-spente"${f ? " open" : ""}><summary>Non ancora attive (${SEDI.filter(s => !s.attiva).length})</summary><div class="sedi-grid">${spente}</div></details>` : "");
     grid.innerHTML = html || '<p class="empty">Nessuna sede trovata.</p>';
   };
 

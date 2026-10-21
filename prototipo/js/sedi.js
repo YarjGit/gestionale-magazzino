@@ -22,6 +22,11 @@ const SEDI = [
   { nome: "Negozio Basilica Papale di San Paolo fuori le Mura - FLM", colore: null, gruppo: "Altri punti vendita" }
 ];
 
+// Sedi che oggi usano il gestionale. Le altre restano pronte ma spente:
+// per attivarne una basta aggiungerla qui.
+const SEDI_ATTIVE = ["CAL SMM Roma", "Magazzino Centrale"];
+SEDI.forEach(s => s.attiva = SEDI_ATTIVE.includes(s.nome));
+
 // Testo bianco o scuro in base a quanto è chiaro lo sfondo
 function coloreTesto(hex) {
   if (!hex) return "#1d2433";
@@ -30,8 +35,9 @@ function coloreTesto(hex) {
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#1d2433" : "#ffffff";
 }
 
+// Una sede non attiva non può essere la sede di lavoro: si torna a CAL SMM Roma
 function trovaSede(nome) {
-  return SEDI.find(s => s.nome === nome) || SEDI.find(s => s.nome === "CAL SMM Roma");
+  return SEDI.find(s => s.nome === nome && s.attiva) || SEDI.find(s => s.nome === "CAL SMM Roma");
 }
 
 function leggiSede() {
