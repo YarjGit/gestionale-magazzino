@@ -163,7 +163,8 @@ create table if not exists utenti_autorizzati (
 
 create or replace function e_autorizzato() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from utenti_autorizzati where email = auth.jwt() ->> 'email');
+  -- maiuscole e minuscole non contano: Mario.Rossi@… e mario.rossi@… sono la stessa email
+  select exists (select 1 from utenti_autorizzati where lower(email) = lower(auth.jwt() ->> 'email'));
 $$;
 
 -- Sicurezza (Row Level Security): tutte le tabelle chiuse a chiave, aperte solo agli utenti autorizzati
