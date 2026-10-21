@@ -1,6 +1,7 @@
 # Gestionale Magazzino
 
 Rifacimento del gestionale di magazzino dell'utente (17 sedi in Italia, negozi "CAL" + laboratori e magazzino centrale).
+Oggi il gestionale attuale è usato solo da **CAL SMM Roma** e **Magazzino Centrale**: si parte da queste due sedi, le altre verranno aggiunte dopo.
 L'utente parla italiano e non è un programmatore: rispondere in italiano, semplice, senza gergo.
 
 ## Cosa fa e cosa no

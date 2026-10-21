@@ -8,6 +8,11 @@ Uso interno: la parte fiscale (fatturazione elettronica, corrispettivi) resta al
 Avere sempre sotto controllo le giacenze di ogni sede e i movimenti di merce:
 carichi da fornitori, ordini, trasferimenti tra filiali e vendite giornaliere.
 
+## Sedi
+
+Oggi il gestionale attuale è usato solo da **CAL SMM Roma** e **Magazzino Centrale**.
+Il nuovo gestionale parte da queste due sedi; le altre (17 in tutto) si aggiungono in seguito.
+
 ## Cosa NON fa (gestito dal commercialista)
 
 - Fatturazione elettronica XML / invio allo SDI
