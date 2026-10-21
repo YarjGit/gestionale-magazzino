@@ -392,6 +392,16 @@ body.mini .collapse-btn { transform: rotate(180deg); }
 
 .empty { color: var(--muted); padding: 18px 0; }
 
+/* Avvisi su accesso e collegamento al database */
+.avviso-accesso {
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: #fde4e4;
+  color: #8a1c1c;
+  font-weight: 500;
+}
+
 /* Avviso in basso (es. pagine non ancora fatte) */
 .toast {
   position: fixed;

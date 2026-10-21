@@ -241,7 +241,7 @@
     { k: "prov", t: "Provenienza", sort: a => a.prov, html: a => `<td><div class="prov">${esc(a.prov)}</div></td>` },
     { k: "giac", t: "Giacenza", num: true, sort: a => a.giac ?? -999, html: a => `<td class="num"><span class="giac ${classeGiac(a.giac)}" title="${a.giac == null ? "Mai movimentato" : ""}">${a.giac ?? "–"}</span></td>` },
     { k: "prezzo", t: "Costo / Prezzo", num: true, sort: a => a.prezzo, html: a => `<td class="prezzi"><div class="costo">${numero(a.costo)}</div><div class="prezzo">${numero(a.prezzo)}</div></td>` },
-    { k: "ricarico", t: "Ricarico", num: true, sort: a => a.prezzo / a.costo, html: a => `<td class="num ricarico">×${(a.prezzo / a.costo).toLocaleString("it-IT", { maximumFractionDigits: 1 })}</td>` },
+    { k: "ricarico", t: "Ricarico", num: true, sort: a => a.costo ? a.prezzo / a.costo : -1, html: a => `<td class="num ricarico">${a.costo ? "×" + (a.prezzo / a.costo).toLocaleString("it-IT", { maximumFractionDigits: 1 }) : "–"}</td>` },
     { k: "barcode", t: "Barcode", sort: a => a.barcode, html: a => `<td><span class="barcode"><svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" width="1.5" height="14"/><rect x="3" width="1" height="14"/><rect x="5.5" width="2" height="14"/><rect x="9" width="1" height="14"/><rect x="11.5" width="1.5" height="14"/><rect x="14.5" width="1.5" height="14"/></svg>${a.barcode}</span></td>` },
     { k: "iva", t: "IVA", num: true, sort: a => a.iva, html: a => `<td class="num iva">${a.iva}%</td>` }
   ];
@@ -417,6 +417,39 @@
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   disegna();
+
+  // ---------- Articoli veri dal database ----------
+  // Si leggono a blocchi di 1000 (limite del database per singola richiesta) e sostituiscono quelli di esempio.
+  dbPronto.then(async db => {
+    if (!db) return;
+    $("totali").innerHTML = "<span>⏳ Caricamento articoli dal database…</span>";
+    const letti = [];
+    for (let da = 0; ; da += 1000) {
+      const { data, error } = await db.from("articoli")
+        .select("id, codice, descrizione, barcode, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, fornitore_id, aliquote_iva(aliquota)")
+        .order("codice").range(da, da + 999);
+      if (error) throw error;
+      letti.push(...data);
+      if (data.length < 1000) break;
+    }
+    const { data: giac, error: errGiac } = await db.from("giacenze").select("articolo_id, sede_id, quantita");
+    if (errGiac) throw errGiac;
+    // Giacenza mostrata: quella della sede di lavoro scelta in alto
+    const sede = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale" }[trovaSede(leggiSede()).nome];
+    const giacenza = new Map(giac.filter(g => g.sede_id === sede).map(g => [g.articolo_id, g.quantita]));
+    ARTICOLI.length = 0;
+    letti.forEach(a => ARTICOLI.push({
+      id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
+      costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
+      giac: giacenza.has(a.id) ? giacenza.get(a.id) : null,
+      forn: -1, prov: trovaSede(leggiSede()).nome,
+      iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
+      importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
+    }));
+    pagina = 1;
+    disegna();
+    avviso(`${ARTICOLI.length.toLocaleString("it-IT")} articoli caricati dal database`);
+  }).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>
 </body>
 </html>

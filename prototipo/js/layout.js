@@ -194,11 +194,11 @@ function avviso(testo) {
     <div class="top-actions">${extra ? extra.innerHTML : ""}</div>
     <span class="spacer"></span>
     <div class="user">
-      <button class="user-btn"><span class="avatar">MR</span><span class="user-name">Mario Rossi</span></button>
+      <button class="user-btn"><span class="avatar" id="utenteIniziali">··</span><span class="user-name" id="utenteNome"></span></button>
       <div class="user-menu">
         <a href="#" class="todo">Profilo</a>
         <a href="#" data-azione="cambia-sede">Cambia sede</a>
-        <a href="login.html">Esci</a>
+        <a href="login.html" data-azione="esci">Esci</a>
       </div>
     </div>`;
 
@@ -321,7 +321,64 @@ function avviso(testo) {
     disegnaSedi(scelta.querySelector(".sedi-grid"));
     scelta.classList.add("show");
   }
+
+  // ---------- Accesso e database ----------
+  // Ogni pagina interna richiede l'accesso: senza, si torna al login.
+  // Le pagine che leggono dati usano:  dbPronto.then(db => db.from("articoli")…)
+  document.documentElement.style.visibility = "hidden";
+  window.dbPronto = (async () => {
+    try {
+      const db = await apriDb();
+      const { data: { session } } = await db.auth.getSession();
+      if (!session) {
+        location.replace("login.html");
+        return new Promise(() => {});   // la pagina non continua: si sta andando al login
+      }
+      const email = session.user.email || "";
+      const nome = email.split("@")[0].replace(/[._-]+/g, " ");
+      document.getElementById("utenteNome").textContent = nome;
+      document.getElementById("utenteIniziali").textContent =
+        nome.split(" ").filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase() || "?";
+      user.querySelector('[data-azione="esci"]').onclick = async e => {
+        e.preventDefault();
+        await db.auth.signOut();
+        location.replace("login.html");
+      };
+      // Entrato ma non in "utenti_autorizzati": non vedrà nessun dato
+      const { data: autorizzato } = await db.rpc("e_autorizzato");
+      if (!autorizzato) {
+        contenuto.insertAdjacentHTML("afterbegin", `<div class="avviso-accesso">⛔ L'indirizzo <b>${email}</b> non è tra gli utenti autorizzati:
+          chiedi all'amministratore di aggiungerlo. Finché non è autorizzato, il gestionale non mostra nessun dato.</div>`);
+      }
+      return db;
+    } catch (err) {
+      contenuto.insertAdjacentHTML("afterbegin", `<div class="avviso-accesso">⚠️ Collegamento al database non riuscito (${err.message}). Controlla la connessione e ricarica la pagina.</div>`);
+      return null;
+    } finally {
+      document.documentElement.style.visibility = "";
+    }
+  })();
 })();
+
+// Libreria Supabase (dal CDN) e configurazione del progetto, caricate solo quando servono.
+// Sono funzioni (non costanti) perché il blocco qui sopra le usa prima che il file sia letto tutto.
+function caricaScript(src) {
+  return new Promise((ok, ko) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = ok;
+    s.onerror = () => ko(new Error("impossibile caricare " + src));
+    document.head.appendChild(s);
+  });
+}
+var clientDb = null;   // "var": esiste già quando il blocco qui sopra chiama apriDb()
+async function apriDb() {
+  if (clientDb) return clientDb;
+  if (!window.supabase) await caricaScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js");
+  if (typeof SUPABASE_URL === "undefined") await caricaScript("js/supabase-config.js");
+  clientDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  return clientDb;
+}
 
 // Formato euro con punto delle migliaia anche sotto i 10.000
 const euro = n => n.toLocaleString("it-IT", { style: "currency", currency: "EUR", useGrouping: "always" });
