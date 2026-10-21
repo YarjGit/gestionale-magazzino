@@ -35,6 +35,7 @@
   const pagina = avviaAnagrafica({
     titolo: "Fornitori",
     sezione: "Configurazione",
+    dalDatabase: true,
     nuovo: "Nuovo fornitore",
     csv: "fornitori",
     chiave: "nome",
@@ -66,7 +67,7 @@
       cod: f.codice, sede: f.sedi ? f.sedi.nome : ""
     })));
     avviso(`${data.length} fornitori caricati dal database`);
-  }).catch(err => avviso("Errore nel leggere i fornitori: " + err.message));
+  }).catch(err => pagina.errore("Non riesco a leggere i fornitori dal database: " + (err.message || err)));
 </script>
 </body>
 </html>

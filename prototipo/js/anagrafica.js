@@ -78,6 +78,9 @@ function avviaAnagrafica(cfg) {
   });
   document.title = `${cfg.titolo} – Gestionale Magazzino`;
 
+  // Da dove vengono le righe: "esempio" finché la pagina non le sostituisce con quelle del database
+  // (solo per le pagine collegate al database, che lo dichiarano con cfg.dalDatabase)
+  let fonte = cfg.dalDatabase ? "esempio" : "";
   let tab = "";
   let ordine = cfg.ordine || { k: cfg.colonne[0].k, dir: 1 };
   let pagina = 1;
@@ -137,7 +140,8 @@ function avviaAnagrafica(cfg) {
         <span>${cfg.dati.length ? "Prova a cambiare ricerca o filtri." : cfg.testoVuoto || (cfg.nuovo ? `Usa "${cfg.nuovo}" in alto per aggiungere il primo.` : "")}</span>
       </div></td></tr>`;
 
-    $("totali").innerHTML = `<span>${cfg.titolo}: <b>${righe.length}</b>${righe.length !== cfg.dati.length ? ` di ${cfg.dati.length}` : ""}</span>`;
+    $("totali").innerHTML = `<span>${cfg.titolo}: <b>${righe.length}</b>${righe.length !== cfg.dati.length ? ` di ${cfg.dati.length}` : ""}</span>` +
+      (fonte ? `<span class="fonte ${fonte}">${fonte === "database" ? "✓ Dati dal database" : "Dati di esempio"}</span>` : "");
     $("paginaInfo").textContent = `Pagina ${pagina} di ${pagine}`;
     $("prec").disabled = pagina <= 1;
     $("succ").disabled = pagina >= pagine;
@@ -198,8 +202,13 @@ function avviaAnagrafica(cfg) {
   return {
     aggiorna(nuoviDati) {
       cfg.dati.splice(0, cfg.dati.length, ...nuoviDati);
+      fonte = "database";
       pagina = 1;
       disegna();
+    },
+    // Errore del database: riquadro rosso fisso sopra la tabella (non un avviso che sparisce)
+    errore(testo) {
+      document.querySelector("main.content").insertAdjacentHTML("afterbegin", `<div class="avviso-accesso">⚠️ ${testo}</div>`);
     }
   };
 }

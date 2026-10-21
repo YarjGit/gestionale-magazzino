@@ -311,6 +311,9 @@ tr.barrato .testo-lungo { text-decoration: line-through; text-decoration-color: 
 }
 .totali { display: flex; gap: 18px; flex-wrap: wrap; }
 .totali b { color: var(--text); }
+.fonte { padding: 1px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+.fonte.database { background: #ddf5e8; color: var(--ok); }
+.fonte.esempio { background: #fff3dd; color: #b26a00; }
 .pagine { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .pagine select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
 .pagine button {
