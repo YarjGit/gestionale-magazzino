@@ -156,8 +156,10 @@ create table if not exists utenti_autorizzati (
   email   text primary key,
   nome    text,
   ruolo   text not null default 'operatore' check (ruolo in ('amministratore', 'operatore')),
-  sedi    text[] not null default '{}'            -- sedi in cui può lavorare; vuoto = tutte quelle attive
+  sedi    text[] not null default '{}'            -- sedi in cui lavora di solito (solo informativo)
 );
+-- Scelta dell'utente: ogni sede vede prodotti e movimenti di tutte le altre, senza limitazioni.
+-- Le regole qui sotto controllano solo CHI entra, non quale sede guarda.
 
 create or replace function e_autorizzato() returns boolean
 language sql stable security definer set search_path = public as $$

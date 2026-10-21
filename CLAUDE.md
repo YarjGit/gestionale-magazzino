@@ -8,6 +8,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - Serve solo a tenere sotto controllo il magazzino: carichi, ordini, trasferimenti tra filiali, vendite giornaliere come scarico, giacenze, etichette.
 - Fatturazione elettronica (SDI) e scontrini/corrispettivi restano al commercialista: niente XML, niente registratore telematico. I documenti sono proforma/PDF interni su carta intestata.
 - Login uguale per tutti (Google); la sede di lavoro si sceglie dopo l'accesso e si cambia dal tasto colorato in alto.
+- **Ogni sede vede prodotti e movimenti di tutte le altre, senza limitazioni** (scelta dell'utente): niente filtri di sicurezza per sede, solo l'elenco di chi può entrare.
 - Nelle sedi si usa una **pistola laser barcode** (si comporta come una tastiera: scrive il codice e preme Invio) per etichette, vendite e inventario. I barcode stampati devono essere veri: EAN-13 se la cifra di controllo è giusta, altrimenti Code 128 (vedi `prototipo/js/barcode.js`). Ogni campo "aggiungi articolo" deve accettare la pistola.
 - Rimandati al futuro: collegamento all'e-commerce (Setup → Utenti Sito) e menu Laboratori. Restano nel menu con l'etichetta "in futuro".
 
