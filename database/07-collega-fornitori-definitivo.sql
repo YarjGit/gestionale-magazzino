@@ -1,3 +1,4 @@
+-- SOSTITUITO da 08-fornitori-da-excel.sql (generato da strumenti/collega-fornitori-excel.ps1 con l export Excel): non usare piu questo.
 -- Collegamento DEFINITIVO articoli -> fornitori (sostituisce 04-collega-fornitori.sql).
 -- Riparte da zero: prima stacca tutti i fornitori dagli articoli, poi applica le regole in ordine.
 -- Regole (confermate dal magazzino e dal sito apostolatoliturgico.it):

@@ -36,6 +36,10 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   `strumenti/importa-articoli.ps1` lo converte in `prototipo/js/dati-articoli-reali.js` (escluso da GitHub): se il file c'è, il prototipo locale usa gli articoli veri, online restano quelli di esempio.
   Nell'export fornitore e alcune aliquote sono codici interni (GUID): per collegarli servono gli export di Fornitori e Aliquote. Aliquote riconosciute dai prezzi: `4570c2b4…` = 4%, `9bc97d64…` e `3c5611a4…` = 0% (quale codice a zero: da confermare).
 - Fornitori trascritti dagli screenshot (231, senza doppioni): `riferimenti/fornitori/fornitori-da-screenshot.csv` (solo PC di lavoro).
+- Articoli → fornitori: export Excel del gestionale attuale in `riferimenti/articoli-fornitori/articoli-fornitori.xlsx` (solo PC di lavoro, colonne Fornitore 1/2 con i nomi).
+  `strumenti/collega-fornitori-excel.ps1` genera `riferimenti/import/08-fornitori-da-excel.sql` (da incollare su Supabase; sostituisce 04 e 07).
+  Excel: 4.983 articoli; gli altri sono dedotti dal codice (famiglia prima dello slash, poi numero fornitore; senza slash = Magazzino Centrale) e segnati `fornitore_dedotto = true` (da verificare); 234 restano senza.
+  I prodotti nostri hanno come fornitore "MAGAZZINO CENTRALE" (900009), non "Produzione propria".
 - Database **Supabase**: progetto `gestionale-magazzino` (piano gratuito, regione Europa, separato dall'altra web app dell'utente su Vercel).
   URL e chiave publishable in `prototipo/js/supabase-config.js`. Tabelle in `database/01-tabelle.sql` (l'utente le incolla nel SQL Editor).
   Accesso: link via email (`signInWithOtp`). Su Supabase il **Site URL** è `https://yarjgit.github.io/gestionale-magazzino/prototipo/dashboard.html` (i Redirect URLs non sono riusciti a salvarli: il Site URL basta per il sito online). Google da aggiungere.
