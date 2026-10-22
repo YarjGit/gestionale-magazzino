@@ -313,7 +313,7 @@
       }).join("");
 
     $("righe").innerHTML = visibili.length ? visibili.map(a => `
-      <tr data-cod="${esc(a.codice)}" class="${selezionati.has(a.codice) ? "sel" : ""}">
+      <tr data-cod="${esc(a.codice)}" class="cliccabile${selezionati.has(a.codice) ? " sel" : ""}">
         <td class="chk"><input type="checkbox" class="sel-riga" ${selezionati.has(a.codice) ? "checked" : ""} aria-label="Seleziona ${esc(a.codice)}"></td>
         <td><div class="azioni">
           <button class="icon-btn" title="Modifica" data-az="Modifica articolo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
@@ -370,7 +370,13 @@
     : "Seleziona gli articoli con le caselle a sinistra");
   $("etichetteSel").onclick = stampaEtichette;
   $("btnEtichette").onclick = stampaEtichette;
-  $("btnCrea").onclick = () => avviso("Nuovo articolo: schermata da costruire");
+  $("btnCrea").onclick = () => location.href = "articolo.html?nuovo=1";
+  // Clic sulla riga (non su caselle o pulsanti): apre la scheda articolo
+  $("righe").addEventListener("click", e => {
+    const tr = e.target.closest("tr[data-cod]");
+    if (!tr || e.target.closest("input, button, .icon-btn")) return;
+    location.href = `articolo.html?cod=${encodeURIComponent(tr.dataset.cod)}`;
+  });
 
   // Esporta CSV
   const esporta = () => {
@@ -401,7 +407,7 @@
     if (!btn) return;
     e.stopPropagation();
     const cod = btn.closest("tr").dataset.cod;
-    if (btn.dataset.az) { avviso(`Scheda articolo ${cod}: da costruire`); return; }
+    if (btn.dataset.az) { location.href = `articolo.html?cod=${encodeURIComponent(cod)}`; return; }
     rigaMenu = cod;
     const box = btn.getBoundingClientRect();
     rowMenu.classList.add("show");

@@ -67,7 +67,8 @@
 
   const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
-  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, nelMovimento: "nella giornata" };
+  // Come nel gestionale attuale: Ordinata resta vuota, la quantità venduta va in Spedita
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, soloSpedita: true, nelMovimento: "nella giornata" };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">

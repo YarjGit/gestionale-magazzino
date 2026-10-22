@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Articolo – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Scelte a pulsanti (provenienza, unità di misura) */
+  .scelte { display: flex; flex-wrap: wrap; gap: 4px; }
+  .scelte label { display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fbfcfe; font-size: 0.82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .scelte input { display: none; }
+  .scelte label:has(input:checked) { background: #e8f1ff; border-color: #9cc2f5; color: #1f5fbf; }
+  .scelte label:has(input:disabled) { cursor: default; }
+  .barcode-box { display: flex; align-items: center; gap: 12px; }
+  .barcode-box svg { height: 38px; width: auto; }
+  .dedotto { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 5px; background: #fff3dd; color: #b26a00; font-size: 0.68rem; font-weight: 600; }
+
+  /* Calcolo del prezzo: si legge dall'alto in basso come una ricetta */
+  .calcolo { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .calcolo h3 { padding: 12px 14px; margin: 0; background: #f6f8fb; border-bottom: 1px solid var(--line); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .passo-prezzo { display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
+  .passo-prezzo + .passo-prezzo { border-top: 1px dashed #edf0f5; }
+  .passo-prezzo label { flex: 1; font-size: 0.86rem; }
+  .passo-prezzo label small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .passo-prezzo input, .passo-prezzo select { width: 110px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: #f4f6f9; text-align: right; font: 500 0.88rem "JetBrains Mono", monospace; }
+  .in-modifica .passo-prezzo .mod:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+  .passo-prezzo.risultato input { background: #eef2f7; font-weight: 700; }
+  .passo-prezzo .op { width: 16px; color: var(--muted); font-weight: 700; text-align: center; }
+  .btn-arrot { padding: 4px 8px; border: none; border-radius: 6px; background: #e8f1ff; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+  .etichetta-prezzo { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: #fffbe6; border-top: 2px solid #f0d878; }
+  .etichetta-prezzo span { font-weight: 700; }
+  .etichetta-prezzo b { font: 700 1.5rem "JetBrains Mono", monospace; }
+  .nota-calcolo { padding: 8px 14px 12px; color: var(--muted); font-size: 0.75rem; background: #fffbe6; }
+
+  /* Movimenti dell'articolo */
+  .piu { color: var(--ok); font-weight: 700; } .meno { color: var(--ko); font-weight: 700; }
+  .freccia-giac { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
+  .riga-inizio td { background: #f6f8fb; font-weight: 600; }
+  .virtuale { color: #7c4dff; }
+</style>
+</head>
+<body data-page="articoli">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnEtichetta">🏷️ Stampa etichetta</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/categorie.js"></script>
+<script src="js/barcode.js"></script>
+<script>
+  // Scheda articolo (?cod=A01/P), come nel gestionale attuale: Dettagli con il calcolo del prezzo,
+  // Materiali, Giacenza (per anno di acquisto, reale e virtuale), Giacenza altre sedi, Movimenti, Storico modifiche.
+  // Prezzo (vedi STUDIO-GESTIONALE.md): (costo netto + spese) × (1 + ricarico) = prezzo vendita; + IVA; + arrotondamento = etichetta.
+  // Si apre in sola lettura; ?nuovo=1 apre un articolo nuovo già in modifica.
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const cent = v => Math.round((+v || 0) * 100) / 100;
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+  const ALIQ = [["22", "22% (A.22)", 22], ["04", "4% (A.04)", 4], ["--", "0% (C.--)", 0], ["0", "0% (A.0)", 0], ["74", "0% (A.74)", 0]];
+  const UNITA = ["Numero", "Metri", "Litri", "Chili", "Paia", "Conf.", "Dozz."];
+  const PROVENIENZE = ["Magazzino Centrale", "Fornitori", "Laboratorio"];
+  let FORN = FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome }));
+
+  // Articolo da mostrare: dai dati caricati (esempio o file locale); quello vero arriva dal database
+  const base = nuovo ? null : ARTICOLI.find(a => a.codice === qs.get("cod")) || (qs.get("cod") ? null : ARTICOLI[1]);
+  if (!nuovo && !base && !qs.get("cod")) throw new Error("articolo mancante");
+  // Valori della scheda (quelli che l'elenco non ha sono proposte del prototipo)
+  const art = articoloDa(base || { codice: qs.get("cod") || "", descr: "", costo: 0, prezzo: 0, iva: 22, barcode: "", giac: 0, anno: new Date().getFullYear(), forn: null });
+
+  function articoloDa(a) {
+    const iva = a.iva === 4 ? "04" : a.iva === 0 ? "--" : "22";
+    const perc = ALIQ.find(x => x[0] === iva)[2];
+    // dal prezzo in etichetta si ricava il ricarico (senza spese, che l'elenco non conosce)
+    const pv = a.prezzo / (1 + perc / 100);
+    const ricarico = a.costo ? Math.round((pv / a.costo - 1) * 10000) / 100 : 100;
+    return {
+      codice: a.codice, descr: a.descr, barcode: a.barcode || "", disattivato: false,
+      provenienza: a.forn == null || a.forn === -1 ? "Magazzino Centrale" : "Fornitori", unita: "Numero",
+      forn1: a.forn, forn2: null, fornDedotto: !!a.fornDedotto, tipologia: "Da magazzino",
+      categoria: (CATEGORIE.find(c => c.cod === a.codice[0]) || CATEGORIE[0]).cod, sottocategoria: "",
+      scaffale: "", varianti: false, listinoExcel: false,
+      costoLordo: cent(a.costo), sconto: 0, confezione: 0, imballaggio: 0, accessorie: 0, ricarico, iva,
+      arrotondamento: 0, scorta: a.scorta || 0, annoListino: a.anno || "", annoPrezzo: "", giac: a.giac ?? 0, id: a.id
+    };
+  }
+
+  // ---------- Calcolo del prezzo (sempre al centesimo) ----------
+  function calcola(v) {
+    const perc = ALIQ.find(x => x[0] === v.iva)[2];
+    const costoNetto = cent(v.costoLordo * (1 - v.sconto / 100));
+    const spese = cent(v.confezione + v.imballaggio + v.accessorie);
+    const prezzoVendita = cent((costoNetto + spese) * (1 + v.ricarico / 100));
+    const conIva = cent(prezzoVendita * (1 + perc / 100));
+    return { costoNetto, spese, prezzoVendita, conIva, etichetta: cent(conIva + v.arrotondamento), costoIva: cent(costoNetto * (1 + perc / 100)) };
+  }
+  // Proposta di arrotondamento all'euro superiore (es. 53,91 → 54,00, arrotondamento 0,09)
+  const arrotondaEuro = conIva => cent(Math.ceil(conIva - 0.001) - conIva);
+  art.arrotondamento = base ? cent(base.prezzo - calcola(art).conIva) : 0;
+
+  // ---------- Pagina ----------
+  const opz = (lista, scelto) => lista.map(o => Array.isArray(o)
+    ? `<option value="${esc(o[0])}"${o[0] === scelto ? " selected" : ""}>${esc(o[1])}</option>`
+    : `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const scelte = (nome, lista, scelto) => `<div class="scelte">${lista.map(x => `<label><input class="mod" type="radio" name="${nome}" value="${esc(x)}" ${x === scelto ? "checked" : ""}>${esc(x)}</label>`).join("")}</div>`;
+  const passoPrezzo = (op, id, label, aiuto, cls = "mod", extra = "") => `<div class="passo-prezzo${cls ? "" : " risultato"}"><span class="op">${op}</span><label for="${id}">${label}${aiuto ? `<small>${aiuto}</small>` : ""}</label>${extra}<input id="${id}" class="${cls}" ${cls ? "" : "disabled"}></div>`;
+  const opzFornitori = scelto => `<option value="">— nessuno —</option>` + FORN.map(f => `<option value="${esc(String(f.id))}"${String(f.id) === String(scelto) ? " selected" : ""}>${esc(f.codice)}: ${esc(f.nome)}</option>`).join("");
+
+  function disegnaPagina() {
+    document.title = `${nuovo ? "Nuovo articolo" : art.codice} – Gestionale Magazzino`;
+    $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuovo articolo" : `Articolo <span class="num">${esc(art.codice)}</span>`}</h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Magazzino</span><span>-</span><a href="articoli.html">Articoli</a><span>-</span><span>${nuovo ? "Nuovo" : esc(art.codice)}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Prezzo in etichetta</div>
+        <div class="v" id="topPrezzo"></div>
+        <div class="p">giacenza ${esc(sedeLavoro)}: <b>${art.giac}</b></div>
+      </div>
+    </div>
+    <div class="banner mod" id="bannerModifica" hidden>✎ Stai modificando l'articolo. Ricordati di salvare.</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="materiali">🧵 Materiali</button>
+        <button class="scheda-tab" data-t="giacenza">📦 Giacenza</button>
+        <button class="scheda-tab" data-t="altre">🏬 Giacenza altre sedi</button>
+        <button class="scheda-tab" data-t="movimenti">🔁 Movimenti</button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli">
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>🏷️ Articolo</h3>
+              <div class="campi">
+                ${campo("s2", "Codice", `<input class="mod" id="codice" value="${esc(art.codice)}" ${nuovo ? "" : "data-fisso"}>`, nuovo ? "" : "il codice non si cambia")}
+                ${campo("s4", "Descrizione", `<input class="mod" id="descr" value="${esc(art.descr)}">`)}
+                ${campo("s4", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}" style="max-width:200px"><span id="barcodeSvg"></span></div>`, "si può sparare con la pistola")}
+                ${campo("s2", "Disattivato", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" id="disattivato" ${art.disattivato ? "checked" : ""}><span></span></span> non più in vendita</label>`)}
+                ${campo("s6", "Provenienza", scelte("provenienza", PROVENIENZE, art.provenienza))}
+                ${campo("s6", "Unità di misura", scelte("unita", UNITA, art.unita))}
+                ${campo("s2", "Categoria", `<select class="mod" id="categoria">${opz(CATEGORIE.map(c => [c.cod, `${c.cod} · ${c.descr}`]), art.categoria)}</select>`)}
+                ${campo("s2", "Sottocategoria", `<select class="mod" id="sottocategoria"></select>`)}
+                ${campo("s2", "Tipologia", `<select class="mod" id="tipologia">${opz(["Da magazzino", "Da laboratorio", "Servizio"], art.tipologia)}</select>`)}
+                ${campo("s2", "Scaffale", `<input class="mod" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
+                ${campo("s2", "Scorta minima", `<input class="mod" type="number" min="0" value="${art.scorta}" style="text-align:right">`, "sotto questa quantità va riordinato")}
+                ${campo("s2", "Varianti", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.varianti ? "checked" : ""}><span></span></span> taglie / colori</label>`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>🏭 Fornitori</h3>
+              <div class="campi">
+                ${campo("s3", `Fornitore principale${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select>`)}
+                ${campo("s3", "Secondo fornitore", `<select class="mod" id="forn2">${opzFornitori(art.forn2)}</select>`, "facoltativo")}
+                ${campo("s2", "Anno listino", `<input class="mod" value="${esc(art.annoListino)}" style="text-align:right">`)}
+                ${campo("s2", "Anno prezzo unitario", `<input class="mod" value="${esc(art.annoPrezzo)}" style="text-align:right">`)}
+                ${campo("s2", "Listino Excel", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.listinoExcel ? "checked" : ""}><span></span></span> nel listino</label>`)}
+              </div>
+            </div>
+          </div>
+
+          <aside class="calcolo riepilogo">
+            <h3>💶 Calcolo del prezzo</h3>
+            ${passoPrezzo("", "costoLordo", "Costo d'acquisto", "prezzo del fornitore, senza IVA")}
+            ${passoPrezzo("−", "sconto", "Sconto fornitore %")}
+            ${passoPrezzo("=", "costoNetto", "Costo netto", "è anche il valore d'inventario", "")}
+            ${passoPrezzo("+", "confezione", "Costo confezione")}
+            ${passoPrezzo("+", "imballaggio", "Costo imballaggio")}
+            ${passoPrezzo("+", "accessorie", "Spese accessorie")}
+            ${passoPrezzo("×", "ricarico", "Ricarico %", "100% = il prezzo è il doppio del costo")}
+            ${passoPrezzo("=", "prezzoVendita", "Prezzo di vendita", "senza IVA", "")}
+            <div class="passo-prezzo"><span class="op">+</span><label for="iva">IVA</label><select id="iva" class="mod">${opz(ALIQ.map(a => [a[0], a[1]]), art.iva)}</select></div>
+            ${passoPrezzo("=", "conIva", "Prezzo con IVA", "", "")}
+            ${passoPrezzo("+", "arrotondamento", "Arrotondamento", "per avere un prezzo tondo", "mod", '<button class="btn-arrot solo-mod" id="btnArrot" title="Arrotonda all\'euro superiore">↑ €</button>')}
+            <div class="etichetta-prezzo"><span>= Prezzo in etichetta</span><b id="etichetta"></b></div>
+            <div class="nota-calcolo" id="notaCalcolo"></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- MATERIALI -->
+      <div class="pannello-tab" id="tab-materiali" hidden>
+        <div class="nota-viola">🧵 Solo per i prodotti fatti in laboratorio: i materiali usati per farne uno, con il loro costo.</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Materiale</th><th>Fornitore</th><th class="num">Quantità</th><th>Info aggiuntive</th><th class="num">Costo</th></tr></thead>
+          <tbody><tr><td colspan="5"><div class="vuoto"><b>Nessun materiale</b><span>Questo articolo non è fatto in laboratorio.</span></div></td></tr></tbody>
+          <tfoot><tr><td colspan="4">Costo totale</td><td class="num">0,00</td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <!-- GIACENZA -->
+      <div class="pannello-tab" id="tab-giacenza" hidden>
+        <div class="nota-viola">📦 La merce è divisa per <b>anno di acquisto</b>. La giacenza <span class="virtuale"><b>virtuale</b></span> conta anche gli ordini ai fornitori non ancora arrivati.</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Anno</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Scaricata</th><th class="num">Finale</th>
+            <th class="num virtuale">Virt. iniziale</th><th class="num virtuale">Virt. caricata</th><th class="num virtuale">Virt. scaricata</th><th class="num virtuale">Virt. finale</th></tr></thead>
+          <tbody id="righeGiac"></tbody>
+        </table></div>
+      </div>
+
+      <!-- GIACENZA ALTRE SEDI -->
+      <div class="pannello-tab" id="tab-altre" hidden>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Sede</th><th>Anno</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Scaricata</th><th class="num">Finale</th><th class="num virtuale">Virt. finale</th></tr></thead>
+          <tbody id="righeAltre"></tbody>
+        </table></div>
+      </div>
+
+      <!-- MOVIMENTI -->
+      <div class="pannello-tab" id="tab-movimenti" hidden>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Numero</th><th>Data</th><th>Tipo di movimento</th><th>Stato</th><th class="num">Carico</th><th class="num">Giacenza</th><th class="num">In ordine</th><th class="num">Anno acquisto</th></tr></thead>
+          <tbody id="righeMov"></tbody>
+        </table></div>
+      </div>
+
+      <!-- STORICO -->
+      <div class="pannello-tab" id="tab-storico" hidden>
+        <div class="timeline" id="storico"></div>
+      </div>
+    </section>`;
+  }
+  // Disegna la scheda e la fa funzionare: si richiama quando arriva l'articolo vero dal database
+  function avvia() {
+  disegnaPagina();
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Campi prezzo ----------
+  const CAMPI_PREZZO = ["costoLordo", "sconto", "confezione", "imballaggio", "accessorie", "ricarico", "arrotondamento"];
+  function scriviPrezzi() {
+    CAMPI_PREZZO.forEach(k => $(k).value = numero(art[k]));
+    aggiornaCalcolo();
+  }
+  function aggiornaCalcolo() {
+    const c = calcola(art);
+    $("costoNetto").value = numero(c.costoNetto);
+    $("prezzoVendita").value = numero(c.prezzoVendita);
+    $("conIva").value = numero(c.conIva);
+    $("etichetta").textContent = euro(c.etichetta);
+    $("topPrezzo").textContent = euro(c.etichetta);
+    $("notaCalcolo").innerHTML = `(${numero(c.costoNetto)} + ${numero(c.spese)} di spese) × ${numero(1 + art.ricarico / 100)} = ${numero(c.prezzoVendita)} · con IVA ${numero(c.conIva)}` +
+      (art.arrotondamento ? ` · arrotondato di ${numero(art.arrotondamento)}` : "");
+  }
+  CAMPI_PREZZO.forEach(k => $(k).addEventListener("change", () => {
+    // I prezzi hanno sempre due decimali
+    art[k] = cent(num($(k).value));
+    if (k === "sconto") art.sconto = Math.min(100, Math.max(0, art.sconto));
+    $(k).value = numero(art[k]);
+    aggiornaCalcolo();
+  }));
+  $("iva").onchange = () => { art.iva = $("iva").value; aggiornaCalcolo(); };
+  $("btnArrot").onclick = () => { art.arrotondamento = arrotondaEuro(calcola(art).conIva); $("arrotondamento").value = numero(art.arrotondamento); aggiornaCalcolo(); };
+
+  // Sottocategorie della categoria scelta; barcode vero (EAN-13 o Code 128) sotto il campo
+  function sottocategorie() {
+    const lista = SOTTOCATEGORIE.filter(s => s.cat === $("categoria").value);
+    $("sottocategoria").innerHTML = `<option value="">—</option>` + lista.map(s => `<option${s.descr === art.sottocategoria ? " selected" : ""}>${esc(s.descr)}</option>`).join("");
+  }
+  $("categoria").onchange = sottocategorie;
+  const disegnaBarcode = () => { $("barcodeSvg").innerHTML = $("barcode").value.trim() ? barcodeSvg($("barcode").value.trim(), 38) : ""; };
+  $("barcode").oninput = disegnaBarcode;
+  sottocategorie(); disegnaBarcode(); scriviPrezzi();
+
+  // ---------- Giacenza, altre sedi, movimenti, storico (esempi coerenti con la giacenza dell'articolo) ----------
+  let seme = [...art.codice].reduce((s, c) => s * 31 + c.charCodeAt(0), 7) % 233280;
+  const caso = () => (seme = (seme * 9301 + 49297) % 233280) / 233280;
+  const anno = new Date().getFullYear();
+  const giacOra = Math.max(0, art.giac || 0);
+  // due lotti: l'anno scorso e quest'anno
+  const scaricati = Math.floor(caso() * 4);
+  const lottoVecchio = Math.min(giacOra, Math.floor(caso() * 3));
+  const lotti = [
+    { anno: anno - 1, ini: lottoVecchio + 1, car: 0, sca: 1 },
+    { anno, ini: 0, car: giacOra - lottoVecchio + scaricati, sca: scaricati }
+  ].filter(l => l.ini || l.car);
+  const fin = l => l.ini + l.car - l.sca;
+  $("righeGiac").innerHTML = lotti.length ? lotti.map(l => `<tr><td><b>${l.anno}</b></td><td class="num">${l.ini}</td><td class="num piu">${l.car ? "+" + l.car : 0}</td><td class="num meno">${l.sca ? "−" + l.sca : 0}</td><td class="num"><b>${fin(l)}</b></td>
+      <td class="num virtuale">${l.ini}</td><td class="num virtuale">${l.car}</td><td class="num virtuale">${l.sca}</td><td class="num virtuale"><b>${fin(l)}</b></td></tr>`).join("")
+    : '<tr><td colspan="9"><div class="vuoto"><b>Mai movimentato</b></div></td></tr>';
+  $("righeAltre").innerHTML = SEDI.filter(s => s.attiva && s.nome !== sedeLavoro).map(s => {
+    const f = Math.floor(caso() * 14), c = Math.floor(caso() * 6), sc = Math.floor(caso() * 6);
+    return `<tr><td><span class="pallino" style="background:${s.colore}"></span>${esc(s.nome)}</td><td>${anno}</td><td class="num">${f + sc - c}</td><td class="num piu">+${c}</td><td class="num meno">−${sc}</td><td class="num"><b>${f}</b></td><td class="num virtuale">${f}</td></tr>`;
+  }).join("") + `<tr><td colspan="7" style="color:var(--muted);font-size:0.8rem">Le altre 15 sedi compariranno quando useranno il gestionale.</td></tr>`;
+
+  // Movimenti: giacenza a inizio anno, poi carichi e vendite fino alla giacenza di oggi
+  const tipi = [["Ordine a fornitore", "Evaso", 0], ["Carico da fornitore", "Definitivo", 1], ["Vendite giornaliere", "Definitivo", -1], ["Trasferimento a filiale", "Definitivo", -1]];
+  let g = lotti.reduce((s, l) => s + l.ini, 0);
+  const mov = [];
+  lotti.forEach(l => {
+    if (l.car) { mov.push({ tipo: tipi[0], q: l.car, anno: l.anno }); mov.push({ tipo: tipi[1], q: l.car, anno: l.anno }); }
+    for (let i = 0; i < l.sca; i++) mov.push({ tipo: tipi[2 + (caso() < 0.2 ? 1 : 0)], q: 1, anno: l.anno });
+  });
+  let giorno = 15;
+  $("righeMov").innerHTML = `<tr class="riga-inizio"><td colspan="5">Giacenza a inizio anno</td><td class="num">${g}</td><td></td><td></td></tr>` + mov.map((m, i) => {
+    giorno += 3 + Math.floor(caso() * 20);
+    const d = new Date(anno, 0, giorno).toLocaleDateString("it-IT");
+    const segno = m.tipo[2];
+    const prima = g; g += segno * m.q;
+    return `<tr><td class="num-mov"><span class="id">${String(i + 20).padStart(5, "0")}/${anno}</span></td><td>${d}</td><td>${m.tipo[0]}</td><td>${m.tipo[1]}</td>
+      <td class="num ${segno > 0 ? "piu" : segno < 0 ? "meno" : ""}">${segno > 0 ? "+" + m.q : segno < 0 ? "−" + m.q : ""}</td>
+      <td class="num"><span class="freccia-giac">${segno ? `${prima} → ${g}` : ""}</span></td><td class="num virtuale">${segno ? "" : "+" + m.q}</td><td class="num">${m.anno}</td></tr>`;
+  }).join("") + `<tr class="riga-inizio"><td colspan="5">Giacenza di oggi</td><td class="num">${g}</td><td></td><td></td></tr>`;
+
+  $("storico").innerHTML = nuovo ? '<div class="vuoto"><b>Articolo non ancora salvato</b></div>' : `
+    <div class="evento"><div class="quando">01/07/${anno} · 12:46 · Magazzino Centrale</div><div class="cosa">Cambiato il fornitore</div><div class="dett">Laboratorio → fornitore attuale</div></div>
+    <div class="evento"><div class="quando">22/01/${anno} · 12:46 · Magazzino Centrale</div><div class="cosa">Aggiornati i prezzi</div><div class="dett">Aggiunte le spese di confezione e imballaggio, ricarico portato al ${numero(art.ricarico)}%</div></div>
+    <div class="evento ok"><div class="quando">03/01/${anno} · 15:18 · Sistema</div><div class="cosa">Articolo importato dal gestionale precedente</div></div>`;
+
+  // ---------- Modifica / Annulla / Salva ----------
+  let primaArt = null, primaCampi = [];
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    document.querySelectorAll(".mod").forEach(el => el.disabled = !modifica || el.hasAttribute("data-fisso"));
+    ["btnEtichetta", "btnChiudi", "btnModifica"].forEach(id => $(id).hidden = modifica);
+    ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = !modifica);
+    $("bannerModifica").hidden = !modifica || nuovo;
+  }
+  $("btnModifica").onclick = () => {
+    primaArt = { ...art };
+    primaCampi = [...document.querySelectorAll(".mod")].map(el => el.type === "checkbox" || el.type === "radio" ? el.checked : el.value);
+    modalita(true);
+  };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) { location.href = "articoli.html"; return; }
+    Object.assign(art, primaArt);
+    document.querySelectorAll(".mod").forEach((el, i) => el.type === "checkbox" || el.type === "radio" ? el.checked = primaCampi[i] : el.value = primaCampi[i]);
+    sottocategorie(); disegnaBarcode(); scriviPrezzi(); modalita(false);
+  };
+  const controlla = () => {
+    if (!$("codice").value.trim()) { avviso("Il codice è obbligatorio"); $("codice").focus(); return false; }
+    if (!$("descr").value.trim()) { avviso("La descrizione è obbligatoria"); $("descr").focus(); return false; }
+    return true;
+  };
+  $("btnSalva").onclick = () => { if (!controlla()) return; avviso("Articolo salvato (solo anteprima: il salvataggio vero arriverà con il database)"); if (!nuovo) modalita(false); };
+  $("btnSalvaChiudi").onclick = () => { if (!controlla()) return; avviso("Salvato (solo anteprima)"); setTimeout(() => location.href = "articoli.html", 700); };
+  $("btnChiudi").onclick = () => location.href = "articoli.html";
+  $("btnEtichetta").onclick = () => location.href = `etichette.html?cod=${encodeURIComponent(art.codice)}`;
+  modalita(nuovo);
+  if (nuovo) $("codice").focus();
+  }
+  avvia();
+
+  // ---------- Articolo vero dal database ----------
+  dbPronto.then(async db => {
+    if (!db || nuovo) return;
+    const [{ data: a, error }, { data: forn, error: e2 }] = await Promise.all([
+      db.from("articoli").select("id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_lordo, sconto, costo_netto, prezzo_vendita_ivato, scorta_minima, anno_listino, attivo, aliquota_iva, aliquote_iva(aliquota)").eq("codice", qs.get("cod")).maybeSingle(),
+      db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale")
+    ]);
+    if (error || e2) throw error || e2;
+    if (!a) return;
+    const { data: giac } = await db.from("giacenze").select("sede_id, quantita").eq("articolo_id", a.id);
+    FORN = forn.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+    const perc = a.aliquote_iva ? +a.aliquote_iva.aliquota : 22;
+    const nuovoArt = articoloDa({
+      id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode, costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
+      iva: perc, forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, scorta: a.scorta_minima, anno: a.anno_listino,
+      giac: ((giac || []).find(x => x.sede_id === ID_SEDI_DB[sedeLavoro]) || {}).quantita ?? 0
+    });
+    nuovoArt.costoLordo = cent(+a.costo_lordo || +a.costo_netto);
+    nuovoArt.sconto = +a.sconto || 0;
+    nuovoArt.disattivato = a.attivo === false;
+    Object.assign(art, nuovoArt);
+    art.arrotondamento = cent(+a.prezzo_vendita_ivato - calcola(art).conIva);
+    avvia();
+    avviso("Scheda articolo letta dal database");
+  }).catch(err => avviso("Errore nel leggere l'articolo: " + err.message));
+</script>
+</body>
+</html>

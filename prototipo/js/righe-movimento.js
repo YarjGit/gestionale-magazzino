@@ -10,6 +10,7 @@
 //   etichettaPrezzo     intestazione della colonna prezzo (es. "Costo", "Prezzo")
 //   ivaInclusa          true se il prezzo è già IVA inclusa (vendite); altrimenti l'IVA si aggiunge al totale
 //   spedita             true per avere anche la colonna Spedita (quanto è uscito davvero)
+//   soloSpedita         con spedita: Ordinata resta vuota e si scrive solo Spedita (vendite giornaliere, come nel gestionale attuale)
 //   nelMovimento        testo per gli avvisi, es. "nell'ordine"
 //   puoAggiungere()     false blocca le aggiunte (es. manca il fornitore); la funzione avvisa da sola
 //   altroFornitore(art) true se l'articolo non è del fornitore scelto (avviso arancione)
@@ -65,7 +66,7 @@ function avviaRighe(cfg) {
 
   function totali() {
     const conArt = RIGHE.filter(r => r.articolo);
-    $("totOrd").textContent = conArt.reduce((s, r) => s + r.qta, 0);
+    $("totOrd").textContent = cfg.soloSpedita ? "" : conArt.reduce((s, r) => s + r.qta, 0);
     if (cfg.spedita) $("totSped").textContent = conArt.reduce((s, r) => s + r.sped, 0);
     $("totArt").textContent = numero(RIGHE.reduce((s, r) => s + r.tot, 0));
   }
@@ -129,7 +130,7 @@ function avviaRighe(cfg) {
       const fuori = mod && altro(a);
       return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">${comandi}
         <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}<b>${esc(a.descr)}</b></td>
-        <td class="num">${passo(r, "qta")}</td>
+        <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${a.giac ?? "—"}</td>
         <td class="num" style="color:var(--muted)">${a.anno}</td>
@@ -151,7 +152,7 @@ function avviaRighe(cfg) {
     if (campo === "prezzo") r.prezzo = Math.round(num(e.target.value) * 100) / 100;
     else if (campo === "sconto") r.sconto = Math.min(100, Math.max(0, +e.target.value || 0));
     else if (campo === "iva") r.iva = e.target.value;
-    else if (campo === "sped") r.sped = Math.max(0, +e.target.value || 0);
+    else if (campo === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, +e.target.value || 0); if (cfg.soloSpedita) r.qta = r.sped; }
     else { const prima = r.qta; r.qta = Math.max(1, +e.target.value || 1); if (r.sped === prima) r.sped = r.qta; }
     r.tot = totRiga(r);
     cambiato();
@@ -166,7 +167,7 @@ function avviaRighe(cfg) {
     if (b.dataset.togli) RIGHE.splice(RIGHE.indexOf(r), 1);
     else if (b.dataset.passo) {
       // finché Spedita segue Ordinata, i − / + di Ordinata cambiano anche quella
-      if (b.dataset.quale === "sped") r.sped = Math.max(0, r.sped + +b.dataset.passo);
+      if (b.dataset.quale === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, r.sped + +b.dataset.passo); if (cfg.soloSpedita) r.qta = r.sped; }
       else { const segue = r.sped === r.qta; r.qta = Math.max(1, r.qta + +b.dataset.passo); if (segue) r.sped = r.qta; }
     }
     else if (b.dataset.riprezzo) r.prezzo = cfg.prezzoDi(r.articolo);

@@ -47,6 +47,8 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 9. App Settings: aliquota IVA predefinita "23" non esiste tra le aliquote
 10. Ordini a fornitori, prezzi e aliquote: il costo proposto è circa la metà del prezzo di vendita; il prezzo totale della riga è IVA inclusa (3 × 18,50 al 22% = 67,71). Da decidere insieme come si calcolano costo, ricarico e prezzo di rivendita e quale aliquota usare per riga — CHIARITO (STUDIO-GESTIONALE.md): prezzo = (costo + spese confezione/imballaggio/accessorie) × (1 + ricarico%) × IVA, poi arrotondato; con ricarico 100% il costo è la metà
 11. ~~Vendite, Ordinata e Spedita~~ RISOLTA: nel gestionale attuale Ordinata resta vuota e la quantità venduta è in Spedita
+12. Prezzo in etichetta: l'arrotondamento è sempre all'euro superiore (53,91 → 54,00) o a volte a 0,50 / 0,10? Nel prototipo il tasto "↑ €" propone l'euro superiore e si può correggere a mano
+13. Scheda articolo: nel vecchio gestionale "Costo + IVA" (18,50) non torna con costo 16,65 × 1,22: è un valore vecchio o un altro calcolo?
 
 ## Prossimi passi
 

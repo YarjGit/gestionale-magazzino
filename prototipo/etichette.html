@@ -182,10 +182,12 @@
 
   // ---------- Da dove arrivo ----------
   // ?carico=8815 → etichette del carico (una per pezzo; &perPezzo=0 → una per articolo; &righe=1,3 → solo quelle righe)
+  // ?cod=A01/P → un'etichetta dell'articolo (dalla scheda articolo)
   const qs = new URLSearchParams(location.search);
   const caricoId = +qs.get("carico");
   const carico = CARICHI.find(c => c.id === caricoId);
-  const ritorno = carico ? `carico.html?id=${carico.id}` : "carichi-fornitori.html";
+  const codArticolo = qs.get("cod");
+  const ritorno = carico ? `carico.html?id=${carico.id}` : codArticolo ? `articolo.html?cod=${encodeURIComponent(codArticolo)}` : "carichi-fornitori.html";
 
   // righe: [{ art, n }]
   let righe = [];
@@ -195,6 +197,13 @@
     righe = righeCarico(carico).filter(r => !solo || solo.includes(r.pos)).map(r => ({ art: r.articolo, n: perPezzo ? r.qta : 1 }));
     $("crumbOrigine").innerHTML = `<a href="${ritorno}">Carico #${carico.id}</a><span> - </span>Etichette`;
   }
+  const etichettaArticolo = () => {
+    const art = ARTICOLI.find(a => a.codice === codArticolo);
+    if (!art || righe.some(r => r.art.codice === codArticolo)) return;
+    righe.push({ art, n: 1 });
+    $("crumbOrigine").innerHTML = `<a href="${ritorno}">Articolo ${esc(codArticolo)}</a><span> - </span>Etichette`;
+  };
+  if (codArticolo) etichettaArticolo();
 
   // ---------- Aggiunta: a mano o con la pistola ----------
   // La pistola si comporta come una tastiera: scrive il barcode e preme Invio
@@ -333,6 +342,8 @@
   dbPronto.then(async db => {
     if (!db) return;
     const n = await caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]);
+    // arrivando dalla scheda articolo: l'etichetta usa l'articolo vero
+    if (codArticolo) { righe = []; etichettaArticolo(); disegna(); }
     avviso(`Ricerca pronta su ${n.toLocaleString("it-IT")} articoli`);
   }).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>

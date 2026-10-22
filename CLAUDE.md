@@ -18,6 +18,21 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - **Prezzi sempre con due decimali**: arrotondare prezzi unitari e totali al centesimo (anche quelli scritti a mano).
 - Misure come il gestionale reale: righe tabella ~41 px, voci menu ~38 px, titolo 18 px (non "zoomato").
 - Domande aperte e prossimi passi: `PROGETTO.md`.
+- Come funziona il gestionale attuale (schede, campi, giacenze per anno di acquisto, calcolo dei prezzi): `STUDIO-GESTIONALE.md`. Leggerlo prima di rifare una schermata.
+
+## Gestionale attuale (da studiare, mai da modificare)
+- Indirizzo: https://gestionale.pddm.it:10443/apostolato-liturgico-smm-roma (accesso con Google).
+- L'accesso lo fa **l'utente** nel riquadro Browser dell'app: mai chiedere né scrivere password.
+- **Solo lettura**: non inserire, modificare o cancellare record ("se no fai un caos nel database"); mai premere Salva/Crea/Elimina.
+  Non toccare pulsanti che fanno azioni da soli: "Ricalcola giacenza", "Inventario", "Controlla traduzioni", voci di menu "Strumenti".
+- **Andare piano, come una persona**: una pagina alla volta, 4-6 secondi tra un'apertura e l'altra (il server si blocca con troppe richieste).
+  Leggere la pagina già aperta (testo, campi) non chiede niente al server.
+- Gli appunti con dati reali restano in `riferimenti/`; in `STUDIO-GESTIONALE.md` solo la struttura.
+
+## Schede movimento
+- Righe articolo comuni a tutte le schede (＋, cestino, frecce, − / +, IVA per riga, pistola): `js/righe-movimento.js`.
+  Schede: `carico.html`, `ordine.html` (fornitore obbligatorio, articoli del fornitore), `vendita.html` (quantità solo in Spedita, prezzi IVA inclusa).
+- Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 
 ## Struttura
 - `prototipo/` – il prototipo HTML/CSS/JS, senza build. Si apre con `Avvia prototipo.bat` (server PowerShell su http://localhost:8080).
@@ -28,7 +43,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 
 ## Due PC (lavoro e casa) con GitHub
 L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
-- **All'inizio di ogni sessione:** `git pull` per avere l'ultima versione.
+- **All'inizio di ogni sessione:** `git pull` per avere l'ultima versione (l'utente lo chiede con "aggiorna da GitHub").
+  Se la cartella non c'è ancora su quel PC: `git clone https://github.com/YarjGit/gestionale-magazzino.git "Gestionale Magazzino"` sul Desktop.
 - **A fine lavoro (o quando l'utente lo chiede):** commit con messaggio in italiano e `git push` su `origin main`. Il sito si aggiorna da solo in 1–2 minuti.
 - Il repository è **pubblico**: prima di ogni commit controllare che non entrino dati reali (screenshot, export JSON, email, IBAN, matricole).
 - Autore dei commit: YarjGit con l'email noreply di GitHub, non l'email personale.
