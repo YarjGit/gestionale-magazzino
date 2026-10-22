@@ -22,7 +22,10 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 
 ## Gestionale attuale (da studiare, mai da modificare)
 - Indirizzo: https://gestionale.pddm.it:10443/apostolato-liturgico-smm-roma (accesso con Google).
-- L'accesso lo fa **l'utente** nel riquadro Browser dell'app: mai chiedere né scrivere password.
+- **Usare il Chrome dell'utente** (estensione "Claude in Chrome", strumenti `mcp__claude-in-chrome__*`), **non** il browser integrato dell'app:
+  così le visite sembrano quelle solite dell'utente (stesso browser, stesso indirizzo). Deciso dall'utente il 22/10/2026.
+  Se Claude in Chrome non è disponibile, dirlo e chiedere prima di usare altro.
+- L'accesso lo fa **l'utente** (di solito in Chrome è già dentro): mai chiedere né scrivere password.
 - **Solo lettura**: non inserire, modificare o cancellare record ("se no fai un caos nel database"); mai premere Salva/Crea/Elimina.
   Non toccare pulsanti che fanno azioni da soli: "Ricalcola giacenza", "Inventario", "Controlla traduzioni", voci di menu "Strumenti".
 - **Andare piano, come una persona**: una pagina alla volta, 4-6 secondi tra un'apertura e l'altra (il server si blocca con troppe richieste).
