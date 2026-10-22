@@ -63,7 +63,7 @@
   <section class="panel">
     <div class="schede" id="schede">
       <button class="scheda-tab active" data-t="mandare">📤 Ordini con inevasi da mandare <span class="n" id="nMandare">…</span></button>
-      <button class="scheda-tab" data-t="attesa">📥 In attesa per noi <span class="n" id="nAttesa">…</span></button>
+      <button class="scheda-tab" data-t="attesa">📥 In attesa per noi (da non riordinare) <span class="n" id="nAttesa">…</span></button>
       <button class="scheda-tab" data-t="cancellati">🗂️ Cancellati <span class="n" id="nCanc">…</span></button>
     </div>
     <div class="pannello-tab" id="tab-mandare"><div class="vuoto"><b>Lettura…</b></div></div>
@@ -189,16 +189,27 @@
       t.checked = caselle.length && caselle.every(c => c.checked);
     });
   }
+  // In attesa per noi: un riquadro per ogni ordine (dal più vecchio), con chi deve mandare la merce
   function disegnaAttesa() {
-    $("nAttesa").textContent = inAttesa.length;
-    $("tab-attesa").innerHTML = inAttesa.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>Articolo</th><th>Da</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Ancora in attesa</th></tr></thead>
-        <tbody>${inAttesa.map(r => `<tr>
-          <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
-          <td>${esc(nomiSede.get(r.sede_fornitrice) || r.sede_fornitrice)}</td>
-          <td><a class="num-mov" href="ordine.html?db=${r.ordine_id}"><span class="id">#${r.ordine_id}</span></a> <small style="color:var(--muted)">${dataIt(r.data_ordine)}${r.stato_ordine === "Definitivo" ? " · non ancora preparato" : ""}</small></td>
-          <td class="num">${r.ordinata}</td><td class="num">${r.trasferita}</td><td class="num"><span class="residuo">${r.residuo}</span></td>
-        </tr>`).join("")}</tbody></table></div>`
+    const ordini = perOrdine(inAttesa).sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
+    $("nAttesa").textContent = new Set(inAttesa.map(r => r.articolo_id)).size;
+    $("tab-attesa").innerHTML = inAttesa.length ? `
+      <div class="nota-viola" style="margin-bottom:14px">📥 Questi articoli li avete già ordinati e sono <b>messi da parte per voi</b>: arriveranno con i prossimi trasferimenti. <b>Non rimetteteli nei nuovi ordini</b>, se no chi prepara deve ricontare tutto.</div>
+      <div style="margin-bottom:12px;color:var(--muted)">Totale: <b style="color:var(--text)">${ordini.length} ordini · ${new Set(inAttesa.map(r => r.articolo_id)).size} articoli · ${cent(inAttesa.reduce((t, r) => t + r.residuo, 0))} pezzi</b></div>
+      ${ordini.map(o => {
+        const daChi = nomiSede.get(o.righe[0].sede_fornitrice) || o.righe[0].sede_fornitrice;
+        const preparato = o.righe[0].stato_ordine !== "Definitivo";
+        return `<div class="blocco-data">
+        <div class="testa-data" style="background:#f1ecff;color:#4a2aa8">📅 <span class="data">${dataIt(o.data)}</span> Ordine #${o.id} <small style="color:#6b55b8">a ${esc(daChi)} · ${o.righe.length} articoli · ${cent(o.pezzi)} pezzi in attesa</small>
+          <span class="spazio"></span><span class="disp ${preparato ? "parte" : "no"}">${preparato ? "preparato in parte: il resto è inevaso" : "non ancora preparato"}</span>
+          <a class="btn btn-light" href="ordine.html?db=${o.id}" style="padding:4px 10px;font-size:0.78rem">Apri l'ordine</a></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Ancora in attesa</th></tr></thead>
+          <tbody>${o.righe.map(r => `<tr>
+            <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+            <td class="num">${r.ordinata}</td><td class="num">${r.trasferita || "—"}</td><td class="num"><span class="residuo">${r.residuo}</span></td>
+          </tr>`).join("")}</tbody></table></div></div>`;
+      }).join("")}`
       : '<div class="vuoto"><b>Niente in attesa</b><span>Qui compaiono gli articoli che questa sede ha ordinato a un\'altra sede e non sono ancora arrivati.</span></div>';
   }
 
@@ -229,7 +240,7 @@
     for (const r of inAttesa) nomiSede.set(r.sede_fornitrice, await nomeSedeDb(db, r.sede_fornitrice));
     disegnaMandare(); disegnaAttesa(); await disegnaCancellati();
     // una sede che non riceve ordini si apre su "In attesa per noi"
-    if (!daMandare.length && inAttesa.length) document.querySelector('.scheda-tab[data-t="attesa"]').click();
+    if ((!daMandare.length && inAttesa.length) || qs.get("vista") === "attesa") document.querySelector('.scheda-tab[data-t="attesa"]').click();
   }
 
   $("tab-mandare").onchange = e => {

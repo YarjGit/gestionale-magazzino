@@ -211,8 +211,11 @@
     const a = r.articolo, giac = a.giac ?? 0, inev = inevasoDi(r);
     const spuntabile = conInevasi && r.sez !== "A";
     const attiva = !spuntabile || r.scelto;
-    const tag = r.sez === "nuovo" ? '<span class="tag-inev nuovo">NUOVO INEVASO</span>'
-      : r.sez === "vecchio" ? `<span class="tag-inev vecchio">INEVASO dal ${dataIt(r.dataOrdine)}</span>` : "";
+    // stesso articolo anche tra gli inevasi precedenti: la filiale ne ha chiesti di più (pezzi in aggiunta)
+    const anche = conInevasi && r.sez !== "vecchio" ? RIGHE.filter(x => x.sez === "vecchio" && x.articolo.id === a.id).reduce((t, x) => t + x.ordinata, 0) : 0;
+    const tag = (r.sez === "nuovo" ? '<span class="tag-inev nuovo">NUOVO INEVASO</span>'
+      : r.sez === "vecchio" ? `<span class="tag-inev vecchio">INEVASO dal ${dataIt(r.dataOrdine)}</span>` : "") +
+      (anche ? `<span class="tag-inev vecchio" title="Questi pezzi sono in più rispetto a quelli già in attesa">IN PIÙ · altri ${anche} già in attesa</span>` : "");
     return `<tr class="${inev > 0 && attiva ? "manca" : ""}${attiva ? "" : " non-scelto"}">
         ${conInevasi ? `<td class="chk solo-mod">${spuntabile ? `<input type="checkbox" data-scegli="${r.pos}" ${r.scelto ? "checked" : ""} title="Spunta per mandarlo in questo trasferimento">` : ""}</td>` : ""}
         <td style="color:var(--muted)">${r.pos}</td>

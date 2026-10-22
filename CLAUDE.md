@@ -40,6 +40,9 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - `trasferimento.html?nuovo=1&ordine=N` (dalla Dashboard del Magazzino Centrale o dal riquadro in Trasferimenti a Filiali): sopra gli articoli disponibili dell'ordine,
   sotto, separati, i nuovi inevasi e quelli accumulati dagli ordini precedenti della stessa filiale (si spuntano per mandarli); tasto "Stampa nota" (nota di preparazione).
   Prezzo tra filiali = **prezzo d'acquisto** (costo); un eventuale ricarico si deciderà più avanti.
+- **Niente doppi ordini**: una filiale non deve riordinare quello che è già in attesa (inevasi o ordini non ancora preparati).
+  In `ordine.html` verso un fornitore-sede: riquadro "Già in attesa" e l'articolo in attesa non entra (finestra "Va bene / Ne servono di più";
+  i pezzi aggiunti lo stesso hanno l'etichetta IN PIÙ, anche nel trasferimento del Magazzino Centrale). Tasto "INEVASI IN ATTESA" in Ordini a Fornitori.
 - `inevasi.html`: elenco degli ordini con inevasi (tasto INEVASI in Trasferimenti a Filiali e in Dashboard) → `?filiale=…&ordine=N` inevasi della filiale divisi per data dell'ordine, da spuntare per preparare il trasferimento.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 

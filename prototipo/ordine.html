@@ -205,7 +205,7 @@
           <div class="suggerimenti" id="suggForn"></div>
         </div>
 
-        <div class="nota-elenco" id="notaInevasi" hidden></div>
+        <div class="box-attesa" id="notaInevasi" hidden></div>
         <div class="catalogo solo-mod" id="catalogo" hidden>
           <div class="catalogo-head">
             <b id="titCatalogo"></b>
@@ -299,7 +299,7 @@
   }
   // Fornitore che è una sede (es. Magazzino Centrale): si leggono gli articoli ancora in attesa (inevasi)
   // dei nostri ordini precedenti, così non si riordinano per sbaglio
-  let dbConn = null;
+  let dbConn = null, attesaAperta = true, inAttesaRighe = [];
   async function aggiornaInAttesa() {
     inAttesa = new Map();
     $("notaInevasi").hidden = true;
@@ -307,10 +307,24 @@
     try {
       const lista = await inevasiDb(dbConn, { sede_richiedente: ID_SEDI_DB[sedeLavoro], sede_fornitrice: fornitore.sede });
       // le righe di questo stesso ordine non contano
-      lista.filter(r => r.ordine_id !== (ord && ord.dbId)).forEach(r => inAttesa.set(r.articolo_id, (inAttesa.get(r.articolo_id) || 0) + r.residuo));
-      if (inAttesa.size) {
-        $("notaInevasi").innerHTML = `⏳ Dal <b>${esc(fornitore.nome)}</b> sono ancora in attesa <b>${inAttesa.size} articoli</b> dei vostri ordini precedenti (inevasi): arriveranno senza riordinarli. <a href="inevasi.html" style="color:var(--accent)">Vedi gli inevasi</a>`;
+      const altri = lista.filter(r => r.ordine_id !== (ord && ord.dbId));
+      inAttesaRighe = altri;
+      altri.forEach(r => inAttesa.set(r.articolo_id, (inAttesa.get(r.articolo_id) || 0) + r.residuo));
+      // Riquadro con tutti gli articoli già in attesa: così non si rimettono nell'ordine
+      if (altri.length) {
+        const pezzi = Math.round(altri.reduce((t, r) => t + r.residuo, 0) * 100) / 100;
+        $("notaInevasi").innerHTML = `
+          <div class="testa">⏳ <b>Già in attesa dal ${esc(fornitore.nome)}: ${inAttesa.size} articoli, ${pezzi} pezzi</b>
+            <small>sono già messi da parte per voi: <b>non rimetteteli nell'ordine</b>, arrivano da soli</small><span class="spazio"></span>
+            <button class="btn btn-light" id="apriAttesa" style="padding:5px 10px;font-size:0.8rem">${attesaAperta ? "Nascondi elenco" : "Mostra elenco"}</button>
+            <a class="btn btn-light" href="inevasi.html?vista=attesa" style="padding:5px 10px;font-size:0.8rem">Tutti gli inevasi →</a></div>
+          <div class="table-wrap" id="elencoAttesa" ${attesaAperta ? "" : "hidden"}><table>
+            <thead><tr><th>Articolo</th><th>Ordine</th><th class="num">In attesa</th></tr></thead>
+            <tbody>${altri.map(r => `<tr><td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+              <td style="white-space:nowrap">#${r.ordine_id} <small style="color:var(--muted)">del ${dataIt(r.data_ordine)}${r.stato_ordine === "Definitivo" ? " · non ancora preparato" : ""}</small></td>
+              <td class="num"><span class="q-attesa">${r.residuo}</span></td></tr>`).join("")}</tbody></table></div>`;
         $("notaInevasi").hidden = false;
+        $("apriAttesa").onclick = () => { attesaAperta = !attesaAperta; aggiornaInAttesa(); };
       }
     } catch (err) { avviso("Errore nel leggere gli inevasi: " + err.message); }
     righe.disegna();
@@ -347,10 +361,47 @@
     sedeEstera: () => trovaSede(leggiSede()).estera,
     puoAggiungere: serveFornitore,
     altroFornitore: art => !!fornitore && art.forn !== fornitore.id,
-    notaArticolo: art => inAttesa.get(art.id) ? `già in attesa dal ${fornitore.nome}: ${inAttesa.get(art.id)}` : "",
+    notaArticolo: art => inAttesa.get(art.id) ? `già in attesa: ${inAttesa.get(art.id)}` : "",
+    fermaArticolo: (art, n, procedi) => {
+      if (!inAttesa.get(art.id)) return false;
+      chiediAttesa(art, n, procedi);
+      return true;
+    },
     testoVuoto: () => fornitore ? "Aggiungi gli articoli del fornitore dall'elenco qui sopra, con il tasto ＋ o sparandoli con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
     cambiato: () => { ricalcola(); disegnaCatalogo(); }
   });
+
+  // ---------- Articolo già in attesa: si spiega e si chiede (Invio = "Va bene, non lo aggiungo") ----------
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-bg" id="modAttesa"><div class="modal" style="width:min(520px,100%)">
+      <h2>⏳ Questo articolo è già in attesa</h2>
+      <p id="modAttesaTesto"></p>
+      <div id="modAttesaRighe" style="margin-bottom:14px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-light" id="modPiu" title="Servono altri pezzi oltre a quelli già in attesa">➕ Ne servono di più</button>
+        <button class="btn btn-primary" id="modOk">✔ Va bene, non lo aggiungo</button>
+      </div>
+    </div></div>`);
+  let procediAttesa = null;
+  function chiediAttesa(art, n, procedi) {
+    const quali = inAttesaRighe.filter(r => r.articolo_id === art.id);
+    $("modAttesaTesto").innerHTML = `<b>${esc(art.codice)} – ${esc(art.descr)}</b>: dal ${esc(fornitore.nome)} ne aspettate già <b>${inAttesa.get(art.id)}</b>.
+      Sono già messi da parte per voi e arriveranno da soli: <b>non serve riordinarlo</b>.`;
+    $("modAttesaRighe").innerHTML = quali.map(r => `<div style="padding:6px 10px;border-radius:8px;background:#f1ecff;color:#4a2aa8;margin-top:6px">Ordine #${r.ordine_id} del ${dataIt(r.data_ordine)}: <b>${r.residuo} in attesa</b>${r.stato_ordine === "Definitivo" ? " (non ancora preparato)" : ""}</div>`).join("");
+    procediAttesa = procedi;
+    $("modAttesa").classList.add("show");
+    $("modOk").focus();
+  }
+  function chiudiAttesa() {
+    $("modAttesa").classList.remove("show");
+    $("addArt").value = ""; $("suggArt").classList.remove("show");
+    $("addArt").focus();
+  }
+  $("modOk").onclick = () => { chiudiAttesa(); avviso("Non aggiunto: è già in attesa"); };
+  $("modPiu").onclick = () => {
+    chiudiAttesa();
+    if (procediAttesa) procediAttesa();   // la riga si vede con "IN PIÙ": il Magazzino Centrale sa che sono pezzi in aggiunta
+  };
 
   // ---------- Totali in alto e riepilogo ----------
   const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
@@ -368,7 +419,8 @@
   // ---------- Articoli del fornitore ----------
   const sottoScorta = a => a.scorta > 0 && (a.giac ?? 0) < a.scorta;
   // Quanti pezzi proporre: quelli che mancano per tornare alla scorta minima, altrimenti 1
-  const daOrdinare = a => sottoScorta(a) ? a.scorta - Math.max(0, a.giac ?? 0) : 1;
+  // (i pezzi già in attesa dal fornitore-sede contano come già ordinati)
+  const daOrdinare = a => sottoScorta(a) ? Math.max(0, a.scorta - Math.max(0, a.giac ?? 0) - (inAttesa.get(a.id) || 0)) : 1;
   function disegnaCatalogo() {
     $("catalogo").hidden = !fornitore;
     if (!fornitore) return;
@@ -388,7 +440,7 @@
         <td class="num" style="color:var(--muted)">${a.scorta || "—"}</td>
         <td class="num">${numero(a.costo)}</td>
         <td class="num"><input class="num-mod" type="number" min="1" value="${daOrdinare(a)}" data-qcat="${esc(a.codice)}"></td>
-        <td>${r ? `<span class="gia-in">✔ ${r.qta} nell'ordine</span>` : `<button class="btn btn-light" style="padding:4px 10px;font-size:0.8rem" data-agg="${esc(a.codice)}">➕ Aggiungi</button>`}</td>
+        <td>${r ? `<span class="gia-in">✔ ${r.qta} nell'ordine</span>` : inAttesa.get(a.id) ? `<span class="q-attesa" style="color:#5b34c9;font-weight:700;font-size:0.8rem;margin-right:6px" title="Già messi da parte per voi">⏳ ${inAttesa.get(a.id)} in attesa</span><button class="btn btn-light" style="padding:4px 8px;font-size:0.75rem" data-agg="${esc(a.codice)}">➕</button>` : `<button class="btn btn-light" style="padding:4px 10px;font-size:0.8rem" data-agg="${esc(a.codice)}">➕ Aggiungi</button>`}</td>
       </tr>`;
     }).join("") : `<tr><td colspan="6"><div class="vuoto" style="padding:20px"><b>${tutti.length ? "Nessun articolo con questi filtri" : "Nessun articolo collegato a questo fornitore"}</b>${tutti.length ? "" : "<span>Puoi comunque aggiungere articoli qui sotto, con la pistola o cercandoli.</span>"}</div></td></tr>`;
   }
@@ -401,8 +453,9 @@
     righe.aggiungi(ARTICOLI.find(x => x.codice === b.dataset.agg), Math.max(1, +q.value || 1), { vaiAlCampo: false });
   };
   $("aggSotto").onclick = () => {
-    const da = articoliDel(fornitore).filter(a => sottoScorta(a) && !righe.RIGHE.some(r => r.articolo === a));
-    da.forEach(a => righe.aggiungi(a, daOrdinare(a), { silenzioso: true }));
+    const da = articoliDel(fornitore).filter(a => sottoScorta(a) && daOrdinare(a) > 0 && !righe.RIGHE.some(r => r.articolo === a));
+    // la quantità tiene già conto dei pezzi in attesa: quello che resta è davvero in più
+    da.forEach(a => righe.aggiungi(a, daOrdinare(a), { silenzioso: true, forza: true }));
     righe.aggiorna(); ricalcola(); disegnaCatalogo();
     avviso(da.length ? `Aggiunti ${da.length} articoli sotto scorta` : "Gli articoli sotto scorta sono già nell'ordine");
   };
@@ -454,7 +507,7 @@
     if (!/^[0-9a-f-]{36}$/i.test(String(fornitore.id))) { avviso("I fornitori veri non sono ancora arrivati dal database: aspetta un attimo e riprova"); return; }
     if (righe.RIGHE.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
     // Articoli già in attesa (inevasi): il gestionale avvisa e lascia decidere
-    const doppi = righe.RIGHE.filter(r => inAttesa.get(r.articolo.id));
+    const doppi = righe.RIGHE.filter(r => inAttesa.get(r.articolo.id) && !r.oltreAttesa);
     if (doppi.length && !confirm(`Questi articoli sono già in attesa dal ${fornitore.nome} (inevasi di ordini precedenti):\n\n` +
         doppi.map(r => `• ${r.articolo.codice} – ${r.articolo.descr}: ${inAttesa.get(r.articolo.id)} in attesa, ora ne ordini ${r.qta}`).join("\n") +
         `\n\nOK = ordinali lo stesso (si aggiungono a quelli in attesa)\nAnnulla = torna all'ordine per toglierli o cambiare le quantità`)) {

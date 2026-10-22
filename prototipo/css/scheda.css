@@ -237,3 +237,13 @@ body:not(.in-modifica) .solo-mod { display: none !important; }
 .btn-giallo:hover { filter: brightness(1.04); }
 .altro-forn { color: #b26a00; font-size: 0.72rem; }
 .nota-art { color: #7c4dff; font-size: 0.72rem; font-weight: 600; }
+.tag-piu { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 6px; background: #ede7ff; color: #5b34c9; font-size: 0.68rem; font-weight: 800; }
+/* Articoli già in attesa da un'altra sede (inevasi e ordini non ancora preparati) */
+.box-attesa { margin-bottom: 14px; border: 2px solid #c9b8ff; border-radius: 12px; background: #faf8ff; overflow: hidden; }
+.box-attesa .testa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: #f1ecff; color: #4a2aa8; }
+.box-attesa .testa b { font-size: 0.95rem; }
+.box-attesa .testa small { color: #6b55b8; }
+.box-attesa .testa .spazio { flex: 1; }
+.box-attesa .table-wrap { max-height: 260px; overflow-y: auto; border: none; border-radius: 0; }
+.box-attesa td { padding: 5px 10px; }
+.box-attesa .q-attesa { font-weight: 800; color: #5b34c9; }

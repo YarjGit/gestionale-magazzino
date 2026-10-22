@@ -16,6 +16,8 @@
 //   altroFornitore(art) true se l'articolo non è del fornitore scelto (avviso arancione)
 //   cambiato()          chiamata quando cambiano le righe (per totali in alto, catalogo…)
 //   notaArticolo(art)   testo facoltativo accanto all'articolo e nell'avviso (es. "già in attesa dal Magazzino Centrale: 5")
+//   fermaArticolo(art, n, procedi)  true = l'articolo non entra (es. già in attesa dal Magazzino Centrale): la pagina
+//                       spiega perché e, se serve davvero, chiama procedi() per aggiungerlo lo stesso (la riga ha oltreAttesa)
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
@@ -96,12 +98,13 @@ function avviaRighe(cfg) {
   }
 
   // Mette l'articolo nel movimento: se c'è già, aumenta la quantità della sua riga
-  function aggiungi(art, n, { vaiAlCampo = true, silenzioso = false } = {}) {
+  function aggiungi(art, n, { vaiAlCampo = true, silenzioso = false, forza = false } = {}) {
     let r = RIGHE.find(x => x.articolo === art);
+    if (!r && !forza && cfg.fermaArticolo && cfg.fermaArticolo(art, n, () => aggiungi(art, n, { vaiAlCampo, silenzioso, forza: true }))) return false;
     if (oltreGiacenza(art, (r ? pezziDi(r) : 0) + n)) return false;
     if (r) { r.qta += n; if (cfg.spedita) r.sped += n; }
     else {
-      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art, estera()), articolo: art };
+      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art, estera()), articolo: art, oltreAttesa: forza };
       RIGHE.push(r);
     }
     r.tot = totRiga(r);
@@ -122,14 +125,15 @@ function avviaRighe(cfg) {
     cambiato();
     document.querySelector(`[data-cercariga="${r.pos}"]`).focus();
   }
-  function completaRiga(r, art) {
+  function completaRiga(r, art, forza) {
     if (RIGHE.some(x => x.articolo === art)) {   // articolo già presente: la riga vuota sparisce e la quantità va sulla sua riga
       RIGHE.splice(RIGHE.indexOf(r), 1);
       aggiungi(art, r.qta, { vaiAlCampo: false });
       return;
     }
     if (oltreGiacenza(art, pezziDi(r))) return;   // la riga resta vuota: si può scegliere un altro articolo
-    Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art, estera()) });
+    if (!forza && cfg.fermaArticolo && cfg.fermaArticolo(art, r.qta, () => completaRiga(r, art, true))) return;
+    Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art, estera()), oltreAttesa: !!forza });
     r.tot = totRiga(r);
     cambiato();
     if (altro(art)) avviso(`${art.codice}: attenzione, non risulta di questo fornitore`);
@@ -157,7 +161,7 @@ function avviaRighe(cfg) {
         <td colspan="${colonne - 2}"><div class="cerca-riga"><input data-cercariga="${r.pos}" placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off"><div class="suggerimenti" data-suggriga="${r.pos}"></div></div></td></tr>`;
       const fuori = mod && altro(a);
       return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">${comandi}
-        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}<b>${esc(a.descr)}</b></td>
+        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}${r.oltreAttesa ? '<span class="tag-piu">IN PIÙ</span>' : ""}<b>${esc(a.descr)}</b></td>
         <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${a.giac ?? "—"}</td>
@@ -222,7 +226,7 @@ function avviaRighe(cfg) {
   };
   if ($("tuttiForn")) $("tuttiForn").onchange = () => { $("addArt").dispatchEvent(new Event("input")); $("addArt").focus(); };
   const suggerimenti = (lista, attivo, testo = "") => lista.length
-    ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}<small>${a.barcode}</small></div>`).join("")
+    ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art">&nbsp;· ${esc(cfg.notaArticolo(a))}</span>` : ""}<small>${a.barcode}</small></div>`).join("")
     : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessuno(testo)}</div>`;
 
   // Ricerca dentro la riga vuota (anche con la pistola: codice + Invio)

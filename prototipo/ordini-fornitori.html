@@ -46,7 +46,16 @@
   // Dopo l'accesso: gli ordini salvati nel database della sede di lavoro, in cima a quelli di esempio
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "ordine_fornitore", ID_SEDI_DB[trovaSede(leggiSede()).nome], "ordine.html");
+    const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    // Tasto INEVASI in alto: quello che questa sede ha ordinato a un'altra sede (es. Magazzino Centrale) e non è ancora arrivato
+    const attesa = await inevasiDb(db, { sede_richiedente: sedeId });
+    const nArt = new Set(attesa.map(r => r.articolo_id)).size;
+    if (sedeId !== "magazzino-centrale" || nArt) {
+      document.querySelector(".top-actions .spacer").insertAdjacentHTML("afterend", `
+        <a href="inevasi.html?vista=attesa" class="btn-inevasi-top${nArt ? "" : " zero"}" title="Articoli ordinati e non ancora arrivati: non vanno riordinati">⏳ INEVASI IN ATTESA <span class="num">${nArt}</span></a>
+        <span class="spacer"></span>`);
+    }
+    const righe = await elencoMovimentiDb(db, "ordine_fornitore", sedeId, "ordine.html");
     if (righe.length) elenco.aggiungi(righe);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
