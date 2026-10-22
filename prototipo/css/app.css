@@ -282,6 +282,13 @@ body.mini .collapse-btn { transform: rotate(180deg); }
 .top-actions { flex: 1; display: flex; align-items: center; gap: 10px; }
 /* Le azioni della pagina occupano già lo spazio libero: i pulsanti restano a destra, vicino all'utente */
 .top-actions + .spacer { display: none; }
+/* Tasto INEVASI nella barra in alto (Trasferimenti a Filiali del Magazzino Centrale) */
+.btn-inevasi-top { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; padding: 8px 16px; border-radius: 9px; background: linear-gradient(135deg, #ff9f1a, #e5631a);
+  color: #fff; font-weight: 800; letter-spacing: 0.06em; text-decoration: none; box-shadow: 0 4px 12px rgba(229,99,26,0.3); transition: transform 0.15s; }
+.btn-inevasi-top:hover { transform: translateY(-1px); }
+.btn-inevasi-top .num { min-width: 24px; padding: 1px 7px; border-radius: 99px; background: #fff; color: #c2410c; font-size: 0.8rem; text-align: center; letter-spacing: 0; }
+.btn-inevasi-top.zero { background: #eef1f6; color: var(--muted); box-shadow: none; }
+.btn-inevasi-top.zero .num { color: var(--muted); }
 .top-toggle {
   display: inline-flex;
   align-items: center;

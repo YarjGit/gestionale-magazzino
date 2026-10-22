@@ -22,6 +22,28 @@
   .storico-canc td { color: var(--muted); }
   .storico-canc .motivo { color: var(--text); font-style: italic; }
   td.chk, th.chk { width: 34px; text-align: center; }
+  td.chk input { width: 17px; height: 17px; cursor: pointer; }
+  /* Elenco degli ordini con inevasi */
+  .ordini-inev tbody tr { cursor: pointer; }
+  .ordini-inev tbody tr:hover td { background: #fff8ec; }
+  .filiale { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+  .filiale .pallino { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+  .apri { padding: 5px 12px; border-radius: 7px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+  .pezzi-inev { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 6px; background: #fde4e4; color: var(--ko); font-weight: 700; text-align: center; }
+  /* Dettaglio: una sezione per ogni ordine, dalla data più vecchia */
+  .dett-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .dett-head h2 { font-size: 1.05rem; margin: 0; }
+  .dett-head .spazio { flex: 1; }
+  .barra-sel { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 14px; border-radius: 10px; background: #f6f8fc; border: 1px solid var(--line); }
+  .barra-sel .spazio { flex: 1; }
+  .blocco-data { margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .blocco-data.evidenziato { border: 2px solid #ff9f1a; box-shadow: 0 6px 18px rgba(229,99,26,0.15); }
+  .blocco-data .testa-data { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: #fff3dd; color: #7a4700; font-weight: 700; }
+  .blocco-data .testa-data .data { font-size: 1.05rem; }
+  .blocco-data .testa-data small { font-weight: 500; color: #9a6a2a; }
+  .blocco-data .testa-data .spazio { flex: 1; }
+  .blocco-data .testa-data .questo { padding: 2px 9px; border-radius: 99px; background: #ff9f1a; color: #fff; font-size: 0.72rem; }
+  .blocco-data table { margin: 0; }
 </style>
 </head>
 <body data-page="inevasi">
@@ -37,10 +59,10 @@
     </div>
   </div>
   <div class="nota-elenco">⏳ Gli <b>inevasi</b> sono gli articoli ordinati da una filiale e non ancora mandati: <b>quantità ordinata − già trasferita − cancellata</b>.
-    Si aggiornano da soli a ogni trasferimento, e la filiale non deve riordinarli.</div>
+    Si aggiornano da soli a ogni trasferimento, e la filiale non deve riordinarli. Clicca un ordine per vedere gli inevasi di quella filiale, divisi per data dell'ordine.</div>
   <section class="panel">
     <div class="schede" id="schede">
-      <button class="scheda-tab active" data-t="mandare">📤 Da mandare alle filiali <span class="n" id="nMandare">…</span></button>
+      <button class="scheda-tab active" data-t="mandare">📤 Ordini con inevasi da mandare <span class="n" id="nMandare">…</span></button>
       <button class="scheda-tab" data-t="attesa">📥 In attesa per noi <span class="n" id="nAttesa">…</span></button>
       <button class="scheda-tab" data-t="cancellati">🗂️ Cancellati <span class="n" id="nCanc">…</span></button>
     </div>
@@ -81,28 +103,92 @@
     return [...m.entries()];
   };
 
+  // ?filiale=cal-smm-roma&ordine=21 → dettaglio della filiale (ordine 21 evidenziato); senza → elenco degli ordini con inevasi
+  const qs = new URLSearchParams(location.search);
+  const filialeScelta = qs.get("filiale"), ordineScelto = +qs.get("ordine");
+  const coloreSede = nome => (SEDI.find(s => s.nome === nome) || {}).colore || "#e5e7eb";
+  const filialeHtml = nome => `<span class="filiale"><span class="pallino" style="background:${coloreSede(nome)}"></span>${esc(nome)}</span>`;
+  const perOrdine = lista => {
+    const m = new Map();
+    lista.forEach(r => {
+      const o = m.get(r.ordine_id) || { id: r.ordine_id, data: r.data_ordine, sede: r.sede_richiedente, filiale: r.nomeRichiedente, righe: [], pezzi: 0, disp: 0 };
+      o.righe.push(r); o.pezzi += r.residuo;
+      if ((r.articolo.giac ?? 0) > 0) o.disp++;
+      m.set(r.ordine_id, o);
+    });
+    return [...m.values()];
+  };
+  const cent = v => Math.round(v * 100) / 100;
+
   function disegnaMandare() {
-    $("nMandare").textContent = daMandare.length;
-    $("tab-mandare").innerHTML = daMandare.length ? perFiliale(daMandare, "sede_richiedente").map(([sede, righe]) => `
-      <div class="gruppo-filiale" data-sede="${esc(sede)}">
-        <h2>🏬 ${esc(righe[0].nomeRichiedente)} <span class="n">${righe.length} articoli</span><span class="spazio"></span>
-          <button class="btn btn-light" data-tutti="${esc(sede)}">Seleziona i disponibili</button>
-          <button class="btn btn-primary" data-prepara="${esc(sede)}">🚚 Prepara trasferimento con i selezionati</button></h2>
+    const ordini = perOrdine(daMandare);
+    $("nMandare").textContent = ordini.length;
+    if (filialeScelta) { disegnaDettaglio(); return; }
+    // Elenco: un ordine per riga, dal più recente
+    ordini.sort((a, b) => b.data.localeCompare(a.data) || b.id - a.id);
+    $("tab-mandare").innerHTML = ordini.length ? `<div class="table-wrap"><table class="ordini-inev">
+        <thead><tr><th>Ordine</th><th>Data ordine</th><th>Filiale</th><th class="num">Articoli inevasi</th><th class="num">Pezzi inevasi</th><th class="num">Disponibili ora</th><th></th></tr></thead>
+        <tbody>${ordini.map(o => `<tr data-apri="${esc(o.sede)}|${o.id}">
+          <td><span class="num-mov"><span class="id">#${o.id}</span></span></td>
+          <td>${dataIt(o.data)}</td>
+          <td>${filialeHtml(o.filiale)}</td>
+          <td class="num">${o.righe.length}</td>
+          <td class="num"><span class="pezzi-inev">${cent(o.pezzi)}</span></td>
+          <td class="num">${o.disp ? `<span class="disp si">${o.disp} di ${o.righe.length}</span>` : '<span class="disp no">nessuno</span>'}</td>
+          <td class="num"><span class="apri">Apri →</span></td>
+        </tr>`).join("")}</tbody></table></div>
+        <div class="riepilogo-inev" style="margin-top:12px;color:var(--muted)">Totale: <b style="color:var(--text)">${ordini.length} ordini</b> · ${daMandare.length} articoli · ${cent(daMandare.reduce((s, r) => s + r.residuo, 0))} pezzi da mandare</div>`
+      : '<div class="vuoto"><b>Nessun inevaso da mandare</b><span>Qui compaiono gli ordini delle filiali con articoli non ancora mandati.</span></div>';
+  }
+
+  // Dettaglio di una filiale: una sezione per ogni ordine, dalla data più vecchia; l'ordine cliccato è evidenziato
+  function disegnaDettaglio() {
+    const righe = daMandare.filter(r => r.sede_richiedente === filialeScelta);
+    const nome = righe[0] ? righe[0].nomeRichiedente : filialeScelta;
+    const ordini = perOrdine(righe).sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id);
+    $("tab-mandare").innerHTML = `
+      <div class="dett-head">
+        <a class="btn btn-light" href="inevasi.html">← Tutti gli ordini con inevasi</a>
+        <h2>Inevasi di ${filialeHtml(nome)}</h2>
+        <span class="spazio"></span>
+        <span style="color:var(--muted)">${ordini.length} ordini · ${righe.length} articoli · ${cent(righe.reduce((s, r) => s + r.residuo, 0))} pezzi</span>
+      </div>
+      ${righe.length ? `<div class="barra-sel">
+        <button class="btn btn-light" data-az="disponibili">✔ Seleziona i disponibili</button>
+        <button class="btn btn-light" data-az="nessuno">↺ Togli la selezione</button>
+        <span class="spazio"></span>
+        <span id="nSel" style="color:var(--muted)">Nessun articolo selezionato</span>
+        <button class="btn btn-primary" data-az="prepara">🚚 Prepara trasferimento con i selezionati</button>
+      </div>` : ""}
+      ${ordini.map(o => `<div class="blocco-data${o.id === ordineScelto ? " evidenziato" : ""}" id="ord-${o.id}">
+        <div class="testa-data">📅 <span class="data">${dataIt(o.data)}</span> Ordine #${o.id} <small>${o.righe.length} articoli · ${cent(o.pezzi)} pezzi inevasi</small>
+          ${o.id === ordineScelto ? '<span class="questo">ordine aperto</span>' : ""}<span class="spazio"></span>
+          <label style="font-weight:500;font-size:0.82rem;cursor:pointer"><input type="checkbox" data-tuttoord="${o.id}"> seleziona tutto l'ordine</label></div>
         <div class="table-wrap"><table>
-          <thead><tr><th class="chk"></th><th>Articolo</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Già mandata</th><th class="num">Inevasa</th><th class="num">Giac. qui</th><th></th><th style="width:40px"></th></tr></thead>
-          <tbody>${righe.map(r => `<tr>
-            <td class="chk"><input type="checkbox" data-riga="${r.ordine_riga_id}"></td>
+          <thead><tr><th class="chk"></th><th>Articolo</th><th class="num">Ordinata</th><th class="num">Già mandata</th><th class="num">Inevasa</th><th class="num">Giac. qui</th><th></th><th style="width:40px"></th></tr></thead>
+          <tbody>${o.righe.map(r => `<tr>
+            <td class="chk"><input type="checkbox" data-riga="${r.ordine_riga_id}" data-ord="${o.id}"></td>
             <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
-            <td><span class="num-mov"><span class="id">#${r.ordine_id}</span></span> <small style="color:var(--muted)">${dataIt(r.data_ordine)}</small></td>
-            <td class="num">${r.ordinata}</td><td class="num">${r.trasferita + r.annullata ? r.trasferita : "—"}</td>
+            <td class="num">${r.ordinata}</td><td class="num">${r.trasferita || "—"}</td>
             <td class="num"><span class="residuo">${r.residuo}</span></td>
             <td class="num">${r.articolo.giac ?? 0}</td><td>${disponibilita(r)}</td>
             <td><button class="btn-riga cestino" data-cancella="${r.ordine_riga_id}" title="Cancella: questo articolo non arriverà più">🗑</button></td>
           </tr>`).join("")}</tbody>
         </table></div>
-      </div>`).join("") : '<div class="vuoto"><b>Nessun inevaso da mandare</b><span>Qui compaiono gli articoli ordinati dalle filiali a questa sede e non ancora mandati.</span></div>';
+      </div>`).join("") || '<div class="vuoto"><b>Nessun inevaso per questa filiale</b><span><a href="inevasi.html" style="color:var(--accent)">Torna all\'elenco degli ordini</a></span></div>'}`;
+    const ev = document.getElementById("ord-" + ordineScelto);
+    if (ev) setTimeout(() => ev.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }
-
+  // quanti selezionati (e "seleziona tutto l'ordine" in sintonia con le caselle)
+  function contaSelezione() {
+    const scelte = [...document.querySelectorAll("#tab-mandare input[data-riga]:checked")];
+    const pezzi = scelte.reduce((s, c) => s + daMandare.find(x => x.ordine_riga_id === +c.dataset.riga).residuo, 0);
+    if ($("nSel")) $("nSel").innerHTML = scelte.length ? `Selezionati: <b style="color:var(--text)">${scelte.length} articoli, ${cent(pezzi)} pezzi</b>` : "Nessun articolo selezionato";
+    document.querySelectorAll("#tab-mandare input[data-tuttoord]").forEach(t => {
+      const caselle = [...document.querySelectorAll(`#tab-mandare input[data-ord="${t.dataset.tuttoord}"]`)];
+      t.checked = caselle.length && caselle.every(c => c.checked);
+    });
+  }
   function disegnaAttesa() {
     $("nAttesa").textContent = inAttesa.length;
     $("tab-attesa").innerHTML = inAttesa.length ? `<div class="table-wrap"><table>
@@ -146,18 +232,24 @@
     if (!daMandare.length && inAttesa.length) document.querySelector('.scheda-tab[data-t="attesa"]').click();
   }
 
+  $("tab-mandare").onchange = e => {
+    if (e.target.dataset.tuttoord) document.querySelectorAll(`#tab-mandare input[data-ord="${e.target.dataset.tuttoord}"]`).forEach(c => c.checked = e.target.checked);
+    contaSelezione();
+  };
   $("tab-mandare").onclick = async e => {
+    const tr = e.target.closest("tr[data-apri]");
+    if (tr) { const [sede, ord] = tr.dataset.apri.split("|"); location.href = `inevasi.html?filiale=${encodeURIComponent(sede)}&ordine=${ord}`; return; }
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.dataset.tutti) {
-      const box = b.closest(".gruppo-filiale");
-      box.querySelectorAll("input[data-riga]").forEach(c => {
+    if (b.dataset.az === "disponibili" || b.dataset.az === "nessuno") {
+      document.querySelectorAll("#tab-mandare input[data-riga]").forEach(c => {
         const r = daMandare.find(x => x.ordine_riga_id === +c.dataset.riga);
-        c.checked = (r.articolo.giac ?? 0) > 0;
+        c.checked = b.dataset.az === "disponibili" && (r.articolo.giac ?? 0) > 0;
       });
+      contaSelezione();
     }
-    if (b.dataset.prepara) {
-      const scelte = [...b.closest(".gruppo-filiale").querySelectorAll("input[data-riga]:checked")].map(c => c.dataset.riga);
+    if (b.dataset.az === "prepara") {
+      const scelte = [...document.querySelectorAll("#tab-mandare input[data-riga]:checked")].map(c => c.dataset.riga);
       if (!scelte.length) { avviso("Seleziona gli inevasi da mandare (o usa \"Seleziona i disponibili\")"); return; }
       location.href = `trasferimento.html?nuovo=1&righe=${scelte.join(",")}`;
     }
@@ -176,7 +268,6 @@
       } catch (err) { avviso("Errore nel cancellare: " + err.message); }
     }
   };
-
   dbPronto.then(async conn => {
     db = conn;
     if (!db) { $("tab-mandare").innerHTML = '<div class="vuoto"><b>Serve l\'accesso al database</b></div>'; return; }

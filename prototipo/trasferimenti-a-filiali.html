@@ -59,6 +59,14 @@
   dbPronto.then(async db => {
     if (!db) return;
     const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    // Tasto INEVASI in alto, a metà tra "Record attuali" ed "Etichette": per il Magazzino Centrale (o chi ha inevasi da mandare)
+    const inev = await inevasiDb(db, { sede_fornitrice: sedeId, stato_ordine: "Evaso" });
+    const nOrdini = new Set(inev.map(r => r.ordine_id)).size;
+    if (sedeId === "magazzino-centrale" || nOrdini) {
+      document.querySelector(".top-actions .spacer").insertAdjacentHTML("afterend", `
+        <a href="inevasi.html" class="btn-inevasi-top${nOrdini ? "" : " zero"}" title="Ordini delle filiali con articoli non ancora mandati">⏳ INEVASI <span class="num">${nOrdini}</span></a>
+        <span class="spacer"></span>`);
+    }
     const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", sedeId, "trasferimento.html");
     if (righe.length) elenco.aggiungi(righe);
     // Ordini delle filiali arrivati a questa sede e non ancora preparati: in cima, si aprono per fare il trasferimento

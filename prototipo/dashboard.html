@@ -271,7 +271,11 @@
         <div class="card-apri"><span>Apri e prepara il trasferimento →</span></div>
       </div>`).join("") : '<p class="empty">Nessun ordine da preparare.</p>';
     const nInevasi = new Set(inevasi.map(r => r.articolo_id)).size;
-    document.getElementById("numInevasi").textContent = nInevasi;
+    const nOrdiniInev = new Set(inevasi.map(r => r.ordine_id)).size;
+    document.getElementById("numInevasi").textContent = nOrdiniInev;
+    document.querySelector("#linkInevasi small").textContent = nOrdiniInev
+      ? `${nOrdiniInev} ordini con ${nInevasi} articoli non ancora mandati: aprili per vederli divisi per data e mandarli`
+      : "Nessun articolo in attesa di essere mandato";
     document.getElementById("linkInevasi").classList.toggle("zero", !nInevasi);
     // Una sede che non riceve ordini (es. un negozio) non vede la sezione
     if (!lista.length && !nInevasi) document.getElementById("sezRicevuti").hidden = true;
