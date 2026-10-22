@@ -86,6 +86,12 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 - Da chiedere alla collega: gli articoli non trovati vanno messi a zero? Chi conferma le differenze prima di aggiornare la giacenza?
 - Partenza col nuovo gestionale: copiare le giacenze dal gestionale attuale (serve un export) oppure contare tutto da capo.
 
+## Giacenze di partenza (importate il 22/10/2026)
+
+- Lette dalla pagina Giacenze del gestionale attuale e caricate con `13-giacenze-iniziali.sql`: un movimento "esistenza" per sede e anno di acquisto.
+- Risultato: Magazzino Centrale 762 articoli / 17.795,1 pezzi (uguale al vecchio gestionale); CAL SMM Roma 1.601 articoli / 10.926,1 pezzi dal vecchio gestionale, in più i carichi di prova fatti col nuovo.
+- Da sistemare: 6 righe di SMM senza codice articolo nel vecchio gestionale (non importate); 212 articoli solo del Magazzino Centrale aggiunti all'anagrafica.
+
 ## Prossimi passi
 
 1. Rispondere alle domande aperte
