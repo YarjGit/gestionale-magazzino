@@ -97,8 +97,10 @@
   .cella .riga-prezzo { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
   .cella .cifrato { font-family: "JetBrains Mono", monospace; font-weight: 700; letter-spacing: 0.05em; }
   .cella .p { font-weight: 700; font-size: 1.25em; }
-  .cella svg { width: 100%; flex: 1; min-height: 0; margin-top: auto; }
-  .cella .n { text-align: center; font-family: "JetBrains Mono", monospace; letter-spacing: 0.05em; }
+  /* Barcode con le cifre dentro le barre, in basso su fondo bianco (come l'etichetta del negozio) */
+  .cella .barre { position: relative; flex: 1; min-height: 0; margin-top: auto; }
+  .cella .barre svg { display: block; width: 100%; height: 100%; }
+  .cella .barre .n { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0.1em 0.5em 0; background: #fff; line-height: 1; white-space: nowrap; font-family: "JetBrains Mono", monospace; font-size: 1em; color: #000; letter-spacing: 0.05em; }
 
   /* ---------- Stampa: solo i fogli, alle misure vere ---------- */
   @page { size: A4; margin: 0; }
@@ -367,8 +369,7 @@
       ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
       <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(a.prezzo)}</span>` : ""}</div>
-      ${barcodeSvg(a.barcode)}
-      ${o.numero ? `<div class="n">${a.barcode}</div>` : ""}
+      <div class="barre">${barcodeSvg(a.barcode)}${o.numero ? `<span class="n">${a.barcode}</span>` : ""}</div>
     </div>`;
   }
 
