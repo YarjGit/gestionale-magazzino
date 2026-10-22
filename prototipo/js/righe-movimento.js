@@ -18,6 +18,7 @@
 //   notaArticolo(art)   testo facoltativo accanto all'articolo e nell'avviso (es. "già in attesa dal Magazzino Centrale: 5")
 //   fermaArticolo(art, n, procedi)  true = l'articolo non entra (es. già in attesa dal Magazzino Centrale): la pagina
 //                       spiega perché e, se serve davvero, chiama procedi() per aggiungerlo lo stesso (la riga ha oltreAttesa)
+//   giacenzaNeiSuggerimenti  true: accanto agli articoli suggeriti si vede quanti pezzi ha in giacenza la sede di lavoro
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
@@ -225,8 +226,12 @@ function avviaRighe(cfg) {
     return altrove ? `${esc(altrove.codice)} è di un altro fornitore: attiva "anche di altri fornitori" per aggiungerlo` : testoNessunArticolo();
   };
   if ($("tuttiForn")) $("tuttiForn").onchange = () => { $("addArt").dispatchEvent(new Event("input")); $("addArt").focus(); };
+  // Giacenza della sede di lavoro accanto all'articolo suggerito (rossa se zero, "?" se non si conosce); pezzi interi, decimali solo per i metri
+  const giacSugg = a => a.giac == null
+    ? '<span class="giac-sugg ignota" title="Giacenza non disponibile">giac. ?</span>'
+    : `<span class="giac-sugg${a.giac <= 0 ? " zero" : ""}" title="Pezzi in giacenza in questa sede">giac. ${a.giac.toLocaleString("it-IT", { maximumFractionDigits: 2 })}</span>`;
   const suggerimenti = (lista, attivo, testo = "") => lista.length
-    ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art">&nbsp;· ${esc(cfg.notaArticolo(a))}</span>` : ""}<small>${a.barcode}</small></div>`).join("")
+    ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art">&nbsp;· ${esc(cfg.notaArticolo(a))}</span>` : ""}${cfg.giacenzaNeiSuggerimenti ? giacSugg(a) : ""}<small>${a.barcode}</small></div>`).join("")
     : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessuno(testo)}</div>`;
 
   // Ricerca dentro la riga vuota (anche con la pistola: codice + Invio)

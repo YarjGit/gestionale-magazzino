@@ -237,6 +237,11 @@ body:not(.in-modifica) .solo-mod { display: none !important; }
 .btn-giallo:hover { filter: brightness(1.04); }
 .altro-forn { color: #b26a00; font-size: 0.72rem; }
 .nota-art { color: #7c4dff; font-size: 0.72rem; font-weight: 600; }
+/* Giacenza della sede accanto agli articoli suggeriti (Ordine a fornitore) */
+.giac-sugg { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: #e7f6ec; color: #1f7a3d; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.giac-sugg.zero { background: #fdecec; color: #c0392b; }
+.giac-sugg.ignota { background: #f1f3f6; color: var(--muted); }
+.giac-sugg + small { margin-left: 10px; }
 .tag-piu { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 6px; background: #ede7ff; color: #5b34c9; font-size: 0.68rem; font-weight: 800; }
 /* Articoli già in attesa da un'altra sede (inevasi e ordini non ancora preparati) */
 .box-attesa { margin-bottom: 14px; border: 2px solid #c9b8ff; border-radius: 12px; background: #faf8ff; overflow: hidden; }
