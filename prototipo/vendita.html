@@ -185,7 +185,9 @@
   // ---------- Righe della giornata (prezzo = prezzo di vendita IVA inclusa; scarica la colonna Spedita) ----------
   const righe = avviaRighe({
     ...CFG_RIGHE,
-    prezzoDi: art => art.prezzo,
+    // sede estera: si vende senza IVA, quindi il prezzo è quello in etichetta tolta l'IVA
+    prezzoDi: art => trovaSede(leggiSede()).estera ? Math.round(art.prezzo / (1 + (art.iva === 4 ? 4 : 22) / 100) * 100) / 100 : art.prezzo,
+    sedeEstera: () => trovaSede(leggiSede()).estera,
     testoVuoto: () => "Spara i barcode degli articoli venduti con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
     cambiato: () => ricalcola()
   });

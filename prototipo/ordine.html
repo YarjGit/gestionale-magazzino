@@ -311,6 +311,7 @@
   const righe = avviaRighe({
     ...CFG_RIGHE,
     prezzoDi: art => art.costo,
+    sedeEstera: () => trovaSede(leggiSede()).estera,
     puoAggiungere: serveFornitore,
     altroFornitore: art => !!fornitore && art.forn !== fornitore.id,
     testoVuoto: () => fornitore ? "Aggiungi gli articoli del fornitore dall'elenco qui sopra, con il tasto ＋ o sparandoli con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",

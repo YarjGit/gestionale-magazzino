@@ -81,6 +81,10 @@
   .rotolo .cella { font-size: 10px; padding: 6px 8px; border: none; }
   .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
   .cella .c { font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  /* Anno di carico (lotto): sempre stampato, in alto a destra */
+  .cella .riga1 { display: flex; justify-content: space-between; gap: 4px; }
+  .cella .anno { padding: 0 3px; border: 1px solid #1d2433; border-radius: 2px; font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  .anno-riga { width: 64px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font-weight: 600; }
   .cella .d { overflow: hidden; max-height: 2.3em; }
   .cella .p { font-weight: 700; font-size: 1.25em; }
   .cella svg { width: 100%; flex: 1; min-height: 0; margin-top: auto; }
@@ -135,7 +139,7 @@
   <section class="panel">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Anno</th><th>Codice</th><th>Descrizione</th><th>Barcode</th><th class="num">Pr. acq.</th><th class="num">Pr. vend.</th><th class="num">Etichette</th><th style="width:40px"></th></tr></thead>
+        <thead><tr><th title="Anno di carico: si stampa su ogni etichetta">Anno carico</th><th>Codice</th><th>Descrizione</th><th>Barcode</th><th class="num">Pr. acq.</th><th class="num">Pr. vend.</th><th class="num">Etichette</th><th style="width:40px"></th></tr></thead>
         <tbody id="righe"></tbody>
       </table>
     </div>
@@ -189,18 +193,21 @@
   const codArticolo = qs.get("cod");
   const ritorno = carico ? `carico.html?id=${carico.id}` : codArticolo ? `articolo.html?cod=${encodeURIComponent(codArticolo)}` : "carichi-fornitori.html";
 
-  // righe: [{ art, n }]
+  // righe: [{ art, n, anno }]. anno = anno di carico (lotto), stampato su ogni etichetta:
+  // dal carico è l'anno del carico, altrimenti l'anno in corso (si può correggere nella tabella)
+  const annoInCorso = new Date().getFullYear();
   let righe = [];
   if (carico) {
     const solo = qs.get("righe") ? qs.get("righe").split(",").map(Number) : null;
     const perPezzo = qs.get("perPezzo") !== "0";
-    righe = righeCarico(carico).filter(r => !solo || solo.includes(r.pos)).map(r => ({ art: r.articolo, n: perPezzo ? r.qta : 1 }));
+    const annoCarico = +carico.data.slice(0, 4);
+    righe = righeCarico(carico).filter(r => !solo || solo.includes(r.pos)).map(r => ({ art: r.articolo, n: perPezzo ? r.qta : 1, anno: annoCarico }));
     $("crumbOrigine").innerHTML = `<a href="${ritorno}">Carico #${carico.id}</a><span> - </span>Etichette`;
   }
   const etichettaArticolo = () => {
     const art = ARTICOLI.find(a => a.codice === codArticolo);
     if (!art || righe.some(r => r.art.codice === codArticolo)) return;
-    righe.push({ art, n: 1 });
+    righe.push({ art, n: 1, anno: annoInCorso });
     $("crumbOrigine").innerHTML = `<a href="${ritorno}">Articolo ${esc(codArticolo)}</a><span> - </span>Etichette`;
   };
   if (codArticolo) etichettaArticolo();
@@ -220,8 +227,8 @@
   }
   function aggiungi(art) {
     const n = Math.max(1, +$("qta").value || 1);
-    const esistente = righe.find(r => r.art === art);
-    if (esistente) esistente.n += n; else righe.push({ art, n });
+    const esistente = righe.find(r => r.art === art && r.anno === annoInCorso);
+    if (esistente) esistente.n += n; else righe.push({ art, n, anno: annoInCorso });
     $("cercaArt").value = "";
     $("qta").value = 1;
     $("suggerimenti").classList.remove("show");
@@ -262,9 +269,9 @@
     numero: $("mostraNumero").checked
   });
 
-  function etichettaHtml(a, o) {
+  function etichettaHtml({ art: a, anno }, o) {
     return `<div class="cella">
-      ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
+      <div class="riga1">${o.codice ? `<span class="c">${esc(a.codice)}</span>` : "<span></span>"}<span class="anno" title="Anno di carico">${anno}</span></div>
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
       ${o.prezzo ? `<div class="p">${euro(a.prezzo)}</div>` : ""}
       ${barcodeSvg(a.barcode)}
@@ -281,7 +288,7 @@
 
     $("righe").innerHTML = righe.length ? righe.map((r, i) => `
       <tr data-i="${i}" class="${r.art.codice === evidenzia ? "lampeggia" : ""}">
-        <td>${r.art.anno}</td>
+        <td><input class="anno-riga" type="number" min="2000" max="2100" value="${r.anno}" data-anno="${i}" title="Anno di carico stampato sull'etichetta"></td>
         <td><span class="codice">${esc(r.art.codice)}</span></td>
         <td><div class="testo-lungo" style="max-width:360px">${esc(r.art.descr)}</div></td>
         <td><span class="bc">${r.art.barcode}<span class="tipo${eanValido(r.art.barcode) ? "" : " c128"}" title="${eanValido(r.art.barcode) ? "" : "La cifra di controllo non è da EAN-13: stampato come Code 128"}">${tipoBarcode(r.art.barcode)}</span></span></td>
@@ -293,7 +300,7 @@
       : `<tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>`;
 
     // celle: prima quelle da saltare (solo sui fogli A4), poi un'etichetta per copia
-    const copie = righe.flatMap(r => Array(r.n).fill(r.art));
+    const copie = righe.flatMap(r => Array(r.n).fill(r));
     if (o.formato === "rotolo") {
       $("fogli").innerHTML = copie.length ? `<div class="rotolo">${copie.slice(0, 30).map(a => etichettaHtml(a, o)).join("")}</div>` +
         (copie.length > 30 ? `<p style="align-self:flex-end;color:var(--muted)">… e altre ${copie.length - 30}</p>` : "") : "";
@@ -310,6 +317,7 @@
   }
 
   $("righe").oninput = e => {
+    if (e.target.dataset.anno != null) { righe[e.target.dataset.anno].anno = +e.target.value || annoInCorso; disegna(); $("righe").querySelector(`input[data-anno="${e.target.dataset.anno}"]`).focus(); return; }
     const i = e.target.dataset.i;
     if (i == null) return;
     righe[i].n = Math.max(0, +e.target.value || 0);

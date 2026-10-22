@@ -25,7 +25,9 @@ const SEDI = [
 // Sedi che oggi usano il gestionale. Le altre restano pronte ma spente:
 // per attivarne una basta aggiungerla qui.
 const SEDI_ATTIVE = ["CAL SMM Roma", "Magazzino Centrale"];
-SEDI.forEach(s => s.attiva = SEDI_ATTIVE.includes(s.nome));
+// Sedi all'estero: i loro movimenti sono senza IVA (0%). Da completare con l'utente.
+const SEDI_ESTERE = [];
+SEDI.forEach(s => { s.attiva = SEDI_ATTIVE.includes(s.nome); s.estera = SEDI_ESTERE.includes(s.nome); });
 
 // Testo bianco o scuro in base a quanto è chiaro lo sfondo
 function coloreTesto(hex) {

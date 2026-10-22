@@ -17,15 +17,18 @@
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script>
+  // Gli arrivi sono automatici: quando una sede fa un "Trasferimento a filiale" verso questa sede,
+  // il movimento compare qui e la giacenza aumenta da sola. Qui non si crea niente a mano (niente "Nuovo").
   avviaElenco({
     titolo: "Trasferimenti da Filiali",
-    nuovo: "Nuovo trasferimento",
+    nota: "🔄 <b>Arrivano in automatico.</b> Quando un'altra sede manda la merce qui (Trasferimento a filiale), il movimento compare in questo elenco e la <b>giacenza aumenta da sola</b>. Non serve ricaricarla a mano. Finché la sede che manda lo tiene <i>provvisorio</i>, la merce non conta ancora.",
     csv: "trasferimenti-da-filiali",
     stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio"],
+    senzaModifica: true,
     controparte: { filtro: "Sede di provenienza", elenco: SEDI_CP },
-    azioniRiga: ["Modifica", "Conferma ricezione", "Stampa etichette", "Stampa documento"],
+    azioniRiga: ["Vedi articoli", "Stampa etichette", "Stampa documento"],
     colonne: [
       COL.numero("Protocollo / Mov."),
       COL.stato(),

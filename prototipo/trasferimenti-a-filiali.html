@@ -20,6 +20,7 @@
   // Speculare a Trasferimenti da Filiali: qui la merce esce verso un'altra sede
   avviaElenco({
     titolo: "Trasferimenti a Filiali",
+    nota: "🔄 Scegli la <b>sede che riceve</b>: quando il trasferimento è <b>definitivo</b> la merce esce da qui ed entra <b>in automatico</b> nella giacenza dell'altra sede. Verso le sedi estere senza IVA (0%).",
     nuovo: "Nuovo trasferimento",
     csv: "trasferimenti-a-filiali",
     stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
@@ -33,7 +34,6 @@
       COL.data("data", "Data"),
       COL.controparte("Verso sede", 200),
       COL.testo("causale", "Causale", 160),
-      COL.avanzamento("ricevuti", "Ricevuto", "nArt"),
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],

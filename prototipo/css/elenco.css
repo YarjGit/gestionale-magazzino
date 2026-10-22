@@ -337,3 +337,6 @@ tr.barrato .testo-lungo, tr.barrato .testo-medio { text-decoration: line-through
 
 /* Parole trovate dalla ricerca */
 mark.trovato { padding: 0 1px; border-radius: 3px; background: #fff09a; color: inherit; }
+
+/* Riquadro di spiegazione sotto il titolo (cfg.nota) */
+.nota-elenco { margin: -4px 0 14px; padding: 10px 14px; border: 1px solid #b9d9f5; border-radius: 10px; background: #f0f7ff; color: #1f4f80; font-size: 0.86rem; }

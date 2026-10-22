@@ -15,13 +15,16 @@
 //   puoAggiungere()     false blocca le aggiunte (es. manca il fornitore); la funzione avvisa da sola
 //   altroFornitore(art) true se l'articolo non è del fornitore scelto (avviso arancione)
 //   cambiato()          chiamata quando cambiano le righe (per totali in alto, catalogo…)
+//   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
 
-const ALIQUOTE_RIGA = [["22", "22% (A.22)", 22], ["04", "4% (A.04)", 4], ["--", "0% (C.--)", 0], ["0", "0% (A.0)", 0], ["74", "0% (A.74)", 0]];
-const ivaDiArticolo = art => art.iva === 4 ? "04" : art.iva === 0 ? "--" : "22";
-const nomeIva = k => ALIQUOTE_RIGA.find(a => a[0] === k)[1];
-const percIva = k => ALIQUOTE_RIGA.find(a => a[0] === k)[2];
+// Regola dell'utente: tutto al 22%, le ostie al 4%, le sedi estere senza IVA (0%).
+// I codici sono quelli della tabella aliquote_iva.
+const ALIQUOTE_RIGA = [["22", "22%", 22], ["04", "4% (ostie)", 4], ["--", "0% (sede estera)", 0]];
+const ivaDiArticolo = (art, sedeEstera) => sedeEstera ? "--" : art.iva === 4 ? "04" : "22";
+const nomeIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k])[1];
+const percIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k, 0])[2];
 
 function righeHtmlAggiungi() {
   return `<div class="aggiungi-art solo-mod richiede-forn">
@@ -52,6 +55,7 @@ function avviaRighe(cfg) {
   const RIGHE = [];
   let ultimaAggiunta = null;
   const puo = () => !cfg.puoAggiungere || cfg.puoAggiungere();
+  const estera = () => !!(cfg.sedeEstera && cfg.sedeEstera());
   const altro = art => !!(cfg.altroFornitore && cfg.altroFornitore(art));
   const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
   const colonne = cfg.spedita ? 11 : 10;
@@ -94,7 +98,7 @@ function avviaRighe(cfg) {
     if (oltreGiacenza(art, (r ? pezziDi(r) : 0) + n)) return false;
     if (r) { r.qta += n; if (cfg.spedita) r.sped += n; }
     else {
-      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art), articolo: art };
+      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art, estera()), articolo: art };
       RIGHE.push(r);
     }
     r.tot = totRiga(r);
@@ -121,7 +125,7 @@ function avviaRighe(cfg) {
       return;
     }
     if (oltreGiacenza(art, pezziDi(r))) return;   // la riga resta vuota: si può scegliere un altro articolo
-    Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art) });
+    Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art, estera()) });
     r.tot = totRiga(r);
     cambiato();
     if (altro(art)) avviso(`${art.codice}: attenzione, non risulta di questo fornitore`);
@@ -285,7 +289,7 @@ function avviaRighe(cfg) {
     giaScaricati.clear();
     righe.forEach((r, i) => {
       if (r.giaScaricati) giaScaricati.set(r.articolo.codice, r.giaScaricati);
-      const riga = { pos: i + 1, sped: r.qta, sconto: 0, iva: ivaDiArticolo(r.articolo), ...r };
+      const riga = { pos: i + 1, sped: r.qta, sconto: 0, iva: ivaDiArticolo(r.articolo, estera()), ...r };
       if (riga.tot == null) riga.tot = totRiga(riga);
       RIGHE.push(riga);
     });

@@ -16,6 +16,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - L'utente manda uno screenshot per ogni schermata del gestionale attuale; si rifà la schermata **simile ma mai identica**: cambiare sempre qualcosa nella grafica e dire cosa è cambiato.
 - Prima la grafica (prototipo), la logica si decide insieme dopo. I pulsanti che salvano o stampano mostrano un avviso.
 - **Prezzi sempre con due decimali**: arrotondare prezzi unitari e totali al centesimo (anche quelli scritti a mano).
+- **IVA**: 22% per tutto, 4% solo per le ostie, 0% per le sedi estere (`SEDI_ESTERE` in `js/sedi.js`).
+- **Giacenza per anno di acquisto**; l'anno di carico si stampa su ogni etichetta prezzo. I trasferimenti tra sedi entrano in automatico nella giacenza di chi riceve. Regole complete: `PROGETTO.md` → "Regole decise".
 - Misure come il gestionale reale: righe tabella ~41 px, voci menu ~38 px, titolo 18 px (non "zoomato").
 - Domande aperte e prossimi passi: `PROGETTO.md`.
 - Come funziona il gestionale attuale (schede, campi, giacenze per anno di acquisto, calcolo dei prezzi): `STUDIO-GESTIONALE.md`. Leggerlo prima di rifare una schermata.

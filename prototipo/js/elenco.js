@@ -16,6 +16,7 @@
 //   senzaModifica         nasconde la matita di modifica (es. riallineamenti)
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
+//   nota                   testo (HTML) mostrato in un riquadro sotto il titolo, per spiegare come funziona la pagina
 
 // Stati dei movimenti: colore della striscia, dell'etichetta e della scheda in alto
 const STATO = {
@@ -124,6 +125,7 @@ function avviaElenco(cfg) {
       </div>
       <div class="tabs" id="tabs"></div>
     </div>
+    ${cfg.nota ? `<div class="nota-elenco">${cfg.nota}</div>` : ""}
 
     <section class="panel filtri" id="filtri">
       <div class="filtri-head" id="filtriHead">
