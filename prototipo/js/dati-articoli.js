@@ -10,6 +10,29 @@ function corrispondeArticolo(a, testo) {
   return parole.every(p => a._ricerca.includes(p));
 }
 
+// Ricerca per i campi "aggiungi articolo": tutti gli articoli che contengono il testo (es. "a01" trova anche A0110/11).
+// In cima il codice o barcode esatto, così la pistola (barcode + Invio) prende sempre l'articolo giusto;
+// poi i codici che iniziano col testo, quelli che lo contengono, infine descrizione. prima(a): numero più basso = più in alto.
+const MAX_SUGGERIMENTI = 50;
+function cercaArticoli(testo, prima = () => 0) {
+  const t = testo.trim().toLowerCase();
+  if (!t) return [];
+  const n = normalizza(t);
+  const posto = a => {
+    const cod = normalizza(a.codice);
+    return a.barcode === t || a.codice.toLowerCase() === t ? 0 : cod.startsWith(n) ? 1 : cod.includes(n) ? 2 : 3;
+  };
+  return ARTICOLI.filter(a => corrispondeArticolo(a, t))
+    .map(a => ({ a, p: posto(a) }))
+    .sort((x, y) => (x.p > 0) - (y.p > 0) || prima(x.a) - prima(y.a) || x.p - y.p || x.a.codice.localeCompare(y.a.codice))
+    .slice(0, MAX_SUGGERIMENTI).map(x => x.a);
+}
+// Con le frecce su/giù il menu dei suggerimenti scorre fino alla voce evidenziata
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp")
+    requestAnimationFrame(() => document.querySelectorAll(".suggerimenti.show .sugg.attivo").forEach(v => v.scrollIntoView({ block: "nearest" })));
+});
+
 // Legge tutti gli articoli dal database e li mette in ARTICOLI al posto di quelli di esempio.
 // sedeId: sede di cui mostrare la giacenza (es. "cal-smm-roma"). Restituisce quanti articoli ha letto.
 async function caricaArticoliDalDb(db, sedeId) {

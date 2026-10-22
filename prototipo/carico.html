@@ -404,12 +404,7 @@
   };
 
   // Aggiunta articolo: a mano o con la pistola (scrive il barcode e preme Invio)
-  const trovaArticoli = testo => {
-    const t = testo.trim().toLowerCase();
-    if (!t) return [];
-    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
-    return esatto.length ? esatto : ARTICOLI.filter(a => corrispondeArticolo(a, t)).slice(0, 12);
-  };
+  const trovaArticoli = testo => cercaArticoli(testo);
   let suggAttivo = 0;
   function mostraSugg() {
     const lista = trovaArticoli($("addArt").value);

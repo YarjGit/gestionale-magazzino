@@ -204,14 +204,8 @@ function avviaRighe(cfg) {
     cambiato();
   };
 
-  // Ricerca articoli: codice o barcode esatto (la pistola), altrimenti parole; prima quelli del fornitore scelto
-  const trova = testo => {
-    const t = testo.trim().toLowerCase();
-    if (!t) return [];
-    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
-    if (esatto.length) return esatto;
-    return ARTICOLI.filter(a => corrispondeArticolo(a, t)).sort((a, b) => altro(a) - altro(b)).slice(0, 12);
-  };
+  // Ricerca articoli (cercaArticoli): il codice o barcode esatto in cima per la pistola, poi quelli del fornitore scelto
+  const trova = testo => cercaArticoli(testo, a => +altro(a));
   const suggerimenti = (lista, attivo) => lista.length
     ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}<small>${a.barcode}</small></div>`).join("")
     : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>';

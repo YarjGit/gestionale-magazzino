@@ -207,13 +207,7 @@
 
   // ---------- Aggiunta: a mano o con la pistola ----------
   // La pistola si comporta come una tastiera: scrive il barcode e preme Invio
-  const trova = testo => {
-    const t = testo.trim().toLowerCase();
-    if (!t) return [];
-    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
-    if (esatto.length) return esatto;
-    return ARTICOLI.filter(a => corrispondeArticolo(a, t)).slice(0, 12);
-  };
+  const trova = testo => cercaArticoli(testo);
   let attivo = 0;
   function mostraSuggerimenti() {
     const lista = trova($("cercaArt").value);
