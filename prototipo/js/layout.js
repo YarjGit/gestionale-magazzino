@@ -123,13 +123,15 @@ const AZIONI_ANAGRAFICA = `
 const svg = (path, cls = "ico") =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 
-function avviso(testo) {
+// errore = true: avviso rosso che resta di più (es. vendita bloccata per giacenza)
+function avviso(testo, errore) {
   let t = document.querySelector(".toast");
   if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
   t.textContent = testo;
+  t.classList.toggle("errore", !!errore);
   t.classList.add("show");
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+  t._timer = setTimeout(() => t.classList.remove("show"), errore ? 5000 : 2200);
 }
 
 (function costruisciLayout() {

@@ -68,7 +68,8 @@
   const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   // Come nel gestionale attuale: Ordinata resta vuota, la quantità venduta va in Spedita
-  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, soloSpedita: true, nelMovimento: "nella giornata" };
+  // Non si vende più di quanto c'è in giacenza nella sede (limiteGiacenza).
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, soloSpedita: true, nelMovimento: "nella giornata", limiteGiacenza: true };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
@@ -206,6 +207,8 @@
   function controlla() {
     if (righe.senzaArticolo()) { avviso("C'è una riga senza articolo: scegli l'articolo o eliminala con il cestino"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
     if (!righe.RIGHE.length) { avviso("Aggiungi almeno un articolo venduto"); return false; }
+    const oltre = righe.oltreGiacenza();
+    if (oltre) { avviso(oltre + ": correggi la quantità prima di salvare", true); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
     return true;
   }
   const annullato = ven && ven.stato === "Annullato";
@@ -254,7 +257,7 @@
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // Giornata esistente: righe di esempio con articoli veri dell'anagrafica (il totale torna al centesimo)
-  if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot })));
+  if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot, giaScaricati: ven.stato === "Definitivo" ? r.qta : 0 })));
   ricalcola();
   modalita(nuovo);
   if (nuovo) $("addArt").focus();

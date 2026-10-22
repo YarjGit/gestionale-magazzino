@@ -418,6 +418,7 @@ body.mini .collapse-btn { transform: rotate(180deg); }
   z-index: 60;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.errore { background: #c62828; font-weight: 600; }
 
 /* Scelta sede all'ingresso */
 .modal-bg {

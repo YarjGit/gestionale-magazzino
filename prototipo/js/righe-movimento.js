@@ -15,6 +15,8 @@
 //   puoAggiungere()     false blocca le aggiunte (es. manca il fornitore); la funzione avvisa da sola
 //   altroFornitore(art) true se l'articolo non è del fornitore scelto (avviso arancione)
 //   cambiato()          chiamata quando cambiano le righe (per totali in alto, catalogo…)
+//   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
+//                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
 
 const ALIQUOTE_RIGA = [["22", "22% (A.22)", 22], ["04", "4% (A.04)", 4], ["--", "0% (C.--)", 0], ["0", "0% (A.0)", 0], ["74", "0% (A.74)", 0]];
 const ivaDiArticolo = art => art.iva === 4 ? "04" : art.iva === 0 ? "--" : "22";
@@ -63,6 +65,21 @@ function avviaRighe(cfg) {
   };
   const nuovaPos = () => RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1;
   const cambiato = () => { totali(); disegna(); if (cfg.cambiato) cfg.cambiato(); };
+  const pezziDi = r => cfg.spedita ? r.sped : r.qta;
+
+  // Vendite: pezzi disponibili = giacenza della sede + quelli che questa giornata aveva già scaricato
+  const giaScaricati = new Map();
+  const disponibili = art => art.giac + (giaScaricati.get(art.codice) || 0);
+  const testoOltre = (art, pezzi) => {
+    const d = disponibili(art);
+    return `${art.codice}: non si possono vendere ${pezzi === 1 ? "1 pezzo" : `${pezzi} pezzi`}, in giacenza ${d <= 0 ? "non ce n'è nessuno" : d === 1 ? "ce n'è solo 1" : `ce ne sono solo ${d}`}`;
+  };
+  // true (con avviso rosso) se i pezzi superano la giacenza; senza giacenza nota non blocca
+  function oltreGiacenza(art, pezzi) {
+    if (!cfg.limiteGiacenza || art.giac == null || pezzi <= disponibili(art)) return false;
+    avviso(testoOltre(art, pezzi), true);
+    return true;
+  }
 
   function totali() {
     const conArt = RIGHE.filter(r => r.articolo);
@@ -74,6 +91,7 @@ function avviaRighe(cfg) {
   // Mette l'articolo nel movimento: se c'è già, aumenta la quantità della sua riga
   function aggiungi(art, n, { vaiAlCampo = true, silenzioso = false } = {}) {
     let r = RIGHE.find(x => x.articolo === art);
+    if (oltreGiacenza(art, (r ? pezziDi(r) : 0) + n)) return false;
     if (r) { r.qta += n; if (cfg.spedita) r.sped += n; }
     else {
       r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art), articolo: art };
@@ -85,6 +103,7 @@ function avviaRighe(cfg) {
     cambiato();
     avviso(`${art.codice}: ${r.qta} ${cfg.nelMovimento}` + (altro(art) ? " · attenzione: non risulta di questo fornitore" : ""));
     if (vaiAlCampo) $("addArt").focus();
+    return true;
   }
   // Tasto ＋: riga vuota in cui si cerca l'articolo scrivendo il codice (o sparandolo)
   function nuovaRiga() {
@@ -101,6 +120,7 @@ function avviaRighe(cfg) {
       aggiungi(art, r.qta, { vaiAlCampo: false });
       return;
     }
+    if (oltreGiacenza(art, pezziDi(r))) return;   // la riga resta vuota: si può scegliere un altro articolo
     Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art) });
     r.tot = totRiga(r);
     cambiato();
@@ -152,6 +172,7 @@ function avviaRighe(cfg) {
     if (campo === "prezzo") r.prezzo = Math.round(num(e.target.value) * 100) / 100;
     else if (campo === "sconto") r.sconto = Math.min(100, Math.max(0, +e.target.value || 0));
     else if (campo === "iva") r.iva = e.target.value;
+    else if ((campo === "sped" || campo === "qta") && oltreGiacenza(r.articolo, Math.max(1, +e.target.value || 0))) { disegna(); return; }   // torna il numero di prima
     else if (campo === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, +e.target.value || 0); if (cfg.soloSpedita) r.qta = r.sped; }
     else { const prima = r.qta; r.qta = Math.max(1, +e.target.value || 1); if (r.sped === prima) r.sped = r.qta; }
     r.tot = totRiga(r);
@@ -166,6 +187,7 @@ function avviaRighe(cfg) {
     if (!r) return;
     if (b.dataset.togli) RIGHE.splice(RIGHE.indexOf(r), 1);
     else if (b.dataset.passo) {
+      if (+b.dataset.passo > 0 && oltreGiacenza(r.articolo, pezziDi(r) + 1)) return;
       // finché Spedita segue Ordinata, i − / + di Ordinata cambiano anche quella
       if (b.dataset.quale === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, r.sped + +b.dataset.passo); if (cfg.soloSpedita) r.qta = r.sped; }
       else { const segue = r.sped === r.qta; r.qta = Math.max(1, r.qta + +b.dataset.passo); if (segue) r.sped = r.qta; }
@@ -231,7 +253,7 @@ function avviaRighe(cfg) {
   }
   const aggiungiDaCampo = art => {
     if (!puo()) return;
-    aggiungi(art, Math.max(1, +$("addQta").value || 1));
+    if (!aggiungi(art, Math.max(1, +$("addQta").value || 1))) { $("addArt").select(); return; }
     $("addArt").value = ""; $("addQta").value = 1;
     $("suggArt").classList.remove("show");
   };
@@ -266,7 +288,9 @@ function avviaRighe(cfg) {
   // Righe già pronte (movimento esistente): { qta, sped?, prezzo, sconto?, iva?, articolo, tot? }
   function carica(righe) {
     RIGHE.length = 0;
+    giaScaricati.clear();
     righe.forEach((r, i) => {
+      if (r.giaScaricati) giaScaricati.set(r.articolo.codice, r.giaScaricati);
       const riga = { pos: i + 1, sped: r.qta, sconto: 0, iva: ivaDiArticolo(r.articolo), ...r };
       if (riga.tot == null) riga.tot = totRiga(riga);
       RIGHE.push(riga);
@@ -280,6 +304,12 @@ function avviaRighe(cfg) {
     totale: () => Math.round(RIGHE.reduce((s, r) => s + r.tot, 0) * 100) / 100,
     pezzi: () => RIGHE.reduce((s, r) => s + (r.articolo ? (cfg.spedita ? r.sped : r.qta) : 0), 0),
     senzaArticolo: () => RIGHE.some(r => !r.articolo),
+    // primo avviso di giacenza superata (es. controllo al salvataggio), oppure ""
+    oltreGiacenza: () => {
+      if (!cfg.limiteGiacenza) return "";
+      const r = RIGHE.find(r => r.articolo && r.articolo.giac != null && pezziDi(r) > disponibili(r.articolo));
+      return r ? testoOltre(r.articolo, pezziDi(r)) : "";
+    },
     // copia per Annulla
     fotografia: () => RIGHE.map(r => ({ ...r })),
     ripristina: copia => { RIGHE.splice(0, RIGHE.length, ...copia); totali(); disegna(); },
