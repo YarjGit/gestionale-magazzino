@@ -19,6 +19,8 @@
 //   fermaArticolo(art, n, procedi)  true = l'articolo non entra (es. già in attesa dal Magazzino Centrale): la pagina
 //                       spiega perché e, se serve davvero, chiama procedi() per aggiungerlo lo stesso (la riga ha oltreAttesa)
 //   giacenzaNeiSuggerimenti  true: accanto agli articoli suggeriti si vede quanti pezzi ha in giacenza la sede di lavoro
+//   giacenzaAltra(art)  facoltativa: { sigla, q } giacenza di un'altra sede (es. il Magazzino Centrale a cui si ordina):
+//                       si vede accanto alla nostra, in azzurro e con il nome della sede, nei suggerimenti e nelle righe
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
@@ -76,6 +78,7 @@ function avviaRighe(cfg) {
   const nuovaPos = () => RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1;
   const cambiato = () => { totali(); disegna(); if (cfg.cambiato) cfg.cambiato(); };
   const pezziDi = r => cfg.spedita ? r.sped : r.qta;
+  const pezziIt = q => (+q).toLocaleString("it-IT", { maximumFractionDigits: 2 });
 
   // Vendite: pezzi disponibili = giacenza della sede + quelli che questa giornata aveva già scaricato
   const giaScaricati = new Map();
@@ -165,7 +168,7 @@ function avviaRighe(cfg) {
         <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}${r.oltreAttesa ? '<span class="tag-piu">IN PIÙ</span>' : ""}<b>${esc(a.descr)}</b></td>
         <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
-        <td class="num">${a.giac ?? "—"}</td>
+        <td class="num">${cfg.giacenzaAltra && cfg.giacenzaAltra(a) ? `<div class="giac-doppia">${giacSugg(a)}</div>` : a.giac ?? "—"}</td>
         <td class="num" style="color:var(--muted)">${a.anno}</td>
         <td class="num"><span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span></td>
         <td>${mod
@@ -227,9 +230,15 @@ function avviaRighe(cfg) {
   };
   if ($("tuttiForn")) $("tuttiForn").onchange = () => { $("addArt").dispatchEvent(new Event("input")); $("addArt").focus(); };
   // Giacenza della sede di lavoro accanto all'articolo suggerito (rossa se zero, "?" se non si conosce); pezzi interi, decimali solo per i metri
-  const giacSugg = a => a.giac == null
-    ? '<span class="giac-sugg ignota" title="Giacenza non disponibile">giac. ?</span>'
-    : `<span class="giac-sugg${a.giac <= 0 ? " zero" : ""}" title="Pezzi in giacenza in questa sede">giac. ${a.giac.toLocaleString("it-IT", { maximumFractionDigits: 2 })}</span>`;
+  const giacSugg = a => {
+    const altra = cfg.giacenzaAltra && cfg.giacenzaAltra(a);
+    // con due giacenze ognuna ha il nome della sede (la nostra in verde, l'altra in azzurro)
+    const nostra = altra ? `${siglaSede(trovaSede(leggiSede()).nome)} ` : "giac. ";
+    return (a.giac == null
+      ? `<span class="giac-sugg ignota" title="Giacenza non disponibile">${nostra}?</span>`
+      : `<span class="giac-sugg${a.giac <= 0 ? " zero" : ""}" title="Pezzi in giacenza da noi">${nostra}${pezziIt(a.giac)}</span>`) +
+      (altra ? `<span class="giac-sugg altra${altra.q <= 0 ? " zero-altra" : ""}" title="Pezzi in giacenza a ${esc(altra.sigla)}">${esc(altra.sigla)} ${pezziIt(altra.q)}</span>` : "");
+  };
   const suggerimenti = (lista, attivo, testo = "") => lista.length
     ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art">&nbsp;· ${esc(cfg.notaArticolo(a))}</span>` : ""}${cfg.giacenzaNeiSuggerimenti ? giacSugg(a) : ""}<small>${a.barcode}</small></div>`).join("")
     : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessuno(testo)}</div>`;

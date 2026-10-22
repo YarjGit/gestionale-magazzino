@@ -38,6 +38,22 @@ document.addEventListener("keydown", e => {
     requestAnimationFrame(() => document.querySelectorAll(".suggerimenti.show .sugg.attivo").forEach(v => v.scrollIntoView({ block: "nearest" })));
 });
 
+// Giacenze di una sede: Map articolo_id → pezzi. A pagine da 1000 (il database non ne dà di più per volta:
+// leggendo tutto insieme per molti articoli la giacenza non arrivava e compariva "—")
+async function giacenzeSedeDb(db, sedeId) {
+  const giacenza = new Map();
+  for (let da = 0; ; da += 1000) {
+    const { data, error } = await db.from("giacenze").select("articolo_id, quantita")
+      .eq("sede_id", sedeId).order("articolo_id").range(da, da + 999);
+    if (error) throw error;
+    data.forEach(g => giacenza.set(g.articolo_id, +g.quantita));
+    if (data.length < 1000) break;
+  }
+  return giacenza;
+}
+// Nome breve di una sede per le etichette di giacenza: "CAL SMM Roma" → "SMM", "Magazzino Centrale" → "MAG. CENTRALE"
+const siglaSede = nome => /magazzino centrale/i.test(nome) ? "MAG. CENTRALE" : String(nome).replace(/^CAL\s+/i, "").split(" ")[0].toUpperCase();
+
 // Legge tutti gli articoli dal database e li mette in ARTICOLI al posto di quelli di esempio.
 // sedeId: sede di cui mostrare la giacenza (es. "cal-smm-roma"). Restituisce quanti articoli ha letto.
 async function caricaArticoliDalDb(db, sedeId) {
@@ -50,16 +66,7 @@ async function caricaArticoliDalDb(db, sedeId) {
     letti.push(...data);
     if (data.length < 1000) break;
   }
-  // Giacenze della sede, anche queste a pagine da 1000 (prima se ne leggevano solo 1000 in tutto, di tutte le sedi:
-  // per molti articoli la giacenza non arrivava e compariva "—")
-  const giacenza = new Map();
-  for (let da = 0; ; da += 1000) {
-    const { data, error } = await db.from("giacenze").select("articolo_id, quantita")
-      .eq("sede_id", sedeId).order("articolo_id").range(da, da + 999);
-    if (error) throw error;
-    data.forEach(g => giacenza.set(g.articolo_id, +g.quantita));
-    if (data.length < 1000) break;
-  }
+  const giacenza = await giacenzeSedeDb(db, sedeId);
   ARTICOLI.length = 0;
   // un articolo che in questa sede non ha mai avuto movimenti ha giacenza 0
   letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.get(a.id) ?? 0)));

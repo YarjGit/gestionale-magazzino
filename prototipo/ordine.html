@@ -273,11 +273,16 @@
   // Fornitore che è una sede (es. Magazzino Centrale): si leggono gli articoli ancora in attesa (inevasi)
   // dei nostri ordini precedenti, così non si riordinano per sbaglio
   let dbConn = null, attesaAperta = true, inAttesaRighe = [];
+  // Giacenza del fornitore quando è una sede (es. Magazzino Centrale), per vederla accanto alla nostra
+  let giacFornitore = null;
+  const nomeSedeFornitore = () => (SEDI.find(s => ID_SEDI_DB[s.nome] === fornitore.sede) || { nome: fornitore.nome }).nome;
   async function aggiornaInAttesa() {
     inAttesa = new Map();
+    giacFornitore = null;
     $("notaInevasi").hidden = true;
     if (!dbConn || !fornitore || !fornitore.sede) { righe.disegna(); return; }
     try {
+      giacFornitore = await giacenzeSedeDb(dbConn, fornitore.sede);
       const lista = await inevasiDb(dbConn, { sede_richiedente: ID_SEDI_DB[sedeLavoro], sede_fornitrice: fornitore.sede });
       // le righe di questo stesso ordine non contano
       const altri = lista.filter(r => r.ordine_id !== (ord && ord.dbId));
@@ -332,6 +337,8 @@
     ...CFG_RIGHE,
     prezzoDi: art => art.costo,
     giacenzaNeiSuggerimenti: true,
+    // ordinando a un'altra sede (es. Magazzino Centrale) si vede anche quanti pezzi ha lei
+    giacenzaAltra: art => giacFornitore && art.id ? { sigla: siglaSede(nomeSedeFornitore()), q: giacFornitore.get(art.id) ?? 0 } : null,
     sedeEstera: () => trovaSede(leggiSede()).estera,
     puoAggiungere: serveFornitore,
     altroFornitore: art => !!fornitore && art.forn !== fornitore.id,
