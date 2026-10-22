@@ -16,18 +16,12 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-vendite.js"></script>
 <script>
-  // Un movimento per giorno: è lo scarico di magazzino del venduto (la parte fiscale resta al commercialista).
-  // Una giornata annullata non si cancella: resta in elenco, in rosso e barrata, e non conta nei totali.
-  const giorno = (data, totArt, nArt, annullata) => ({
-    id: +data.replace(/-/g, "") * (annullata ? 10 : 1), stato: annullata ? "Annullato" : "Definitivo", data,
-    causale: `Riepilogo vendite giornaliere del ${data.split("-").reverse().join("/")}`,
-    totArt, tot: totArt, nArt, lab: "Laboratori Sede Centrale"
-  });
-
   avviaElenco({
     titolo: "Vendite Giornaliere",
     nuovo: "Nuova giornata",
+    dettaglio: "vendita.html",
     csv: "vendite-giornaliere",
     stati: [STATO.definitivo, STATO.annullato],
     statiBarrati: ["Annullato"],
@@ -39,19 +33,7 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: [
-      giorno("2026-10-21", 308.8, 7),
-      giorno("2026-10-20", 211.5, 11),
-      giorno("2026-10-19", 1655.6, 32),
-      giorno("2026-10-17", 270.5, 8),
-      giorno("2026-10-16", 2494.9, 74),
-      giorno("2026-10-15", 225, 25),
-      giorno("2026-10-14", 3155, 68),
-      giorno("2026-10-13", 225.1, 19),
-      giorno("2026-10-12", 1252.9, 67),
-      giorno("2026-10-09", 399.7, 64),
-      giorno("2026-10-09", 98, 4, true)
-    ]
+    dati: VENDITE
   });
 </script>
 </body>

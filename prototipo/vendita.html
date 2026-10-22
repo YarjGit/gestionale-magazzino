@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendita giornaliera – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Le vendite indicano i prezzi di vendita: nota verde invece che viola */
+  .nota-verde { padding: 9px 12px; border: 1px solid #9fd8b9; border-radius: 9px; background: #effaf3; color: #13804a; font-size: 0.86rem; }
+</style>
+</head>
+<body data-page="vendite-giornaliere">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <div class="dd" id="ddStampa" style="position:relative">
+    <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
+    <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
+      <button data-az="Riepilogo della giornata">Riepilogo della giornata</button>
+      <button data-az="Elenco articoli venduti">Elenco articoli venduti</button>
+    </div>
+  </div>
+  <button class="btn btn-light" id="btnExcel">📤 Excel</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/dati-carichi.js"></script>
+<script src="js/dati-vendite.js"></script>
+<script src="js/righe-movimento.js"></script>
+<script>
+  // Scheda vendita giornaliera: lo scarico di magazzino del venduto di un giorno.
+  // ?id=20261021 apre una giornata in sola lettura (tasto Modifica), ?nuovo=1 una giornata nuova già in modifica.
+  // Le righe usano i prezzi di vendita (IVA inclusa, come sull'etichetta). Righe in js/righe-movimento.js.
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const ven = nuovo ? null : VENDITE.find(v => v.id === +qs.get("id"));
+  const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+
+  if (!nuovo && !ven) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Giornata #${esc(qs.get("id") || "")} non trovata</b>
+      <span><a href="vendite-giornaliere.html" style="color:var(--accent)">Torna all'elenco delle vendite</a></span></div></div>`;
+    document.querySelectorAll(".top-actions .btn, .top-actions .dd").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
+    $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
+    throw new Error("vendita non trovata");
+  }
+  const giornoIt = d => d.split("-").reverse().join("/");
+  document.title = `${nuovo ? "Nuova giornata" : `Vendite del ${giornoIt(ven.data)}`} – Gestionale Magazzino`;
+
+  const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, nelMovimento: "nella giornata" };
+
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuova giornata di vendite" : `Vendite del <span class="num">${giornoIt(ven.data)}</span>`} <span class="pill" id="pillStato"></span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="vendite-giornaliere.html">Vendite Giornaliere</a><span>-</span><span>${nuovo ? "Nuova" : giornoIt(ven.data)}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Totale venduto</div>
+        <div class="v" id="topTotale">${euro(0)}</div>
+        <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
+      </div>
+    </div>
+    <div class="banner provv" id="bannerProvv" hidden><span>◷</span><span>La giornata è <b>provvisoria</b>: si può ancora completare e <b>non viene scaricata</b> dalle giacenze.</span></div>
+    ${ven && ven.stato === "Annullato" ? '<div class="banner ann">✕ Questa giornata è annullata: non scarica le giacenze e non si può modificare.</div>' : ""}
+    <div class="banner mod" id="bannerModifica" hidden>✎ Stai modificando la giornata. Ricordati di salvare.</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab active" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
+        <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <span class="spazio"></span>
+        <label class="interr" title="Ipotesi: un'etichetta per ogni pezzo invece che una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
+        <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli" hidden>
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>📄 Giornata</h3>
+              <div class="campi">
+                ${campo("s2", "Tipo di movimento", `<select disabled><option>Vendita giornaliera</option></select>`)}
+                ${campo("s4", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato">${opz(["Provvisorio", "Definitivo"].concat(ven && ven.stato === "Annullato" ? ["Annullato"] : []), ven ? ven.stato : "Definitivo")}</select><button class="btn" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisoria = ancora da completare")}
+                ${campo("s2", "Giorno", `<input class="mod" type="date" id="giorno" value="${ven ? ven.data : oggi}">`)}
+                ${campo("s2", "Sede", `<input value="${esc(sedeLavoro)}" disabled>`)}
+                ${campo("s1", "Anno", `<input value="${(ven ? ven.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
+                ${campo("s1", "ID", `<input value="${ven ? ven.id : ""}" placeholder="nuovo" disabled style="text-align:right">`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Note</h3>
+              <div class="campi">
+                ${campo("s3", "Causale", `<textarea class="mod" id="causale">${esc(ven ? ven.causale : `Riepilogo vendite giornaliere del ${giornoIt(oggi)}`)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod"></textarea>`, "stampate sul riepilogo")}
+              </div>
+            </div>
+          </div>
+          <aside class="riepilogo">
+            <h3>Riepilogo importi</h3>
+            <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="0,00" disabled></div>
+            <div class="voce-imp"><label>+ Spese</label><input class="mod spesa" placeholder="0,00"></div>
+            <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl">0,00</span></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ARTICOLI -->
+      <div class="pannello-tab" id="tab-articoli">
+        ${righeHtmlAggiungi()}
+        <div class="art-toolbar">
+          <div class="nota-verde" style="flex:1">🏷️ In questa pagina si indicano i <b>prezzi di vendita</b> (IVA inclusa, come sull'etichetta).</div>
+          <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
+        </div>
+        ${righeHtmlTabella(CFG_RIGHE)}
+      </div>
+
+      <div class="pannello-tab" id="tab-riordini" hidden>
+        <div class="vuoto"><b>Nessun riordino</b><span>Qui compariranno gli ordini per ricomprare quello che è stato venduto (da definire insieme).</span></div>
+      </div>
+      <div class="pannello-tab" id="tab-storico" hidden>
+        <div class="vuoto"><b>${nuovo ? "Giornata non ancora salvata" : "Storico da collegare"}</b><span>${nuovo ? "Dopo il salvataggio qui comparirà chi l'ha creata e modificata." : "Arriverà con il salvataggio nel database."}</span></div>
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Stato: "Rendi provvisorio" (blu) / "Rendi definitivo" (giallo), come negli ordini ----------
+  function mostraStato() {
+    const s = Object.values(STATO).find(x => x.nome === $("selStato").value);
+    const provv = s.nome === "Provvisorio";
+    $("dotStato").style.background = s.colore;
+    $("pillStato").style.cssText = `background:${s.colore}1f;color:${s.colore}`;
+    $("pillStato").textContent = `${s.icona} ${s.nome}`;
+    $("btnProvv").textContent = provv ? "Rendi definitivo" : "Rendi provvisorio";
+    $("btnProvv").className = "btn solo-mod " + (provv ? "btn-giallo" : "btn-primary");
+    $("btnProvv").hidden = !["Provvisorio", "Definitivo"].includes(s.nome);
+    $("bannerProvv").hidden = !provv;
+  }
+  $("selStato").onchange = mostraStato;
+  $("btnProvv").onclick = () => {
+    $("selStato").value = $("selStato").value === "Definitivo" ? "Provvisorio" : "Definitivo";
+    mostraStato();
+  };
+  mostraStato();
+  // la causale segue il giorno scelto finché non viene scritta a mano
+  $("giorno").onchange = () => {
+    if (/^Riepilogo vendite giornaliere del /.test($("causale").value)) $("causale").value = `Riepilogo vendite giornaliere del ${giornoIt($("giorno").value)}`;
+  };
+
+  // ---------- Righe della giornata (prezzo = prezzo di vendita IVA inclusa; scarica la colonna Spedita) ----------
+  const righe = avviaRighe({
+    ...CFG_RIGHE,
+    prezzoDi: art => art.prezzo,
+    testoVuoto: () => "Spara i barcode degli articoli venduti con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
+    cambiato: () => ricalcola()
+  });
+
+  // ---------- Totali in alto e riepilogo ----------
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+  function ricalcola() {
+    const tot = righe.totale();
+    const spese = [...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0);
+    $("impArticoli").value = numero(tot);
+    $("totCompl").textContent = numero(tot + spese);
+    $("topTotale").textContent = euro(tot);
+    $("topPezzi").textContent = `${righe.pezzi()} pezzi · ${righe.RIGHE.length} righe`;
+    $("nRigheTab").textContent = righe.RIGHE.length;
+  }
+  document.querySelectorAll(".spesa").forEach(i => i.oninput = ricalcola);
+
+  // ---------- Pulsanti in alto ----------
+  function controlla() {
+    if (righe.senzaArticolo()) { avviso("C'è una riga senza articolo: scegli l'articolo o eliminala con il cestino"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    if (!righe.RIGHE.length) { avviso("Aggiungi almeno un articolo venduto"); return false; }
+    return true;
+  }
+  const annullato = ven && ven.stato === "Annullato";
+  const pulsantiLettura = ["ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
+  let valoriPrima = [], righePrima = [];
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    document.querySelectorAll(".mod").forEach(el => el.disabled = !modifica);
+    pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
+    ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = !modifica);
+    $("bannerModifica").hidden = !modifica || nuovo;
+    righe.disegna();
+  }
+  $("btnModifica").onclick = () => {
+    valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value);
+    righePrima = righe.fotografia();
+    modalita(true);
+  };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) {
+      if (!righe.RIGHE.length || confirm("Uscire senza salvare la giornata?")) location.href = "vendite-giornaliere.html";
+      return;
+    }
+    document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
+    righe.ripristina(righePrima);
+    mostraStato(); ricalcola(); modalita(false);
+  };
+  $("btnSalva").onclick = () => {
+    if (!controlla()) return;
+    avviso(nuovo ? "Giornata salvata (solo anteprima: lo scarico vero arriverà con il database)" : "Modifiche salvate (solo anteprima)");
+    if (!nuovo) modalita(false);
+  };
+  $("btnSalvaChiudi").onclick = () => {
+    if (!controlla()) return;
+    avviso("Salvata (solo anteprima)");
+    setTimeout(() => location.href = "vendite-giornaliere.html", 700);
+  };
+  $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
+  $("btnExcel").onclick = () => righe.excel(`vendite-${ven ? ven.data : oggi}.csv`);
+  $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
+  $("menuStampa").onclick = e => {
+    const b = e.target.closest("button");
+    if (b) avviso(`${b.dataset.az}: da definire insieme`);
+    $("menuStampa").classList.remove("show");
+  };
+  document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
+
+  // Giornata esistente: righe di esempio con articoli veri dell'anagrafica (il totale torna al centesimo)
+  if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot })));
+  ricalcola();
+  modalita(nuovo);
+  if (nuovo) $("addArt").focus();
+
+  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database
+  dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]))
+    .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+</script>
+</body>
+</html>

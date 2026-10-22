@@ -206,3 +206,33 @@ tr.lampeggia { animation: lampeggia 1.2s ease-out; }
   .s1, .s2 { grid-column: span 1; } .s3, .s4, .s6 { grid-column: span 2; }
   .totale-top { margin-left: 0; text-align: left; }
 }
+
+/* ---------- Righe articolo dei movimenti (js/righe-movimento.js) ---------- */
+.btn-riga { display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 7px; background: #eef3fa; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+.btn-riga:hover { background: #e2ebf7; color: var(--accent); }
+.btn-riga.nuova { width: 34px; height: 30px; background: #e8f1ff; color: var(--accent); font-size: 1.1rem; font-weight: 700; }
+.btn-riga.cestino { background: #fde4e4; color: var(--ko); }
+.btn-riga.cestino:hover { background: var(--ko); color: #fff; }
+.btn-riga:disabled { opacity: 0.35; cursor: default; }
+.comandi { display: flex; align-items: center; gap: 4px; }
+.frecce { display: flex; flex-direction: column; }
+.frecce .btn-riga { width: 22px; height: 15px; background: none; font-size: 0.65rem; }
+.passo { display: inline-flex; align-items: center; gap: 3px; }
+.passo .btn-riga { width: 24px; height: 26px; }
+.passo input { width: 52px; }
+.costo-riga { display: inline-flex; align-items: center; gap: 3px; }
+.sel-iva { padding: 3px 6px; border: 1px solid #b9cdf0; border-radius: 6px; background: #fff; font-size: 0.82rem; }
+.sel-iva.diversa { background: #fff6cc; border-color: #f0d878; }
+.cerca-riga { position: relative; min-width: 300px; }
+.cerca-riga input { width: 100%; padding: 5px 9px; border: 1px solid var(--accent); border-radius: 7px; box-shadow: 0 0 0 3px rgba(47,139,255,0.12); }
+.cerca-riga .suggerimenti { min-width: 460px; }
+.apri-art { margin-left: 6px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 0.8rem; }
+.apri-art:hover { color: var(--accent); }
+/* In sola lettura spariscono i comandi per cambiare le righe */
+body:not(.in-modifica) .solo-mod { display: none !important; }
+.richiede-forn.bloccato { opacity: 0.45; }
+/* Stato provvisorio: tasto giallo "Rendi definitivo" e riquadro giallo */
+.banner.provv { background: #ffd23f; color: #4a3600; font-weight: 500; }
+.btn-giallo { background: #ffc531; color: #5a4200; }
+.btn-giallo:hover { filter: brightness(1.04); }
+.altro-forn { color: #b26a00; font-size: 0.72rem; }
