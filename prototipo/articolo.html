@@ -77,8 +77,8 @@
   const sedeLavoro = trovaSede(leggiSede()).nome;
   const cent = v => Math.round((+v || 0) * 100) / 100;
   const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
-  // IVA dell'articolo: 22%, le ostie 4% (lo 0% non dipende dall'articolo ma dalla sede estera)
-  const ALIQ = [["22", "22%", 22], ["04", "4% (ostie)", 4]];
+  // IVA dell'articolo: 22%, le ostie 4%, i libri 0% (lo 0% delle sedi estere dipende dalla sede, non dall'articolo)
+  const ALIQ = [["22", "22%", 22], ["04", "4% (ostie)", 4], ["0", "0% (libri)", 0]];
   const UNITA = ["Numero", "Metri", "Litri", "Chili", "Paia", "Conf.", "Dozz."];
   const PROVENIENZE = ["Magazzino Centrale", "Fornitori", "Laboratorio"];
   let FORN = FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome }));
@@ -90,7 +90,7 @@
   const art = articoloDa(base || { codice: qs.get("cod") || "", descr: "", costo: 0, prezzo: 0, iva: 22, barcode: "", giac: 0, anno: new Date().getFullYear(), forn: null });
 
   function articoloDa(a) {
-    const iva = a.iva === 4 ? "04" : "22";
+    const iva = a.iva === 4 ? "04" : a.iva === 0 ? "0" : "22";
     const perc = ALIQ.find(x => x[0] === iva)[2];
     // dal prezzo in etichetta si ricava il ricarico (senza spese, che l'elenco non conosce)
     const pv = a.prezzo / (1 + perc / 100);

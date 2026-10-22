@@ -59,9 +59,12 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 - I **trasferimenti tra sedi sono automatici**: la sede che manda fa un Trasferimento a filiale scegliendo la sede che riceve; quando è definitivo la merce entra da sola nella giacenza di chi riceve (niente carico a mano).
 
 **IVA**
-- Tutto al **22%**, tranne le **ostie al 4%**. Anche la merce che arriva dai fornitori è sempre al 22% (ostie 4%).
+- Tutto al **22%**, tranne le **ostie al 4%** e i **libri a 0%** (IVA già pagata dall'editore; codici che iniziano con Q).
+  Anche la merce che arriva dai fornitori è sempre al 22% (ostie 4%).
+- I 22 articoli non libri che il vecchio gestionale aveva a 0% passano al 22% con `database/09-iva-solo-libri-a-zero.sql`
+  (il prezzo in etichetta non cambia). Da decidere: Q08 Calendario liturgico (oggi 0%) e due Q11 al 22%
+  ("Vangelo medio piatto argento/pelle", "Prima comunione – Vestire è servire").
 - Le **sedi estere** sono a **0%** (IVA non applicata). Da sapere: quali sono le sedi estere? (nel prototipo l'elenco `SEDI_ESTERE` in `js/sedi.js` è vuoto).
-- Da controllare: nel database alcuni articoli hanno un'aliquota a 0% presa dal vecchio gestionale; con questa regola dovrebbero essere al 22% (o 4% se ostie).
 
 **Da fare nel database (quando si salvano i movimenti)**: segnare l'anno di acquisto su ogni riga di carico e trasferimento, e calcolare la giacenza per sede, articolo e anno.
 

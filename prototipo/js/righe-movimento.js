@@ -19,10 +19,10 @@
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
 
-// Regola dell'utente: tutto al 22%, le ostie al 4%, le sedi estere senza IVA (0%).
-// I codici sono quelli della tabella aliquote_iva.
-const ALIQUOTE_RIGA = [["22", "22%", 22], ["04", "4% (ostie)", 4], ["--", "0% (sede estera)", 0]];
-const ivaDiArticolo = (art, sedeEstera) => sedeEstera ? "--" : art.iva === 4 ? "04" : "22";
+// Regola dell'utente: tutto al 22%, le ostie al 4%, i libri a 0% (IVA pagata dall'editore),
+// le sedi estere senza IVA (0%). I codici sono quelli della tabella aliquote_iva.
+const ALIQUOTE_RIGA = [["22", "22%", 22], ["04", "4% (ostie)", 4], ["0", "0% (libri)", 0], ["--", "0% (sede estera)", 0]];
+const ivaDiArticolo = (art, sedeEstera) => sedeEstera ? "--" : art.iva === 4 ? "04" : art.iva === 0 ? "0" : "22";
 const nomeIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k])[1];
 const percIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k, 0])[2];
 
