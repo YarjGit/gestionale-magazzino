@@ -50,11 +50,19 @@ async function caricaArticoliDalDb(db, sedeId) {
     letti.push(...data);
     if (data.length < 1000) break;
   }
-  const { data: giac, error: errGiac } = await db.from("giacenze").select("articolo_id, sede_id, quantita");
-  if (errGiac) throw errGiac;
-  const giacenza = new Map(giac.filter(g => g.sede_id === sedeId).map(g => [g.articolo_id, +g.quantita]));
+  // Giacenze della sede, anche queste a pagine da 1000 (prima se ne leggevano solo 1000 in tutto, di tutte le sedi:
+  // per molti articoli la giacenza non arrivava e compariva "—")
+  const giacenza = new Map();
+  for (let da = 0; ; da += 1000) {
+    const { data, error } = await db.from("giacenze").select("articolo_id, quantita")
+      .eq("sede_id", sedeId).order("articolo_id").range(da, da + 999);
+    if (error) throw error;
+    data.forEach(g => giacenza.set(g.articolo_id, +g.quantita));
+    if (data.length < 1000) break;
+  }
   ARTICOLI.length = 0;
-  letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.has(a.id) ? giacenza.get(a.id) : null)));
+  // un articolo che in questa sede non ha mai avuto movimenti ha giacenza 0
+  letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.get(a.id) ?? 0)));
   return ARTICOLI.length;
 }
 // Campi da leggere per un articolo, e come diventa un articolo del prototipo (stessa forma di ARTICOLI)
