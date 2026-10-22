@@ -90,11 +90,12 @@
   .rotolo .cella { font-size: 10px; padding: 6px 8px; border: none; }
   .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
   .cella .c { font-weight: 700; font-family: "JetBrains Mono", monospace; }
-  /* Anno di carico (lotto): sempre stampato, in alto a destra */
-  .cella .riga1 { display: flex; justify-content: space-between; gap: 4px; }
-  .cella .anno { padding: 0 3px; border: 1px solid #1d2433; border-radius: 2px; font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  /* Anno di carico (lotto) in due cifre, sulla riga del prezzo prima del costo cifrato */
+  .cella .anno { margin-right: 0.8em; font-weight: 700; font-family: "JetBrains Mono", monospace; }
   .anno-riga { width: 64px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font-weight: 600; }
   .cella .d { overflow: hidden; max-height: 2.3em; }
+  .cella .riga-prezzo { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+  .cella .cifrato { font-family: "JetBrains Mono", monospace; font-weight: 700; letter-spacing: 0.05em; }
   .cella .p { font-weight: 700; font-size: 1.25em; }
   .cella svg { width: 100%; flex: 1; min-height: 0; margin-top: auto; }
   .cella .n { text-align: center; font-family: "JetBrains Mono", monospace; letter-spacing: 0.05em; }
@@ -183,6 +184,7 @@
     <div class="campi-imp">
       <div><label for="formato" style="font-weight:600">Formato</label>
         <select id="formato">
+          <option value="f4x14">Foglio A4 adesivo – 4 × 14 (56 etichette 52,5 × 21,2 mm)</option>
           <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52,5 × 29,7 mm)</option>
           <option value="f3x8">Foglio A4 adesivo – 3 × 8 (24 etichette 70 × 37 mm)</option>
           <option value="pers">Foglio A4 – misure personalizzate</option>
@@ -205,6 +207,7 @@
       <label><input type="checkbox" id="mostraCodice" checked> Mostra codice articolo</label>
       <label><input type="checkbox" id="mostraDescr" checked> Mostra descrizione</label>
       <label><input type="checkbox" id="mostraNumero" checked> Mostra le cifre sotto il barcode</label>
+      <label><input type="checkbox" id="mostraCifrato" checked> Mostra il costo d'acquisto cifrato (codice interno)</label>
     </div>
     <div class="modal-azioni"><button class="btn btn-primary" id="chiudiImp">Fatto</button></div>
   </div>
@@ -225,8 +228,9 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   // Formati dei fogli A4 in millimetri: colonne, righe, etichetta, margini, spazi.
-  // 4 × 10 come nel gestionale attuale; "pers" = misure scritte dall'utente (memorizzate su questo PC)
+  // 4 × 14 è quello usato in negozio (4 per riga, 14 righe); "pers" = misure scritte dall'utente (memorizzate su questo PC)
   const FORMATI = {
+    f4x14: { c: 4, r: 14, w: 52.5, h: 21.2, mt: 0.1, ml: 0, gx: 0, gy: 0 },
     f4x10: { c: 4, r: 10, w: 52.5, h: 29.7, mt: 0, ml: 0, gx: 0, gy: 0 },
     f3x8: { c: 3, r: 8, w: 70, h: 37, mt: 0.5, ml: 0, gx: 0, gy: 0 }
   };
@@ -234,7 +238,7 @@
     leggi: k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* senza memoria si usa il predefinito */ } }
   };
-  FORMATI.pers = memoria.leggi("etichette.misure") || { ...FORMATI.f4x10 };
+  FORMATI.pers = memoria.leggi("etichette.misure") || { ...FORMATI.f4x14 };
   const CAMPI_MISURE = { mC: "c", mR: "r", mW: "w", mH: "h", mMt: "mt", mMl: "ml", mGx: "gx", mGy: "gy" };
   const misureFoglio = f => FORMATI[f];
   const perFoglio = f => f === "rotolo" ? Infinity : misureFoglio(f).c * misureFoglio(f).r;
@@ -346,14 +350,23 @@
     prezzo: !$("nascondiPrezzo").checked,
     codice: $("mostraCodice").checked,
     descr: $("mostraDescr").checked,
-    numero: $("mostraNumero").checked
+    numero: $("mostraNumero").checked,
+    cifrato: $("mostraCifrato").checked
   });
 
+  // Costo d'acquisto cifrato (codice interno del negozio): ogni cifra diventa una lettera,
+  // M=1 A=2 G=3 I=4 S=5 T=6 E=7 R=8 P=9 D=0; euro e centesimi separati da un trattino (19,00 → MP-DD)
+  const CIFRARIO = "DMAGISTERP";   // posizione = cifra: D è lo 0, M l'1 … P il 9
+  const costoCifrato = v => (Math.round((+v || 0) * 100) / 100).toFixed(2).split(".")
+    .map(p => [...p].map(c => CIFRARIO[+c]).join("")).join("-");
+
   function etichettaHtml({ art: a, anno }, o) {
+    // Come l'etichetta del negozio: codice, descrizione, poi "26  MP-DD ... 45,60" (anno di carico in due cifre,
+    // costo cifrato, prezzo di vendita), barcode e cifre
     return `<div class="cella">
-      <div class="riga1">${o.codice ? `<span class="c">${esc(a.codice)}</span>` : "<span></span>"}<span class="anno" title="Anno di carico">${anno}</span></div>
+      ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
-      ${o.prezzo ? `<div class="p">${euro(a.prezzo)}</div>` : ""}
+      <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(a.prezzo)}</span>` : ""}</div>
       ${barcodeSvg(a.barcode)}
       ${o.numero ? `<div class="n">${a.barcode}</div>` : ""}
     </div>`;
@@ -412,14 +425,14 @@
     const b = e.target.closest("[data-togli]");
     if (b) { righe.splice(+b.dataset.togli, 1); disegna(); }
   };
-  ["salta", "nascondiPrezzo", "formato", "mostraCodice", "mostraDescr", "mostraNumero"].forEach(id => $(id).addEventListener("input", () => disegna()));
+  ["salta", "nascondiPrezzo", "formato", "mostraCodice", "mostraDescr", "mostraNumero", "mostraCifrato"].forEach(id => $(id).addEventListener("input", () => disegna()));
 
   // Formato: ricordato su questo PC; con "misure personalizzate" compaiono i campi in mm
   function mostraMisure() {
     $("misure").hidden = $("formato").value !== "pers";
     Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).value = FORMATI.pers[k]);
   }
-  $("formato").value = memoria.leggi("etichette.formato") || "f4x10";
+  $("formato").value = memoria.leggi("etichette.formato") || "f4x14";
   mostraMisure();
   $("formato").addEventListener("change", () => { memoria.scrivi("etichette.formato", $("formato").value); mostraMisure(); disegna(); });
   Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).addEventListener("input", () => {
