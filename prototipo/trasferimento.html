@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trasferimento a filiale – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Righe: chi si può mandare e chi resta inevaso */
+  tr.manca td { background: #fff8ec; }
+  .inevaso { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 6px; background: #fde4e4; color: var(--ko); font-weight: 700; text-align: center; }
+  .ok-tutto { color: var(--ok); font-weight: 700; }
+  .giac-poca { color: var(--ko); font-weight: 700; }
+  .riepilogo-tr { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); }
+  .riepilogo-tr b { color: var(--text); }
+  .azioni-righe { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .num-mod { width: 64px; }
+</style>
+</head>
+<body data-page="trasferimenti-a-filiali">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-light" id="btnAnnullaTr" hidden>⛔ Annulla trasferimento</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
+  // Trasferimento a filiale: la merce esce da questa sede ed entra in automatico nella giacenza della sede che riceve.
+  // ?nuovo=1&ordine=12  → si prepara l'ordine #12 di una filiale: per ogni articolo ordinato si sceglie quanto mandare;
+  //                       quello che non si manda resta negli INEVASI (vista "inevasi", database/14-inevasi.sql)
+  // ?nuovo=1&righe=5,9   → si mandano inevasi scelti nella pagina Inevasi (righe d'ordine 5 e 9)
+  // ?nuovo=1             → trasferimento a mano, senza ordine
+  // ?db=20               → trasferimento salvato, in sola lettura (si può annullare)
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const dbId = +qs.get("db");
+  const ordineId = +qs.get("ordine");
+  const righeInevasi = (qs.get("righe") || "").split(",").map(Number).filter(Boolean);
+  const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const sedeId = ID_SEDI_DB[sedeLavoro];
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+  const cent = v => Math.round(v * 100) / 100;
+
+  // ---------- Dati: dal database (ordine da preparare, inevasi scelti, o trasferimento salvato) ----------
+  const db = await dbPronto;
+  let mov = null, RIGHE = [], destinazione = "", info = "";
+  try {
+    if (db && dbId) {
+      mov = await leggiMovimentoDb(db, dbId, sedeId);
+      if (mov) {
+        destinazione = mov.sede_altra_id;
+        RIGHE = mov.righe.map((r, i) => ({ pos: i + 1, articolo: r.articolo, ordinata: r.quantita_ordinata == null ? null : +r.quantita_ordinata, manda: +r.quantita, prezzo: +r.prezzo, ordineRigaId: r.ordine_riga_id }));
+      }
+    } else if (db && (ordineId || righeInevasi.length)) {
+      const filtro = ordineId ? { sede_fornitrice: sedeId, ordine_id: ordineId } : { sede_fornitrice: sedeId, ordine_riga_id: righeInevasi };
+      const lista = await inevasiDb(db, filtro);
+      destinazione = lista[0] ? lista[0].sede_richiedente : "";
+      if (lista.some(r => r.sede_richiedente !== destinazione)) avviso("Attenzione: gli inevasi scelti sono di filiali diverse; qui c'è solo la prima");
+      RIGHE = lista.filter(r => r.sede_richiedente === destinazione).map((r, i) => ({
+        pos: i + 1, articolo: r.articolo, ordinata: r.residuo, ordineRigaId: r.ordine_riga_id, ordineId: r.ordine_id, prezzo: r.articolo.costo,
+        // si propone di mandare quello che c'è: il resto resta inevaso
+        manda: Math.max(0, Math.min(r.residuo, r.articolo.giac ?? 0))
+      }));
+      const nome = lista[0] ? lista[0].nomeRichiedente : "";
+      info = ordineId ? `📋 Ordine <b>#${ordineId}</b> di <b>${esc(nome)}</b> del ${dataIt(lista[0] ? lista[0].data_ordine : "")}: per ogni articolo scegli quanto mandare. Quello che non mandi resta negli <b>inevasi</b> e lo potrai mandare più avanti, senza che ${esc(nome)} lo riordini.`
+        : `⏳ Inevasi di <b>${esc(nome)}</b>: scegli quanto mandare ora. Il resto resta negli inevasi.`;
+      if (ordineId && !lista.length) info = `Ordine <b>#${ordineId}</b>: non c'è niente da preparare (già preparato o non indirizzato a questa sede).`;
+    }
+  } catch (err) { avviso("Errore nel leggere i dati: " + err.message); }
+
+  if ((!nuovo && !dbId) || (dbId && !mov)) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>${dbId ? `Trasferimento #${dbId} non trovato` : "Questo è un trasferimento di esempio"}</b><span><a href="trasferimenti-a-filiali.html" style="color:var(--accent)">Torna all'elenco</a></span></div></div>`;
+    $("btnChiudi").onclick = () => location.href = "trasferimenti-a-filiali.html";
+    throw new Error("trasferimento non trovato");
+  }
+  const salvato = !!mov;
+  const daOrdine = RIGHE.some(r => r.ordineRigaId);
+  const stato = mov ? mov.stato : "Definitivo";
+  const st = Object.values(STATO).find(s => s.nome === stato);
+  const sediDest = SEDI.filter(s => s.nome !== sedeLavoro && ID_SEDI_DB[s.nome]);
+  const opzSedi = sediDest.map(s => `<option value="${ID_SEDI_DB[s.nome]}"${ID_SEDI_DB[s.nome] === destinazione ? " selected" : ""}>${esc(s.nome)}</option>`).join("");
+  const nomeDest = id => (sediDest.find(s => ID_SEDI_DB[s.nome] === id) || { nome: id }).nome;
+
+  document.title = `${salvato ? `Trasferimento #${mov.id}` : "Nuovo trasferimento"} – Gestionale Magazzino`;
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${salvato ? `Trasferimento a filiale <span class="num">#${mov.id}</span>` : "Nuovo trasferimento a filiale"}
+          <span class="pill" style="background:${st.colore}1f;color:${st.colore}">${st.icona} ${stato}</span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="trasferimenti-a-filiali.html">Trasferimenti a Filiali</a><span>-</span><span>${salvato ? "#" + mov.id : "Nuovo"}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Da ${esc(sedeLavoro)} a</div>
+        <div class="v" id="topDest">${destinazione ? esc(nomeDest(destinazione)) : "—"}</div>
+        <div class="p" id="topPezzi"></div>
+      </div>
+    </div>
+    ${stato === "Annullato" ? '<div class="banner ann">✕ Trasferimento annullato: la merce non risulta uscita e gli inevasi sono tornati come prima.</div>' : ""}
+
+    <section class="panel">
+      <div class="gruppo" style="margin-bottom:14px">
+        <h3>🚚 Trasferimento</h3>
+        <div class="campi">
+          <div class="f s2"><label>Sede che riceve <span style="color:var(--ko)">*</span></label><select class="mod" id="fDest" ${daOrdine ? "disabled data-fisso" : ""}><option value="">— scegli la sede —</option>${opzSedi}</select></div>
+          <div class="f s1"><label>Data</label><input class="mod" id="fData" type="date" value="${mov ? mov.data_movimento : oggi}"></div>
+          <div class="f s1"><label>Stato</label><select class="mod" id="fStato">${["Definitivo", "Provvisorio"].map(s => `<option${s === stato ? " selected" : ""}>${s}</option>`).join("")}</select><span class="aiuto">provvisorio = in preparazione, la merce non esce</span></div>
+          <div class="f s2"><label>Causale</label><input class="mod" id="fCausale" value="${esc(mov ? mov.causale || "" : ordineId ? `Ordine #${ordineId}` : righeInevasi.length ? "Inevasi" : "")}"></div>
+        </div>
+      </div>
+
+      ${info ? `<div class="nota-viola">${info}</div>` : ""}
+
+      <div class="aggiungi-art solo-mod" style="margin-top:12px">
+        <div class="f cerca-art">
+          <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
+          <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
+          <div class="suggerimenti" id="suggArt"></div>
+        </div>
+        <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
+        <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+      </div>
+      <div class="azioni-righe solo-mod" ${daOrdine ? "" : "hidden"}>
+        <button class="btn btn-light" id="btnTuttoDisp">✔ Manda tutto il disponibile</button>
+        <button class="btn btn-light" id="btnAzzera">↺ Azzera le quantità</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Articolo</th>${daOrdine ? '<th class="num" title="Quantità ordinata ancora da mandare">Ordinata</th>' : ""}<th class="num" title="Giacenza di questa sede">Giac. qui</th>
+            <th class="num">Da mandare</th>${daOrdine ? '<th class="num" title="Quello che non si manda resta negli inevasi">Inevaso</th>' : ""}<th class="num">Costo</th><th class="num">Totale</th><th class="solo-mod" style="width:40px"></th></tr></thead>
+          <tbody id="righe"></tbody>
+        </table>
+      </div>
+      <div class="riepilogo-tr" id="riepilogo"></div>
+    </section>`;
+
+  // ---------- Righe ----------
+  const modifica = () => document.body.classList.contains("in-modifica");
+  function disegna() {
+    const mod = modifica();
+    $("righe").innerHTML = RIGHE.length ? RIGHE.map(r => {
+      const a = r.articolo, giac = a.giac ?? 0;
+      const inev = r.ordinata == null ? 0 : Math.max(0, cent(r.ordinata - r.manda));
+      return `<tr class="${inev > 0 ? "manca" : ""}">
+        <td style="color:var(--muted)">${r.pos}</td>
+        <td class="art-cella"><span class="codice">${esc(a.codice)}</span><b>${esc(a.descr)}</b></td>
+        ${daOrdine ? `<td class="num">${r.ordinata ?? "—"}</td>` : ""}
+        <td class="num ${giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${salvato ? "—" : giac}</td>
+        <td class="num">${mod ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-pos="${r.pos}">−</button><input class="num-mod" data-pos="${r.pos}" value="${r.manda}"><button class="btn-riga" data-passo="1" data-pos="${r.pos}">+</button></span>` : `<b>${r.manda}</b>`}</td>
+        ${daOrdine ? `<td class="num">${r.ordinata == null ? "" : inev > 0 ? `<span class="inevaso">${inev}</span>` : '<span class="ok-tutto">✔</span>'}</td>` : ""}
+        <td class="num">${numero(r.prezzo)}</td>
+        <td class="num">${numero(cent(r.manda * r.prezzo))}</td>
+        <td class="solo-mod">${r.ordineRigaId ? "" : `<button class="btn-riga cestino" data-togli="${r.pos}" title="Togli">🗑</button>`}</td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="9"><div class="vuoto"><b>Nessun articolo</b><span>Spara o cerca gli articoli da mandare qui sopra.</span></div></td></tr>`;
+    const pezzi = RIGHE.reduce((s, r) => s + r.manda, 0);
+    const inevasi = RIGHE.filter(r => r.ordinata != null && r.ordinata > r.manda);
+    $("topPezzi").textContent = `${cent(pezzi)} pezzi da mandare`;
+    $("riepilogo").innerHTML = `<span>Articoli: <b>${RIGHE.filter(r => r.manda > 0).length}</b></span><span>Pezzi: <b>${cent(pezzi)}</b></span>` +
+      `<span>Valore a costo: <b>${euro(RIGHE.reduce((s, r) => s + r.manda * r.prezzo, 0))}</b></span>` +
+      (daOrdine ? `<span>Restano inevasi: <b style="color:var(--ko)">${inevasi.length} articoli, ${cent(inevasi.reduce((s, r) => s + r.ordinata - r.manda, 0))} pezzi</b></span>` : "");
+  }
+  const riga = pos => RIGHE.find(r => r.pos === +pos);
+  $("righe").onclick = e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const r = riga(b.dataset.pos || b.dataset.togli);
+    if (b.dataset.togli) RIGHE.splice(RIGHE.indexOf(r), 1);
+    else if (b.dataset.passo) r.manda = Math.max(0, cent(r.manda + +b.dataset.passo));
+    disegna();
+  };
+  $("righe").onchange = e => {
+    const r = riga(e.target.dataset.pos);
+    if (r) { r.manda = Math.max(0, cent(num(e.target.value))); disegna(); }
+  };
+  $("btnTuttoDisp").onclick = () => { RIGHE.forEach(r => { if (r.ordinata != null) r.manda = Math.max(0, Math.min(r.ordinata, r.articolo.giac ?? 0)); }); disegna(); };
+  $("btnAzzera").onclick = () => { RIGHE.forEach(r => r.manda = 0); disegna(); };
+
+  // Aggiunta a mano (anche con la pistola): articoli senza ordine
+  let attivo = 0;
+  const trova = t => cercaArticoli(t);
+  function sugg() {
+    const lista = trova($("addArt").value);
+    attivo = Math.min(attivo, Math.max(0, lista.length - 1));
+    $("suggArt").innerHTML = lista.length ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>giac. ${a.giac ?? 0}</small></div>`).join("")
+      : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
+    $("suggArt").classList.toggle("show", !!$("addArt").value.trim());
+  }
+  function aggiungi(a) {
+    const n = Math.max(1, num($("addQta").value) || 1);
+    const r = RIGHE.find(x => x.articolo.id === a.id && !x.ordineRigaId);
+    if (r) r.manda = cent(r.manda + n);
+    else RIGHE.push({ pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, articolo: a, ordinata: null, manda: n, prezzo: a.costo, ordineRigaId: null });
+    $("addArt").value = ""; $("addQta").value = 1; $("suggArt").classList.remove("show");
+    disegna(); $("addArt").focus();
+    avviso(`${a.codice}: ${n} da mandare`);
+  }
+  $("addArt").oninput = () => { attivo = 0; sugg(); };
+  $("addArt").onkeydown = e => {
+    const lista = trova($("addArt").value);
+    if (e.key === "ArrowDown") { attivo = Math.min(attivo + 1, lista.length - 1); sugg(); e.preventDefault(); }
+    if (e.key === "ArrowUp") { attivo = Math.max(attivo - 1, 0); sugg(); e.preventDefault(); }
+    if (e.key === "Enter") { e.preventDefault(); if (lista[attivo]) aggiungi(lista[attivo]); else if ($("addArt").value.trim()) avviso(testoNessunArticolo()); }
+  };
+  $("suggArt").onclick = e => { const s = e.target.closest(".sugg[data-cod]"); if (s) aggiungi(ARTICOLI.find(a => a.codice === s.dataset.cod)); };
+  $("addBtn").onclick = () => { const l = trova($("addArt").value); if (l[attivo]) aggiungi(l[attivo]); else avviso("Spara o scrivi un codice prima di aggiungere"); };
+  $("fDest").onchange = () => $("topDest").textContent = $("fDest").value ? nomeDest($("fDest").value) : "—";
+
+  // ---------- Salva: la merce esce da qui ed entra nella sede che riceve; gli ordini preparati diventano Evasi ----------
+  async function salva(chiudi) {
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const dest = $("fDest").value;
+    if (!dest) { avviso("Scegli la sede che riceve"); $("fDest").focus(); return; }
+    const daMandare = RIGHE.filter(r => r.manda > 0);
+    const stato = $("fStato").value;
+    if (!daMandare.length) {
+      if (!daOrdine) { avviso("Aggiungi almeno un articolo da mandare"); return; }
+      if (!confirm("Non mandi niente: tutti gli articoli dell'ordine restano negli inevasi. Confermi?")) return;
+    }
+    const sopra = daMandare.filter(r => r.ordinata != null && r.manda > r.ordinata);
+    if (sopra.length && !confirm(`Per ${sopra.length} articoli mandi più di quanto ordinato. Confermi?`)) return;
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const id = await salvaMovimentoDb(db, {
+        tipo: "trasferimento_a_filiale", stato, sede_id: sedeId, sede_altra_id: dest,
+        data_movimento: $("fData").value || oggi, causale: $("fCausale").value.trim() || null
+      }, daMandare.map(r => ({
+        articolo_id: r.articolo.id, quantita: r.manda, quantita_ordinata: r.ordinata, prezzo: r.prezzo, sconto: 0, etichette: r.manda, ordine_riga_id: r.ordineRigaId
+      })));
+      // L'ordine preparato diventa Evaso: da qui in poi quello che manca si vede negli inevasi
+      const ordini = [...new Set(RIGHE.filter(r => r.ordineId).map(r => r.ordineId))];
+      if (stato === "Definitivo" && ordini.length) {
+        const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).in("id", ordini).eq("stato", "Definitivo");
+        if (error) throw error;
+      }
+      const inev = RIGHE.filter(r => r.ordinata != null && r.ordinata > r.manda).length;
+      avviso(stato === "Definitivo" ? `Trasferimento salvato: la merce è passata a ${nomeDest(dest)}${inev ? ` · ${inev} articoli restano negli inevasi` : ""}` : "Trasferimento salvato come provvisorio: la merce non esce finché non è definitivo");
+      setTimeout(() => location.replace(chiudi ? "trasferimenti-a-filiali.html" : `trasferimento.html?db=${id}`), 1000);
+    } catch (err) {
+      avviso("Errore nel salvare il trasferimento: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
+  $("btnAnnulla").onclick = () => { if (confirm("Uscire senza salvare?")) history.length > 1 ? history.back() : location.href = "trasferimenti-a-filiali.html"; };
+  $("btnChiudi").onclick = () => location.href = "trasferimenti-a-filiali.html";
+  // Annullare un trasferimento salvato: la merce torna come prima e gli inevasi si ricalcolano da soli
+  $("btnAnnullaTr").onclick = async () => {
+    if (!confirm("Annullare questo trasferimento? La merce torna nella giacenza di questa sede e gli articoli tornano negli inevasi.")) return;
+    const { error } = await db.from("movimenti").update({ stato: "Annullato", modificato_il: new Date().toISOString() }).eq("id", mov.id);
+    if (error) { avviso("Errore: " + error.message); return; }
+    avviso("Trasferimento annullato");
+    setTimeout(() => location.reload(), 700);
+  };
+
+  // Nuovo = in modifica; salvato = sola lettura (si può solo annullare)
+  document.body.classList.toggle("in-modifica", !salvato);
+  document.querySelectorAll(".mod").forEach(el => el.disabled = salvato || el.hasAttribute("data-fisso"));
+  ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = salvato);
+  $("btnChiudi").hidden = !salvato;
+  $("btnAnnullaTr").hidden = !salvato || stato === "Annullato";
+  disegna();
+  if (!salvato) $("addArt").focus();
+
+  // Ricerca e pistola sugli articoli del database (giacenza di questa sede)
+  if (db && !salvato) caricaArticoliDalDb(db, sedeId).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@
 //   puoAggiungere()     false blocca le aggiunte (es. manca il fornitore); la funzione avvisa da sola
 //   altroFornitore(art) true se l'articolo non è del fornitore scelto (avviso arancione)
 //   cambiato()          chiamata quando cambiano le righe (per totali in alto, catalogo…)
+//   notaArticolo(art)   testo facoltativo accanto all'articolo e nell'avviso (es. "già in attesa dal Magazzino Centrale: 5")
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
@@ -107,7 +108,8 @@ function avviaRighe(cfg) {
     ultimaAggiunta = r.pos;
     if (silenzioso) return;
     cambiato();
-    avviso(`${art.codice}: ${r.qta} ${cfg.nelMovimento}` + (altro(art) ? " · attenzione: non risulta di questo fornitore" : ""));
+    const nota = cfg.notaArticolo && cfg.notaArticolo(art);
+    avviso(`${art.codice}: ${r.qta} ${cfg.nelMovimento}` + (altro(art) ? " · attenzione: non risulta di questo fornitore" : "") + (nota ? " · " + nota : ""));
     if (vaiAlCampo) $("addArt").focus();
     return true;
   }
@@ -155,7 +157,7 @@ function avviaRighe(cfg) {
         <td colspan="${colonne - 2}"><div class="cerca-riga"><input data-cercariga="${r.pos}" placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off"><div class="suggerimenti" data-suggriga="${r.pos}"></div></div></td></tr>`;
       const fuori = mod && altro(a);
       return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">${comandi}
-        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}<b>${esc(a.descr)}</b></td>
+        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}<b>${esc(a.descr)}</b></td>
         <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${a.giac ?? "—"}</td>

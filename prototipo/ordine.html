@@ -66,22 +66,35 @@
 <script src="js/dati-carichi.js"></script>
 <script src="js/dati-ordini.js"></script>
 <script src="js/righe-movimento.js"></script>
-<script>
-  // Scheda ordine a fornitore: ?id=8783 apre un ordine esistente in sola lettura (tasto Modifica),
-  // ?nuovo=1 un ordine vuoto già in modifica. Il fornitore è obbligatorio; scelto il fornitore,
-  // sotto compaiono i suoi articoli. Le righe articolo sono in js/righe-movimento.js.
+<script src="js/movimenti-db.js"></script>
+<script type="module">
+  // Scheda ordine a fornitore: ?nuovo=1 un ordine vuoto già in modifica; ?db=12 un ordine salvato nel database;
+  // ?id=8783 un ordine di esempio. Il fornitore è obbligatorio; scelto il fornitore, sotto compaiono i suoi articoli.
+  // Se il fornitore è una sede (es. MAGAZZINO CENTRALE) l'ordine arriva a quella sede, che lo prepara con un
+  // trasferimento; quello che manca resta negli INEVASI. Le righe articolo sono in js/righe-movimento.js.
+  // ("module": permette di aspettare il database prima di disegnare un ordine salvato)
   const $ = id => document.getElementById(id);
   const qs = new URLSearchParams(location.search);
   const nuovo = qs.has("nuovo");
-  const ord = nuovo ? null : ORDINI.find(o => o.id === +qs.get("id"));
+  const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
-  // Fornitori: quelli di esempio finché non arrivano quelli del database ({ id, codice, nome, piva })
-  let FORN = FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome, piva: "" }));
+  const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro])).catch(err => { avviso("Errore nel leggere l'ordine: " + err.message); return null; }) : null;
+  const ord = nuovo ? null : dbId ? movDb && {
+      id: movDb.id, dbId: movDb.id, stato: movDb.stato, data: movDb.data_movimento, prot: movDb.protocollo || "",
+      causale: movDb.causale || "", annotazioni: movDb.annotazioni || "", porto: movDb.porto, condPag: movDb.condizione_pagamento,
+      spese: +movDb.spese, creatoDa: movDb.creato_da, creatoIl: movDb.creato_il
+    }
+    : ORDINI.find(o => o.id === +qs.get("id"));
+  // Fornitori: quelli di esempio finché non arrivano quelli del database ({ id, codice, nome, piva, sede })
+  let FORN = movDb && movDb.fornitori ? [{ id: movDb.fornitori.id, codice: movDb.fornitori.codice, nome: movDb.fornitori.ragione_sociale, piva: "", sede: null }]
+    : FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome, piva: "" }));
   let fornitore = null;
+  // Inevasi della nostra sede verso la sede del fornitore: articolo_id → quanti pezzi sono ancora in attesa
+  let inAttesa = new Map();
 
   if (!nuovo && !ord) {
-    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Ordine #${esc(qs.get("id") || "")} non trovato</b>
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Ordine #${esc(qs.get("id") || qs.get("db") || "")} non trovato</b>
       <span><a href="ordini-fornitori.html" style="color:var(--accent)">Torna all'elenco degli ordini</a></span></div></div>`;
     document.querySelectorAll(".top-actions .btn, .top-actions .dd").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
     $("btnChiudi").onclick = () => location.href = "ordini-fornitori.html";
@@ -136,11 +149,11 @@
                 ${campo("s2", "Tipo di movimento", `<select disabled><option>Ordine a fornitore</option></select>`)}
                 ${campo("s4", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato">${opz(statiScelta, ord ? ord.stato : "Definitivo")}</select><button class="btn" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisorio = ancora da completare nei prossimi giorni")}
                 ${campo("s2", "Aliquota IVA", `<select class="mod">${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
-                ${campo("s2", "Data documento", `<input class="mod" type="date" value="${ord ? ord.data : oggi}">`)}
+                ${campo("s2", "Data ordine", `<input class="mod" id="fData" type="date" value="${ord ? ord.data : oggi}">`)}
                 ${campo("s2", "Progressivo", `<input disabled value="${ord && ord.prot ? ord.prot : ""}" placeholder="assegnato al salvataggio">`)}
                 ${campo("s2", "Data bolla", `<input class="mod" type="date">`)}
                 ${campo("s2", "Numero bolla", `<input class="mod">`)}
-                ${campo("s1", "Porto", `<select class="mod">${opz(["Franco", "Assegnato"], "Franco")}</select>`)}
+                ${campo("s1", "Porto", `<select class="mod" id="fPorto">${opz(["Franco", "Assegnato"], (ord && ord.porto) || "Franco")}</select>`)}
                 ${campo("s1", "Anno", `<input value="${(ord ? ord.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
                 ${campo("s4", "Riferimento fattura", `<input class="mod">`)}
                 ${campo("s2", "ID", `<input value="${ord ? ord.id : ""}" placeholder="nuovo" disabled style="text-align:right">`)}
@@ -153,7 +166,7 @@
                 ${campo("s1", "Sconto %", `<input class="mod" type="number" min="0" max="100" style="text-align:right">`)}
                 ${campo("s1", "Parz. evaso", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" id="parzEvaso" ${ord && ord.ricevuti && ord.ricevuti < ord.nArt ? "checked" : ""}><span></span></span></label>`)}
                 ${campo("s3", "Ordine padre", `<select disabled><option>— nessuno —</option></select>`, "l'ordine da cui nasce questo (es. un riordino)")}
-                ${campo("s3", "Condizione di pagamento", `<select class="mod"><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."])}</select>`)}
+                ${campo("s3", "Condizione di pagamento", `<select class="mod" id="fCondPag"><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], ord && ord.condPag)}</select>`)}
                 ${campo("s3", "Sede che ordina", `<input value="${esc(sedeLavoro)}" disabled>`)}
               </div>
             </div>
@@ -168,16 +181,16 @@
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
-                ${campo("s3", "Causale", `<textarea class="mod">${esc(ord ? ord.causale : "")}</textarea>`, "non stampata sul documento")}
-                ${campo("s3", "Annotazioni", `<textarea class="mod"></textarea>`, "stampate sull'ordine inviato al fornitore")}
+                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale">${esc(ord ? ord.causale : "")}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot">${esc(ord && ord.annotazioni || "")}</textarea>`, "stampate sull'ordine inviato al fornitore")}
               </div>
             </div>
           </div>
           <aside class="riepilogo">
             <h3>Riepilogo importi</h3>
             <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="0,00" disabled></div>
-            ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map(s =>
-              `<div class="voce-imp"><label>+ ${s}</label><input class="mod spesa" placeholder="0,00"></div>`).join("")}
+            ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map((s, i) =>
+              `<div class="voce-imp"><label>+ ${s}</label><input class="mod spesa" placeholder="0,00" value="${i === 0 && ord && ord.spese ? numero(ord.spese) : ""}"></div>`).join("")}
             <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl">0,00</span></div>
           </aside>
         </div>
@@ -192,6 +205,7 @@
           <div class="suggerimenti" id="suggForn"></div>
         </div>
 
+        <div class="nota-elenco" id="notaInevasi" hidden></div>
         <div class="catalogo solo-mod" id="catalogo" hidden>
           <div class="catalogo-head">
             <b id="titCatalogo"></b>
@@ -281,6 +295,25 @@
     $("cercaCat").value = "";
     disegnaCatalogo();
     righe.disegna();
+    aggiornaInAttesa();
+  }
+  // Fornitore che è una sede (es. Magazzino Centrale): si leggono gli articoli ancora in attesa (inevasi)
+  // dei nostri ordini precedenti, così non si riordinano per sbaglio
+  let dbConn = null;
+  async function aggiornaInAttesa() {
+    inAttesa = new Map();
+    $("notaInevasi").hidden = true;
+    if (!dbConn || !fornitore || !fornitore.sede) { righe.disegna(); return; }
+    try {
+      const lista = await inevasiDb(dbConn, { sede_richiedente: ID_SEDI_DB[sedeLavoro], sede_fornitrice: fornitore.sede });
+      // le righe di questo stesso ordine non contano
+      lista.filter(r => r.ordine_id !== (ord && ord.dbId)).forEach(r => inAttesa.set(r.articolo_id, (inAttesa.get(r.articolo_id) || 0) + r.residuo));
+      if (inAttesa.size) {
+        $("notaInevasi").innerHTML = `⏳ Dal <b>${esc(fornitore.nome)}</b> sono ancora in attesa <b>${inAttesa.size} articoli</b> dei vostri ordini precedenti (inevasi): arriveranno senza riordinarli. <a href="inevasi.html" style="color:var(--accent)">Vedi gli inevasi</a>`;
+        $("notaInevasi").hidden = false;
+      }
+    } catch (err) { avviso("Errore nel leggere gli inevasi: " + err.message); }
+    righe.disegna();
   }
   function serveFornitore() {
     if (fornitore) return true;
@@ -314,6 +347,7 @@
     sedeEstera: () => trovaSede(leggiSede()).estera,
     puoAggiungere: serveFornitore,
     altroFornitore: art => !!fornitore && art.forn !== fornitore.id,
+    notaArticolo: art => inAttesa.get(art.id) ? `già in attesa dal ${fornitore.nome}: ${inAttesa.get(art.id)}` : "",
     testoVuoto: () => fornitore ? "Aggiungi gli articoli del fornitore dall'elenco qui sopra, con il tasto ＋ o sparandoli con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
     cambiato: () => { ricalcola(); disegnaCatalogo(); }
   });
@@ -380,8 +414,9 @@
     if (!righe.RIGHE.length) { avviso("Aggiungi almeno un articolo all'ordine"); return false; }
     return true;
   }
-  // Modifica sblocca i campi; Annulla rimette i valori di prima, Salva torna in sola lettura
-  const annullato = ord && ord.stato === "Annullato";
+  // Modifica sblocca i campi; Annulla rimette i valori di prima, Salva torna in sola lettura.
+  // Un ordine evaso (già preparato dalla sede che lo riceve) o annullato non si modifica più.
+  const annullato = ord && ["Annullato", "Evaso"].includes(ord.stato);
   const pulsantiLettura = ["btnEtichette", "ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
   let valoriPrima = [], righePrima = [], fornitorePrima = null;
   function modalita(modifica) {
@@ -409,16 +444,46 @@
     fornitore = fornitorePrima;
     mostraStato(); ricalcola(); modalita(false);
   };
-  $("btnSalva").onclick = () => {
+  // Salvataggio nel database (ordine nuovo o già salvato). Definitivo = ordine inviato: se il fornitore è una sede
+  // (es. Magazzino Centrale) l'ordine compare a quella sede. Gli ordini di esempio non si salvano.
+  async function salva(chiudi) {
     if (!controlla()) return;
-    avviso(nuovo ? "Ordine salvato (solo anteprima: il salvataggio vero arriverà con il database)" : "Modifiche salvate (solo anteprima)");
-    if (!nuovo) modalita(false);
-  };
-  $("btnSalvaChiudi").onclick = () => {
-    if (!controlla()) return;
-    avviso("Salvato (solo anteprima)");
-    setTimeout(() => location.href = "ordini-fornitori.html", 700);
-  };
+    if (!nuovo && !ord.dbId) { avviso("Questo è un ordine di esempio: le modifiche non si salvano"); modalita(false); return; }
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    if (!/^[0-9a-f-]{36}$/i.test(String(fornitore.id))) { avviso("I fornitori veri non sono ancora arrivati dal database: aspetta un attimo e riprova"); return; }
+    if (righe.RIGHE.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
+    // Articoli già in attesa (inevasi): il gestionale avvisa e lascia decidere
+    const doppi = righe.RIGHE.filter(r => inAttesa.get(r.articolo.id));
+    if (doppi.length && !confirm(`Questi articoli sono già in attesa dal ${fornitore.nome} (inevasi di ordini precedenti):\n\n` +
+        doppi.map(r => `• ${r.articolo.codice} – ${r.articolo.descr}: ${inAttesa.get(r.articolo.id)} in attesa, ora ne ordini ${r.qta}`).join("\n") +
+        `\n\nOK = ordinali lo stesso (si aggiungono a quelli in attesa)\nAnnulla = torna all'ordine per toglierli o cambiare le quantità`)) {
+      document.querySelector('.scheda-tab[data-t="articoli"]').click();
+      return;
+    }
+    const testo = id => $(id).value.trim() || null;
+    const mov = {
+      tipo: "ordine_fornitore", stato: $("selStato").value, sede_id: ID_SEDI_DB[sedeLavoro], fornitore_id: fornitore.id,
+      data_movimento: $("fData").value || oggi, data_documento: $("fData").value || oggi,
+      causale: testo("fCausale"), annotazioni: testo("fAnnot"), porto: $("fPorto").value, condizione_pagamento: $("fCondPag").value || null,
+      spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
+    };
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const id = await salvaMovimentoDb(db, mov, righe.RIGHE.map(r => ({
+        articolo_id: r.articolo.id, quantita: r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: 0
+      })), ord && ord.dbId);
+      avviso(mov.stato === "Definitivo" && fornitore.sede ? `Ordine inviato: il ${fornitore.nome} lo trova nella sua Dashboard`
+        : mov.stato === "Definitivo" ? "Ordine salvato" : "Ordine salvato come provvisorio: si può completare nei prossimi giorni");
+      setTimeout(() => location.replace(chiudi ? "ordini-fornitori.html" : `ordine.html?db=${id}`), 900);
+    } catch (err) {
+      avviso("Errore nel salvare l'ordine: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "ordini-fornitori.html";
   $("btnEtichette").onclick = () => avviso("Etichette dell'ordine: le definiamo insieme (di solito si stampano al carico della merce)");
   $("btnExcel").onclick = () => righe.excel(`ordine-${ord ? ord.id : "nuovo"}.csv`);
@@ -432,7 +497,11 @@
 
   // Ordine esistente: fornitore e righe di esempio (articoli veri dell'anagrafica, totale che torna al centesimo).
   // Il totale dell'elenco è IVA inclusa: il costo unitario si ricava togliendo l'IVA della riga.
-  if (ord) {
+  if (movDb) {
+    // ordine salvato: fornitore e righe dal database
+    fornitore = FORN[0] || null;
+    righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo })));
+  } else if (ord) {
     fornitore = FORN[ord.cp];
     righe.carica(righeCarico({ ...ord, totArt: ord.tot }).map(r => {
       const iva = ivaDiArticolo(r.articolo);
@@ -446,13 +515,15 @@
   // Dopo l'accesso: fornitori e articoli veri dal database
   dbPronto.then(async db => {
     if (!db) return;
+    dbConn = db;
     const [{ data, error }] = await Promise.all([
-      db.from("fornitori").select("id, codice, ragione_sociale, partita_iva").order("ragione_sociale"),
+      db.from("fornitori").select("id, codice, ragione_sociale, partita_iva, sede_collegata").order("ragione_sociale"),
       caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro])
     ]);
     if (error) throw error;
-    FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale, piva: f.partita_iva || "" }));
-    // Gli ordini esistenti sono ancora di esempio: tengono il loro fornitore e le loro righe
+    FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale, piva: f.partita_iva || "", sede: f.sede_collegata }));
+    // Ordine salvato: lo stesso fornitore, ora con tutti i dati; gli ordini di esempio tengono il loro
+    if (movDb) { fornitore = FORN.find(f => f.id === movDb.fornitore_id) || fornitore; mostraFornitore(); disegnaCatalogo(); aggiornaInAttesa(); return; }
     if (!nuovo) { disegnaCatalogo(); righe.disegna(); return; }
     // le scelte fatte con i dati di esempio non valgono più
     fornitore = null; mostraFornitore();

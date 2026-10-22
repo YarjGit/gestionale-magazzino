@@ -3,30 +3,90 @@
 // la vista "giacenze" somma le righe dei movimenti Definitivi/Evasi (vedi database/01-tabelle.sql).
 // L'anno di acquisto di un carico è l'anno della sua data (data_movimento).
 
-// Elenco dei movimenti di un tipo per la sede, nella forma delle righe di avviaElenco()
-async function elencoMovimentiDb(db, tipo, sedeId, pagina) {
+// Nomi delle sedi del database (id → nome), letti una volta
+let nomiSediDb = null;
+async function nomeSedeDb(db, id) {
+  if (!nomiSediDb) {
+    const { data, error } = await db.from("sedi").select("id, nome");
+    if (error) throw error;
+    nomiSediDb = new Map(data.map(s => [s.id, s.nome]));
+  }
+  return nomiSediDb.get(id) || id || "";
+}
+
+// Elenco dei movimenti di un tipo per la sede, nella forma delle righe di avviaElenco().
+// inArrivo: movimenti fatti da altre sedi verso questa (es. trasferimenti ricevuti); la controparte è la sede che manda.
+// Per i trasferimenti la controparte è la sede di arrivo, per gli altri il fornitore.
+async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } = {}) {
   const { data, error } = await db.from("movimenti")
-    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, fornitori(ragione_sociale), movimenti_righe(quantita, totale)")
-    .eq("tipo", tipo).eq("sede_id", sedeId)
+    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, sede_id, sede_altra_id, fornitori(ragione_sociale), movimenti_righe(quantita, totale)")
+    .eq("tipo", tipo).eq(inArrivo ? "sede_altra_id" : "sede_id", sedeId)
     .order("data_movimento", { ascending: false }).order("id", { ascending: false });
   if (error) throw error;
-  return data.map(m => {
+  const righe = [];
+  for (const m of data) {
     const totArt = Math.round(m.movimenti_righe.reduce((s, r) => s + +r.totale, 0) * 100) / 100;
-    return {
+    const cpNome = inArrivo ? await nomeSedeDb(db, m.sede_id)
+      : m.sede_altra_id ? await nomeSedeDb(db, m.sede_altra_id) : m.fornitori ? m.fornitori.ragione_sociale : "";
+    righe.push({
       id: m.id, chiave: "db-" + m.id, url: `${pagina}?db=${m.id}`,
       prot: m.protocollo || "", doc: m.numero_documento || "", dataDoc: m.data_documento || "",
       stato: m.stato, data: m.data_movimento, bolla: m.data_bolla || "", causale: m.causale || "",
-      cpNome: m.fornitori ? m.fornitori.ragione_sociale : "",
-      totArt, tot: Math.round((totArt + +m.spese) * 100) / 100,
-      nArt: m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0), lab: ""
-    };
+      cpNome, totArt, tot: Math.round((totArt + +m.spese) * 100) / 100,
+      nArt: m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0), lab: "",
+      // per la colonna "Arrivato" degli ordini: un ordine evaso è stato preparato
+      ricevuti: m.stato === "Evaso" ? m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0) : 0
+    });
+  }
+  return righe;
+}
+
+// ---------- Ordini alle sedi e INEVASI (vista "inevasi", database/14-inevasi.sql) ----------
+// Righe della vista con l'articolo (forma di ARTICOLI) e la giacenza della sede che deve mandare la merce.
+// filtro: { sede_fornitrice } o { sede_richiedente }, e facoltativi ordine_id / stato_ordine; soloResiduo: solo righe con qualcosa da mandare
+async function inevasiDb(db, filtro, { soloResiduo = true } = {}) {
+  let q = db.from("inevasi").select("*");
+  Object.entries(filtro).forEach(([k, v]) => { q = Array.isArray(v) ? q.in(k, v) : q.eq(k, v); });
+  const { data, error } = await q.order("data_ordine", { ascending: true }).order("ordine_riga_id", { ascending: true });
+  if (error) throw error;
+  const righe = data.filter(r => !soloResiduo || +r.residuo > 0);
+  if (!righe.length) return [];
+  const ids = [...new Set(righe.map(r => r.articolo_id))];
+  const { data: art, error: e2 } = await db.from("articoli").select(CAMPI_ARTICOLO).in("id", ids);
+  if (e2) throw e2;
+  const sedi = [...new Set(righe.map(r => r.sede_fornitrice))];
+  const { data: giac } = await db.from("giacenze").select("sede_id, articolo_id, quantita").in("sede_id", sedi).in("articolo_id", ids);
+  const g = new Map((giac || []).map(x => [x.sede_id + "|" + x.articolo_id, +x.quantita]));
+  const articoli = new Map(art.map(a => [a.id, a]));
+  for (const r of righe) {
+    r.ordinata = +r.ordinata; r.trasferita = +r.trasferita; r.annullata = +r.annullata; r.residuo = +r.residuo;
+    r.nomeRichiedente = await nomeSedeDb(db, r.sede_richiedente);
+    r.articolo = articoloDalDb(articoli.get(r.articolo_id), g.get(r.sede_fornitrice + "|" + r.articolo_id) ?? 0);
+  }
+  return righe;
+}
+
+// Cancella (in tutto o in parte) un inevaso: resta registrato chi, quando, quanto e perché
+async function annullaInevasoDb(db, ordineRigaId, quantita, motivo) {
+  const { data: { session } } = await db.auth.getSession();
+  const { error } = await db.from("inevasi_annullati").insert({
+    ordine_riga_id: ordineRigaId, quantita, motivo: motivo || null, annullato_da: session ? session.user.email : null
   });
+  if (error) throw error;
+}
+
+// Registro delle cancellazioni per un insieme di righe d'ordine (dal più recente)
+async function inevasiAnnullatiDb(db, ordineRigaIds) {
+  if (!ordineRigaIds.length) return [];
+  const { data, error } = await db.from("inevasi_annullati").select("*").in("ordine_riga_id", ordineRigaIds).order("annullato_il", { ascending: false });
+  if (error) throw error;
+  return data;
 }
 
 // Un movimento con le sue righe; ogni riga ha l'articolo nella forma di ARTICOLI (con la giacenza della sede)
 async function leggiMovimentoDb(db, id, sedeId) {
   const { data: m, error } = await db.from("movimenti")
-    .select(`*, fornitori(id, codice, ragione_sociale), movimenti_righe(id, quantita, quantita_ordinata, prezzo, sconto, etichette, totale, articoli(${CAMPI_ARTICOLO}))`)
+    .select(`*, fornitori(id, codice, ragione_sociale), movimenti_righe(id, quantita, quantita_ordinata, ordine_riga_id, prezzo, sconto, etichette, totale, articoli(${CAMPI_ARTICOLO}))`)
     .eq("id", id).maybeSingle();
   if (error) throw error;
   if (!m) return null;

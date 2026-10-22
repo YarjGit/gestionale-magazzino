@@ -236,3 +236,4 @@ body:not(.in-modifica) .solo-mod { display: none !important; }
 .btn-giallo { background: #ffc531; color: #5a4200; }
 .btn-giallo:hover { filter: brightness(1.04); }
 .altro-forn { color: #b26a00; font-size: 0.72rem; }
+.nota-art { color: #7c4dff; font-size: 0.72rem; font-weight: 600; }

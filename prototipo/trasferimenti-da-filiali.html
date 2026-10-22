@@ -16,10 +16,12 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
   // Gli arrivi sono automatici: quando una sede fa un "Trasferimento a filiale" verso questa sede,
   // il movimento compare qui e la giacenza aumenta da sola. Qui non si crea niente a mano (niente "Nuovo").
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Trasferimenti da Filiali",
     nota: "🔄 <b>Arrivano in automatico.</b> Quando un'altra sede manda la merce qui (Trasferimento a filiale), il movimento compare in questo elenco e la <b>giacenza aumenta da sola</b>. Non serve ricaricarla a mano. Finché la sede che manda lo tiene <i>provvisorio</i>, la merce non conta ancora.",
     csv: "trasferimenti-da-filiali",
@@ -53,6 +55,13 @@
       { id: 6658, prot: "2026-000089", doc: "n.8", dataDoc: "2026-04-22", stato: "Definitivo", data: "2026-04-27", cp: sede("CAL Cagliari"), bolla: "2026-04-22", causale: "", tot: 495.62, nArt: 12, lab: "Laboratori Sede Centrale" }
     ]
   });
+
+  // Dopo l'accesso: i trasferimenti arrivati da altre sedi (salvati nel database), in cima a quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", ID_SEDI_DB[trovaSede(leggiSede()).nome], "trasferimento.html", { inArrivo: true });
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

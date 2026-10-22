@@ -16,9 +16,11 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script src="js/dati-ordini.js"></script>
 <script>
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Ordini a Fornitori",
     nuovo: "Nuovo ordine",
     dettaglio: "ordine.html",
@@ -40,6 +42,13 @@
     ],
     dati: ORDINI
   });
+
+  // Dopo l'accesso: gli ordini salvati nel database della sede di lavoro, in cima a quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "ordine_fornitore", ID_SEDI_DB[trovaSede(leggiSede()).nome], "ordine.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

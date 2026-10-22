@@ -16,12 +16,15 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
   // Speculare a Trasferimenti da Filiali: qui la merce esce verso un'altra sede
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Trasferimenti a Filiali",
     nota: "🔄 Scegli la <b>sede che riceve</b>: quando il trasferimento è <b>definitivo</b> la merce esce da qui ed entra <b>in automatico</b> nella giacenza dell'altra sede. Verso le sedi estere senza IVA (0%).",
     nuovo: "Nuovo trasferimento",
+    dettaglio: "trasferimento.html",
     csv: "trasferimenti-a-filiali",
     stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
     statiBarrati: ["Annullato"],
@@ -45,6 +48,13 @@
       { id: 8740, stato: "Annullato", data: "2026-10-03", cp: sede("CAL Cagliari"), causale: "", tot: 0, nArt: 0, ricevuti: 0, lab: "Laboratori Sede Centrale" }
     ]
   });
+
+  // Dopo l'accesso: i trasferimenti salvati nel database fatti da questa sede, in cima a quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", ID_SEDI_DB[trovaSede(leggiSede()).nome], "trasferimento.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

@@ -123,6 +123,16 @@
   <div class="stats" id="stats"></div>
 
   <div class="panel">
+    <section class="section" id="sezRicevuti">
+      <h2 class="section-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+        Ordini ricevuti dalle filiali (da preparare)
+        <span class="count" id="countRicevuti">…</span>
+      </h2>
+      <div class="cards" id="ricevuti"><p class="empty">Lettura degli ordini…</p></div>
+      <p style="margin-top:10px"><a href="inevasi.html" style="color:var(--accent);font-weight:600" id="linkInevasi">⏳ Inevasi da mandare alle filiali</a></p>
+    </section>
+
     <section class="section">
       <h2 class="section-title">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
@@ -149,6 +159,9 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
   // ---------- Dati di esempio ----------
   const inArrivo = [
@@ -210,6 +223,40 @@
   };
   sel.onchange = () => evidenzia(sel.value);
   cardsOpen.querySelectorAll(".card").forEach(c => c.onclick = () => { sel.value = c.dataset.i; evidenzia(c.dataset.i); });
+
+  // ---------- Ordini ricevuti dalle filiali (dal database) ----------
+  // Ordini a fornitore Definitivi il cui fornitore è questa sede (es. SMM → Magazzino Centrale), ancora da preparare.
+  // Cliccando si prepara il trasferimento: quello che non c'è resta negli inevasi.
+  dbPronto.then(async db => {
+    if (!db) return;
+    const sede = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const [daPreparare, inevasi] = await Promise.all([
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Definitivo" }, { soloResiduo: false }),
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Evaso" })
+    ]);
+    const ordini = new Map();
+    daPreparare.forEach(r => {
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, da: r.nomeRichiedente, data: r.data_ordine, righe: 0, pezzi: 0, disponibili: 0 };
+      o.righe++; o.pezzi += r.ordinata;
+      if ((r.articolo.giac ?? 0) >= r.ordinata) o.disponibili++;
+      ordini.set(r.ordine_id, o);
+    });
+    const lista = [...ordini.values()];
+    document.getElementById("countRicevuti").textContent = lista.length;
+    document.getElementById("ricevuti").innerHTML = lista.length ? lista.map(o => `
+      <div class="card" onclick="location.href='trasferimento.html?nuovo=1&ordine=${o.id}'" title="Prepara il trasferimento">
+        <div class="card-head trasf"><span class="name">${esc(o.da)} · ordine #${o.id}</span><span class="tot">${o.pezzi} pezzi</span></div>
+        <div class="card-body three">
+          <div><div class="k">Data ordine</div><div class="v">${dataIt(o.data)}</div></div>
+          <div><div class="k">Articoli</div><div class="v">${o.righe}</div></div>
+          <div class="r"><div class="k">Disponibili ora</div><div class="v">${o.disponibili} di ${o.righe}</div></div>
+        </div>
+      </div>`).join("") : '<p class="empty">Nessun ordine da preparare.</p>';
+    const nInevasi = new Set(inevasi.map(r => r.articolo_id)).size;
+    document.getElementById("linkInevasi").textContent = `⏳ Inevasi da mandare alle filiali: ${nInevasi} articoli`;
+    // Una sede che non riceve ordini (es. un negozio) non vede la sezione
+    if (!lista.length && !nInevasi) document.getElementById("sezRicevuti").hidden = true;
+  }).catch(err => avviso("Errore nel leggere gli ordini ricevuti: " + err.message));
 </script>
 </body>
 </html>

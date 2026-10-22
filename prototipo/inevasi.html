@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inevasi – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  .gruppo-filiale { margin-bottom: 22px; }
+  .gruppo-filiale h2 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 1rem; }
+  .gruppo-filiale h2 .n { padding: 1px 9px; border-radius: 99px; background: var(--page-bg); color: var(--muted); font-size: 0.78rem; }
+  .gruppo-filiale h2 .spazio { flex: 1; }
+  .disp { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+  .disp.si { background: #ddf5e8; color: var(--ok); }
+  .disp.parte { background: #fff3dd; color: #b26a00; }
+  .disp.no { background: #f1f3f7; color: var(--muted); }
+  .residuo { font-weight: 700; color: var(--ko); }
+  .storico-canc td { color: var(--muted); }
+  .storico-canc .motivo { color: var(--text); font-style: italic; }
+  td.chk, th.chk { width: 34px; text-align: center; }
+</style>
+</head>
+<body data-page="inevasi">
+
+<main class="content" id="contenuto">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Inevasi</h1>
+      <div class="crumbs">
+        <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+        <span>-</span><span>Movimenti</span><span>-</span><span>Inevasi</span>
+      </div>
+    </div>
+  </div>
+  <div class="nota-elenco">⏳ Gli <b>inevasi</b> sono gli articoli ordinati da una filiale e non ancora mandati: <b>quantità ordinata − già trasferita − cancellata</b>.
+    Si aggiornano da soli a ogni trasferimento, e la filiale non deve riordinarli.</div>
+  <section class="panel">
+    <div class="schede" id="schede">
+      <button class="scheda-tab active" data-t="mandare">📤 Da mandare alle filiali <span class="n" id="nMandare">…</span></button>
+      <button class="scheda-tab" data-t="attesa">📥 In attesa per noi <span class="n" id="nAttesa">…</span></button>
+      <button class="scheda-tab" data-t="cancellati">🗂️ Cancellati <span class="n" id="nCanc">…</span></button>
+    </div>
+    <div class="pannello-tab" id="tab-mandare"><div class="vuoto"><b>Lettura…</b></div></div>
+    <div class="pannello-tab" id="tab-attesa" hidden></div>
+    <div class="pannello-tab" id="tab-cancellati" hidden></div>
+  </section>
+</main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script>
+  // Pagina Inevasi (vista "inevasi", database/14-inevasi.sql).
+  // "Da mandare": inevasi delle filiali verso questa sede (es. Magazzino Centrale), con la giacenza attuale:
+  //   si scelgono e si prepara un trasferimento, oppure si cancellano (resta registrato chi, quando e perché).
+  // "In attesa per noi": quello che questa sede ha ordinato e non è ancora arrivato.
+  const $ = id => document.getElementById(id);
+  const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+  let db = null, daMandare = [], inAttesa = [];
+
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  const disponibilita = r => {
+    const g = r.articolo.giac ?? 0;
+    return g >= r.residuo ? '<span class="disp si">disponibile</span>' : g > 0 ? `<span class="disp parte">solo ${g}</span>` : '<span class="disp no">non c\'è</span>';
+  };
+  const perFiliale = (lista, chiave) => {
+    const m = new Map();
+    lista.forEach(r => { const k = r[chiave]; if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
+    return [...m.entries()];
+  };
+
+  function disegnaMandare() {
+    $("nMandare").textContent = daMandare.length;
+    $("tab-mandare").innerHTML = daMandare.length ? perFiliale(daMandare, "sede_richiedente").map(([sede, righe]) => `
+      <div class="gruppo-filiale" data-sede="${esc(sede)}">
+        <h2>🏬 ${esc(righe[0].nomeRichiedente)} <span class="n">${righe.length} articoli</span><span class="spazio"></span>
+          <button class="btn btn-light" data-tutti="${esc(sede)}">Seleziona i disponibili</button>
+          <button class="btn btn-primary" data-prepara="${esc(sede)}">🚚 Prepara trasferimento con i selezionati</button></h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th class="chk"></th><th>Articolo</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Già mandata</th><th class="num">Inevasa</th><th class="num">Giac. qui</th><th></th><th style="width:40px"></th></tr></thead>
+          <tbody>${righe.map(r => `<tr>
+            <td class="chk"><input type="checkbox" data-riga="${r.ordine_riga_id}"></td>
+            <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+            <td><span class="num-mov"><span class="id">#${r.ordine_id}</span></span> <small style="color:var(--muted)">${dataIt(r.data_ordine)}</small></td>
+            <td class="num">${r.ordinata}</td><td class="num">${r.trasferita + r.annullata ? r.trasferita : "—"}</td>
+            <td class="num"><span class="residuo">${r.residuo}</span></td>
+            <td class="num">${r.articolo.giac ?? 0}</td><td>${disponibilita(r)}</td>
+            <td><button class="btn-riga cestino" data-cancella="${r.ordine_riga_id}" title="Cancella: questo articolo non arriverà più">🗑</button></td>
+          </tr>`).join("")}</tbody>
+        </table></div>
+      </div>`).join("") : '<div class="vuoto"><b>Nessun inevaso da mandare</b><span>Qui compaiono gli articoli ordinati dalle filiali a questa sede e non ancora mandati.</span></div>';
+  }
+
+  function disegnaAttesa() {
+    $("nAttesa").textContent = inAttesa.length;
+    $("tab-attesa").innerHTML = inAttesa.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Articolo</th><th>Da</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Ancora in attesa</th></tr></thead>
+        <tbody>${inAttesa.map(r => `<tr>
+          <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+          <td>${esc(nomiSede.get(r.sede_fornitrice) || r.sede_fornitrice)}</td>
+          <td><a class="num-mov" href="ordine.html?db=${r.ordine_id}"><span class="id">#${r.ordine_id}</span></a> <small style="color:var(--muted)">${dataIt(r.data_ordine)}${r.stato_ordine === "Definitivo" ? " · non ancora preparato" : ""}</small></td>
+          <td class="num">${r.ordinata}</td><td class="num">${r.trasferita}</td><td class="num"><span class="residuo">${r.residuo}</span></td>
+        </tr>`).join("")}</tbody></table></div>`
+      : '<div class="vuoto"><b>Niente in attesa</b><span>Qui compaiono gli articoli che questa sede ha ordinato a un\'altra sede e non sono ancora arrivati.</span></div>';
+  }
+
+  // Registro delle cancellazioni: resta sempre visibile
+  async function disegnaCancellati() {
+    const tutte = [...daMandareTutte, ...inAttesaTutte];
+    const reg = await inevasiAnnullatiDb(db, tutte.map(r => r.ordine_riga_id));
+    const perRiga = new Map(tutte.map(r => [r.ordine_riga_id, r]));
+    $("nCanc").textContent = reg.length;
+    $("tab-cancellati").innerHTML = reg.length ? `<div class="table-wrap"><table class="storico-canc">
+        <thead><tr><th>Quando</th><th>Chi</th><th>Articolo</th><th>Filiale</th><th>Ordine</th><th class="num">Pezzi cancellati</th><th>Motivo</th></tr></thead>
+        <tbody>${reg.map(c => { const r = perRiga.get(c.ordine_riga_id) || {}; const a = r.articolo || {}; return `<tr>
+          <td>${new Date(c.annullato_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</td><td>${esc(c.annullato_da || "")}</td>
+          <td><span class="codice">${esc(a.codice || "")}</span> ${esc(a.descr || "")}</td><td>${esc(r.nomeRichiedente || "")}</td><td>#${r.ordine_id || ""}</td>
+          <td class="num">${+c.quantita}</td><td class="motivo">${esc(c.motivo || "—")}</td></tr>`; }).join("")}</tbody></table></div>`
+      : '<div class="vuoto"><b>Nessuna cancellazione</b><span>Quando un inevaso viene cancellato (prodotto che non arriverà più) resta registrato qui.</span></div>';
+  }
+
+  let daMandareTutte = [], inAttesaTutte = [], nomiSede = new Map();
+  async function carica() {
+    // "Tutte" servono al registro delle cancellazioni (anche righe ormai chiuse)
+    [daMandareTutte, inAttesaTutte] = await Promise.all([
+      inevasiDb(db, { sede_fornitrice: sedeId, stato_ordine: "Evaso" }, { soloResiduo: false }),
+      inevasiDb(db, { sede_richiedente: sedeId }, { soloResiduo: false })
+    ]);
+    daMandare = daMandareTutte.filter(r => r.residuo > 0);
+    inAttesa = inAttesaTutte.filter(r => r.residuo > 0);
+    for (const r of inAttesa) nomiSede.set(r.sede_fornitrice, await nomeSedeDb(db, r.sede_fornitrice));
+    disegnaMandare(); disegnaAttesa(); await disegnaCancellati();
+    // una sede che non riceve ordini si apre su "In attesa per noi"
+    if (!daMandare.length && inAttesa.length) document.querySelector('.scheda-tab[data-t="attesa"]').click();
+  }
+
+  $("tab-mandare").onclick = async e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.tutti) {
+      const box = b.closest(".gruppo-filiale");
+      box.querySelectorAll("input[data-riga]").forEach(c => {
+        const r = daMandare.find(x => x.ordine_riga_id === +c.dataset.riga);
+        c.checked = (r.articolo.giac ?? 0) > 0;
+      });
+    }
+    if (b.dataset.prepara) {
+      const scelte = [...b.closest(".gruppo-filiale").querySelectorAll("input[data-riga]:checked")].map(c => c.dataset.riga);
+      if (!scelte.length) { avviso("Seleziona gli inevasi da mandare (o usa \"Seleziona i disponibili\")"); return; }
+      location.href = `trasferimento.html?nuovo=1&righe=${scelte.join(",")}`;
+    }
+    if (b.dataset.cancella) {
+      const r = daMandare.find(x => x.ordine_riga_id === +b.dataset.cancella);
+      const q = prompt(`Cancellare l'inevaso di ${r.articolo.codice} – ${r.articolo.descr} per ${r.nomeRichiedente}?\n\nQuanti pezzi cancellare? (in attesa: ${r.residuo})`, r.residuo);
+      if (q === null) return;
+      const quanti = Math.min(r.residuo, Math.max(0, +String(q).replace(",", ".") || 0));
+      if (!quanti) { avviso("Nessun pezzo cancellato"); return; }
+      const motivo = prompt("Perché? (es. prodotto fuori produzione) — resta registrato", "Non più disponibile");
+      if (motivo === null) return;
+      try {
+        await annullaInevasoDb(db, r.ordine_riga_id, quanti, motivo.trim());
+        avviso(`Inevaso cancellato: ${quanti} pezzi di ${r.articolo.codice}. Resta registrato in "Cancellati".`);
+        await carica();
+      } catch (err) { avviso("Errore nel cancellare: " + err.message); }
+    }
+  };
+
+  dbPronto.then(async conn => {
+    db = conn;
+    if (!db) { $("tab-mandare").innerHTML = '<div class="vuoto"><b>Serve l\'accesso al database</b></div>'; return; }
+    await carica();
+  }).catch(err => avviso("Errore nel leggere gli inevasi: " + err.message));
+</script>
+</body>
+</html>

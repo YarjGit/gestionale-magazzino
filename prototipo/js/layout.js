@@ -35,7 +35,7 @@ const MENU = [
       { label: "Altri Scarichi", page: "altri-scarichi" }
     ] },
     { titolo: "Rettifiche", voci: [{ label: "Riallineamenti Giacenza", page: "riallineamenti-giacenza" }] },
-    { titolo: "Riepilogo", voci: [{ label: "Tutti i Movimenti", page: "tutti-movimenti" }] }
+    { titolo: "Riepilogo", voci: [{ label: "Tutti i Movimenti", page: "tutti-movimenti" }, { label: "Inevasi", page: "inevasi" }] }
   ] },
   { id: "magazzino", label: "Magazzino", gruppi: [
     { titolo: "Anagrafica", voci: [{ label: "Articoli", page: "articoli" }, { label: "Categorie", page: "categorie" }, { label: "Sottocategorie", page: "sottocategorie" }] },
