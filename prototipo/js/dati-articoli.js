@@ -13,10 +13,14 @@ function corrispondeArticolo(a, testo) {
 // Ricerca per i campi "aggiungi articolo": tutti gli articoli che contengono il testo (es. "a01" trova anche A0110/11).
 // In cima il codice o barcode esatto, così la pistola (barcode + Invio) prende sempre l'articolo giusto;
 // poi i codici che iniziano col testo, quelli che lo contengono, infine descrizione. prima(a): numero più basso = più in alto.
-const MAX_SUGGERIMENTI = 50;
+// Bisogna scrivere almeno MIN_CARATTERI caratteri: con meno il menu chiede di continuare a scrivere.
+const MAX_SUGGERIMENTI = 50, MIN_CARATTERI = 2;
+let ricercaCorta = false;
+const testoNessunArticolo = () => ricercaCorta ? `Scrivi almeno ${MIN_CARATTERI} caratteri` : "Nessun articolo trovato";
 function cercaArticoli(testo, prima = () => 0) {
   const t = testo.trim().toLowerCase();
-  if (!t) return [];
+  ricercaCorta = t.length > 0 && t.length < MIN_CARATTERI;
+  if (!t || ricercaCorta) return [];
   const n = normalizza(t);
   const posto = a => {
     const cod = normalizza(a.codice);

@@ -208,7 +208,7 @@ function avviaRighe(cfg) {
   const trova = testo => cercaArticoli(testo, a => +altro(a));
   const suggerimenti = (lista, attivo) => lista.length
     ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}<small>${a.barcode}</small></div>`).join("")
-    : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>';
+    : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
 
   // Ricerca dentro la riga vuota (anche con la pistola: codice + Invio)
   let suggRiga = 0;
@@ -233,7 +233,7 @@ function avviaRighe(cfg) {
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[suggRiga]) completaRiga(RIGHE.find(x => x.pos === +pos), lista[suggRiga]);
-      else if (e.target.value.trim()) avviso(`Nessun articolo con codice o barcode "${e.target.value.trim()}"`);
+      else if (e.target.value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${e.target.value.trim()}"`);
     }
   };
 
@@ -260,7 +260,7 @@ function avviaRighe(cfg) {
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[suggAttivo]) aggiungiDaCampo(lista[suggAttivo]);
-      else if ($("addArt").value.trim()) avviso(`Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
+      else if ($("addArt").value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
     }
   };
   $("suggArt").onclick = e => {

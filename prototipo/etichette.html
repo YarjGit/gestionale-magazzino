@@ -214,7 +214,7 @@
     attivo = Math.min(attivo, Math.max(0, lista.length - 1));
     $("suggerimenti").innerHTML = lista.length
       ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>${a.barcode}</small></div>`).join("")
-      : `<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>`;
+      : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
     $("suggerimenti").classList.toggle("show", !!$("cercaArt").value.trim());
     return lista;
   }
@@ -238,7 +238,7 @@
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[attivo]) aggiungi(lista[attivo]);
-      else if ($("cercaArt").value.trim()) avviso(`Nessun articolo con codice o barcode "${$("cercaArt").value.trim()}"`);
+      else if ($("cercaArt").value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${$("cercaArt").value.trim()}"`);
     }
   };
   $("suggerimenti").onclick = e => {
