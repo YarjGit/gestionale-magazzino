@@ -63,7 +63,7 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
   Anche la merce che arriva dai fornitori è sempre al 22% (ostie 4%).
 - I 22 articoli non libri che il vecchio gestionale aveva a 0% passano al 22% con `database/09-iva-solo-libri-a-zero.sql` (eseguito il 22/10/2026: libri 49 a 0%, ostie 8 al 4%, 6.667 al 22%)
   (il prezzo in etichetta non cambia). Il "Vangelo medio piatto argento/pelle" (Q11) resta al 22%: con la copertina in argento è un oggetto.
-  Da decidere: Q08 Calendario liturgico (oggi 0%) e "Prima comunione – Vestire è servire" (Q11, oggi 22%).
+  "Prima comunione – Vestire è servire" (Q11/05) è un libro: va a 0% con `database/10-libro-vestire-e-servire.sql`. Da decidere: Q08 Calendario liturgico (oggi 0%).
 - Le **sedi estere** sono a **0%** (IVA non applicata). Da sapere: quali sono le sedi estere? (nel prototipo l'elenco `SEDI_ESTERE` in `js/sedi.js` è vuoto).
 
 **Da fare nel database (quando si salvano i movimenti)**: segnare l'anno di acquisto su ogni riga di carico e trasferimento, e calcolare la giacenza per sede, articolo e anno.
