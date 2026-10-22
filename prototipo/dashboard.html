@@ -100,6 +100,19 @@
     padding: 10px 16px 12px;
   }
   .card-body.three { grid-template-columns: repeat(3, auto); }
+  /* Ordini delle filiali: tasto per aprirli e tasto Inevasi ben visibile */
+  .card-apri { display: flex; justify-content: flex-end; padding: 0 16px 14px; }
+  .card-apri span { padding: 7px 14px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.85rem; }
+  .card.nuovo-ord { outline: 2px solid #ffc531; }
+  .btn-inevasi { display: flex; align-items: center; gap: 14px; margin-top: 16px; padding: 14px 18px; border-radius: 12px;
+    background: linear-gradient(135deg, #ff9f1a, #e5631a); color: #fff; text-decoration: none; box-shadow: 0 8px 20px rgba(229,99,26,0.25); transition: transform 0.15s; }
+  .btn-inevasi:hover { transform: translateY(-2px); }
+  .btn-inevasi .ico { font-size: 1.6rem; }
+  .btn-inevasi .t { flex: 1; font-weight: 700; font-size: 1rem; }
+  .btn-inevasi .t small { display: block; font-weight: 500; font-size: 0.8rem; opacity: 0.9; }
+  .btn-inevasi .num { min-width: 46px; padding: 6px 12px; border-radius: 10px; background: #fff; color: #c2410c; font-size: 1.3rem; font-weight: 800; text-align: center; }
+  .btn-inevasi.zero { background: #eef1f6; color: var(--muted); box-shadow: none; }
+  .btn-inevasi.zero .num { color: var(--muted); }
   .k { color: var(--muted); font-size: 0.78rem; font-weight: 500; }
   .v { font-weight: 500; }
   .r { text-align: right; }
@@ -130,7 +143,11 @@
         <span class="count" id="countRicevuti">…</span>
       </h2>
       <div class="cards" id="ricevuti"><p class="empty">Lettura degli ordini…</p></div>
-      <p style="margin-top:10px"><a href="inevasi.html" style="color:var(--accent);font-weight:600" id="linkInevasi">⏳ Inevasi da mandare alle filiali</a></p>
+      <a href="inevasi.html" class="btn-inevasi" id="linkInevasi">
+        <span class="ico">⏳</span>
+        <span class="t">Inevasi da mandare alle filiali<small>Articoli ordinati dalle filiali e non ancora mandati: aprili per sceglierli o cancellarli</small></span>
+        <span class="num" id="numInevasi">…</span>
+      </a>
     </section>
 
     <section class="section">
@@ -244,16 +261,18 @@
     const lista = [...ordini.values()];
     document.getElementById("countRicevuti").textContent = lista.length;
     document.getElementById("ricevuti").innerHTML = lista.length ? lista.map(o => `
-      <div class="card" onclick="location.href='trasferimento.html?nuovo=1&ordine=${o.id}'" title="Prepara il trasferimento">
+      <div class="card nuovo-ord" onclick="location.href='trasferimento.html?nuovo=1&ordine=${o.id}'" title="Apri l'ordine e prepara il trasferimento a filiale">
         <div class="card-head trasf"><span class="name">${esc(o.da)} · ordine #${o.id}</span><span class="tot">${o.pezzi} pezzi</span></div>
         <div class="card-body three">
           <div><div class="k">Data ordine</div><div class="v">${dataIt(o.data)}</div></div>
           <div><div class="k">Articoli</div><div class="v">${o.righe}</div></div>
           <div class="r"><div class="k">Disponibili ora</div><div class="v">${o.disponibili} di ${o.righe}</div></div>
         </div>
+        <div class="card-apri"><span>Apri e prepara il trasferimento →</span></div>
       </div>`).join("") : '<p class="empty">Nessun ordine da preparare.</p>';
     const nInevasi = new Set(inevasi.map(r => r.articolo_id)).size;
-    document.getElementById("linkInevasi").textContent = `⏳ Inevasi da mandare alle filiali: ${nInevasi} articoli`;
+    document.getElementById("numInevasi").textContent = nInevasi;
+    document.getElementById("linkInevasi").classList.toggle("zero", !nInevasi);
     // Una sede che non riceve ordini (es. un negozio) non vede la sezione
     if (!lista.length && !nInevasi) document.getElementById("sezRicevuti").hidden = true;
   }).catch(err => avviso("Errore nel leggere gli ordini ricevuti: " + err.message));

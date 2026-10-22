@@ -8,6 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/elenco.css">
+<style>
+  .ordini-da-preparare { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; padding: 14px 16px; border: 2px solid #ffc531; border-radius: 12px; background: #fffaeb; }
+  .ordini-da-preparare a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: #fff; color: var(--text); text-decoration: none; font-weight: 500; }
+  .ordini-da-preparare a:hover { background: #eef5ff; }
+  .ordini-da-preparare a span { margin-left: auto; padding: 4px 12px; border-radius: 7px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.82rem; }
+</style>
 </head>
 <body data-page="trasferimenti-a-filiali" data-top="elenco">
 <main class="content"></main>
@@ -52,8 +58,22 @@
   // Dopo l'accesso: i trasferimenti salvati nel database fatti da questa sede, in cima a quelli di esempio
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", ID_SEDI_DB[trovaSede(leggiSede()).nome], "trasferimento.html");
+    const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", sedeId, "trasferimento.html");
     if (righe.length) elenco.aggiungi(righe);
+    // Ordini delle filiali arrivati a questa sede e non ancora preparati: in cima, si aprono per fare il trasferimento
+    const daPreparare = await inevasiDb(db, { sede_fornitrice: sedeId, stato_ordine: "Definitivo" }, { soloResiduo: false });
+    const ordini = new Map();
+    daPreparare.forEach(r => {
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, da: r.nomeRichiedente, data: r.data_ordine, righe: 0, pezzi: 0 };
+      o.righe++; o.pezzi += r.ordinata;
+      ordini.set(r.ordine_id, o);
+    });
+    if (ordini.size) document.querySelector(".page-head").insertAdjacentHTML("afterend", `
+      <div class="ordini-da-preparare">
+        <b>📦 Ordini delle filiali da preparare: ${ordini.size}</b>
+        ${[...ordini.values()].map(o => `<a href="trasferimento.html?nuovo=1&ordine=${o.id}">${esc(o.da)} · ordine #${o.id} del ${dataIt(o.data)} · ${o.righe} articoli, ${o.pezzi} pezzi <span>Apri →</span></a>`).join("")}
+      </div>`);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>

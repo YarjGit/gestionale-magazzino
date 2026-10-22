@@ -19,12 +19,48 @@
   .riepilogo-tr b { color: var(--text); }
   .azioni-righe { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .num-mod { width: 64px; }
+  /* Ordine di una filiale: sopra i disponibili, sotto (separati) i nuovi inevasi e quelli degli ordini precedenti */
+  tr.sez td { padding: 10px 12px; font-weight: 700; font-size: 0.86rem; border-top: 2px solid var(--line); }
+  tr.sez small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+  tr.sez .n { margin-left: 6px; padding: 1px 8px; border-radius: 99px; background: #fff; font-size: 0.75rem; }
+  tr.sez-A td { background: #effaf3; color: #13804a; }
+  tr.sez-nuovo td { background: #fff3dd; color: #9a5a00; }
+  tr.sez-vecchio td { background: #f1ecff; color: #5b34c9; }
+  tr.sez-vuota td { color: var(--muted); font-style: italic; padding: 8px 12px; }
+  tr.non-scelto td { opacity: 0.6; }
+  tr.non-scelto td.chk { opacity: 1; }
+  td.chk, th.chk { width: 34px; text-align: center; }
+  td.chk input { width: 17px; height: 17px; cursor: pointer; }
+  .tag-inev { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; vertical-align: 1px; }
+  .tag-inev.nuovo { background: #fff3dd; color: #9a5a00; }
+  .tag-inev.vecchio { background: #f1ecff; color: #5b34c9; }
+  .disp-si { color: var(--ok); font-weight: 700; font-size: 0.75rem; }
+
+  /* Nota di preparazione: si stampa solo lei */
+  #stampa { display: none; }
+  @media print {
+    body > *:not(#stampa) { display: none !important; }
+    #stampa { display: block; font-family: Arial, sans-serif; color: #000; font-size: 11pt; }
+    #stampa h1 { font-size: 16pt; margin: 0 0 4px; }
+    #stampa .testa { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 12px; border-bottom: 2px solid #000; padding-bottom: 8px; }
+    #stampa table { width: 100%; border-collapse: collapse; }
+    #stampa th, #stampa td { border-bottom: 1px solid #999; padding: 5px 6px; text-align: left; }
+    #stampa th { background: #eee; font-size: 9.5pt; }
+    #stampa .n { text-align: right; white-space: nowrap; }
+    #stampa .box { width: 14px; height: 14px; border: 1.5px solid #000; display: inline-block; }
+    #stampa .tot td { font-weight: 700; border-top: 2px solid #000; border-bottom: none; }
+    #stampa .firme { display: flex; gap: 40px; margin-top: 36px; }
+    #stampa .firme div { flex: 1; border-top: 1px solid #000; padding-top: 4px; font-size: 9.5pt; }
+    #stampa .inev { font-size: 8.5pt; color: #444; }
+    @page { margin: 14mm; }
+  }
 </style>
 </head>
 <body data-page="trasferimenti-a-filiali">
 
 <template id="top-actions">
   <span class="spacer"></span>
+  <button class="btn btn-light" id="btnStampa" title="Stampa la nota con gli articoli da preparare, quantità e prezzi">🖨️ Stampa nota</button>
   <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
   <button class="btn btn-light" id="btnAnnullaTr" hidden>⛔ Annulla trasferimento</button>
   <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
@@ -33,6 +69,7 @@
 </template>
 
 <main class="content" id="contenuto"></main>
+<div id="stampa"></div>
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
@@ -43,8 +80,10 @@
 <script src="js/movimenti-db.js"></script>
 <script type="module">
   // Trasferimento a filiale: la merce esce da questa sede ed entra in automatico nella giacenza della sede che riceve.
-  // ?nuovo=1&ordine=12  → si prepara l'ordine #12 di una filiale: per ogni articolo ordinato si sceglie quanto mandare;
-  //                       quello che non si manda resta negli INEVASI (vista "inevasi", database/14-inevasi.sql)
+  // ?nuovo=1&ordine=12  → si prepara l'ordine #12 di una filiale: sopra gli articoli disponibili (quanto mandare),
+  //                       sotto, separati, i nuovi inevasi dell'ordine e quelli accumulati dagli ordini precedenti
+  //                       della stessa filiale: si spuntano per mandarli. Quello che non si manda resta negli INEVASI
+  //                       (vista "inevasi", database/14-inevasi.sql)
   // ?nuovo=1&righe=5,9   → si mandano inevasi scelti nella pagina Inevasi (righe d'ordine 5 e 9)
   // ?nuovo=1             → trasferimento a mano, senza ordine
   // ?db=20               → trasferimento salvato, in sola lettura (si può annullare)
@@ -75,11 +114,18 @@
       const lista = await inevasiDb(db, filtro);
       destinazione = lista[0] ? lista[0].sede_richiedente : "";
       if (lista.some(r => r.sede_richiedente !== destinazione)) avviso("Attenzione: gli inevasi scelti sono di filiali diverse; qui c'è solo la prima");
-      RIGHE = lista.filter(r => r.sede_richiedente === destinazione).map((r, i) => ({
-        pos: i + 1, articolo: r.articolo, ordinata: r.residuo, ordineRigaId: r.ordine_riga_id, ordineId: r.ordine_id, prezzo: r.articolo.costo,
-        // si propone di mandare quello che c'è: il resto resta inevaso
-        manda: Math.max(0, Math.min(r.residuo, r.articolo.giac ?? 0))
-      }));
+      const rigaDa = (r, sez) => ({
+        articolo: r.articolo, ordinata: r.residuo, ordineRigaId: r.ordine_riga_id, ordineId: r.ordine_id, dataOrdine: r.data_ordine, prezzo: r.articolo.costo, sez,
+        // si propone di mandare quello che c'è: il resto resta inevaso. Gli inevasi partono non spuntati.
+        manda: sez === "A" ? Math.max(0, Math.min(r.residuo, r.articolo.giac ?? 0)) : 0, scelto: false
+      });
+      RIGHE = lista.filter(r => r.sede_richiedente === destinazione).map(r => rigaDa(r, !ordineId || (r.articolo.giac ?? 0) > 0 ? "A" : "nuovo"));
+      // Ordine di una filiale: si aggiungono gli inevasi accumulati dagli ordini precedenti della stessa filiale
+      if (ordineId && destinazione) {
+        const vecchi = await inevasiDb(db, { sede_fornitrice: sedeId, sede_richiedente: destinazione, stato_ordine: "Evaso" });
+        RIGHE.push(...vecchi.filter(r => r.ordine_id !== ordineId).map(r => rigaDa(r, "vecchio")));
+      }
+      RIGHE.forEach((r, i) => r.pos = i + 1);
       const nome = lista[0] ? lista[0].nomeRichiedente : "";
       info = ordineId ? `📋 Ordine <b>#${ordineId}</b> di <b>${esc(nome)}</b> del ${dataIt(lista[0] ? lista[0].data_ordine : "")}: per ogni articolo scegli quanto mandare. Quello che non mandi resta negli <b>inevasi</b> e lo potrai mandare più avanti, senza che ${esc(nome)} lo riordini.`
         : `⏳ Inevasi di <b>${esc(nome)}</b>: scegli quanto mandare ora. Il resto resta negli inevasi.`;
@@ -93,7 +139,9 @@
     throw new Error("trasferimento non trovato");
   }
   const salvato = !!mov;
+  RIGHE.forEach(r => { if (!r.sez) r.sez = "A"; });
   const daOrdine = RIGHE.some(r => r.ordineRigaId);
+  const conInevasi = !!ordineId && !salvato;   // sezioni separate e spunte solo preparando l'ordine di una filiale
   const stato = mov ? mov.stato : "Definitivo";
   const st = Object.values(STATO).find(s => s.nome === stato);
   const sediDest = SEDI.filter(s => s.nome !== sedeLavoro && ID_SEDI_DB[s.nome]);
@@ -142,12 +190,12 @@
         <button class="btn btn-primary" id="addBtn">Aggiungi</button>
       </div>
       <div class="azioni-righe solo-mod" ${daOrdine ? "" : "hidden"}>
-        <button class="btn btn-light" id="btnTuttoDisp">✔ Manda tutto il disponibile</button>
+        <button class="btn btn-light" id="btnTuttoDisp">✔ Manda tutto il disponibile${conInevasi ? " (articoli dell'ordine)" : ""}</button>
         <button class="btn btn-light" id="btnAzzera">↺ Azzera le quantità</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Articolo</th>${daOrdine ? '<th class="num" title="Quantità ordinata ancora da mandare">Ordinata</th>' : ""}<th class="num" title="Giacenza di questa sede">Giac. qui</th>
+          <thead><tr>${conInevasi ? '<th class="chk solo-mod" title="Spunta gli inevasi da mandare"></th>' : ""}<th>#</th><th>Articolo</th>${conInevasi ? "<th>Ordine</th>" : ""}${daOrdine ? '<th class="num" title="Quantità ordinata ancora da mandare">Ordinata</th>' : ""}<th class="num" title="Giacenza di questa sede">Giac. qui</th>
             <th class="num">Da mandare</th>${daOrdine ? '<th class="num" title="Quello che non si manda resta negli inevasi">Inevaso</th>' : ""}<th class="num">Costo</th><th class="num">Totale</th><th class="solo-mod" style="width:40px"></th></tr></thead>
           <tbody id="righe"></tbody>
         </table>
@@ -157,29 +205,50 @@
 
   // ---------- Righe ----------
   const modifica = () => document.body.classList.contains("in-modifica");
-  function disegna() {
-    const mod = modifica();
-    $("righe").innerHTML = RIGHE.length ? RIGHE.map(r => {
-      const a = r.articolo, giac = a.giac ?? 0;
-      const inev = r.ordinata == null ? 0 : Math.max(0, cent(r.ordinata - r.manda));
-      return `<tr class="${inev > 0 ? "manca" : ""}">
+  const inevasoDi = r => r.ordinata == null ? 0 : Math.max(0, cent(r.ordinata - r.manda));
+  const colonne = 7 + (conInevasi ? 2 : 0) + (daOrdine ? 2 : 0);
+  function rigaHtml(r, mod) {
+    const a = r.articolo, giac = a.giac ?? 0, inev = inevasoDi(r);
+    const spuntabile = conInevasi && r.sez !== "A";
+    const attiva = !spuntabile || r.scelto;
+    const tag = r.sez === "nuovo" ? '<span class="tag-inev nuovo">NUOVO INEVASO</span>'
+      : r.sez === "vecchio" ? `<span class="tag-inev vecchio">INEVASO dal ${dataIt(r.dataOrdine)}</span>` : "";
+    return `<tr class="${inev > 0 && attiva ? "manca" : ""}${attiva ? "" : " non-scelto"}">
+        ${conInevasi ? `<td class="chk solo-mod">${spuntabile ? `<input type="checkbox" data-scegli="${r.pos}" ${r.scelto ? "checked" : ""} title="Spunta per mandarlo in questo trasferimento">` : ""}</td>` : ""}
         <td style="color:var(--muted)">${r.pos}</td>
-        <td class="art-cella"><span class="codice">${esc(a.codice)}</span><b>${esc(a.descr)}</b></td>
+        <td class="art-cella"><span class="codice">${esc(a.codice)}</span>${tag}<b>${esc(a.descr)}</b></td>
+        ${conInevasi ? `<td style="white-space:nowrap">${r.ordineId ? `#${r.ordineId} <small style="color:var(--muted)">${dataIt(r.dataOrdine)}</small>` : '<small style="color:var(--muted)">a mano</small>'}</td>` : ""}
         ${daOrdine ? `<td class="num">${r.ordinata ?? "—"}</td>` : ""}
-        <td class="num ${giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${salvato ? "—" : giac}</td>
-        <td class="num">${mod ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-pos="${r.pos}">−</button><input class="num-mod" data-pos="${r.pos}" value="${r.manda}"><button class="btn-riga" data-passo="1" data-pos="${r.pos}">+</button></span>` : `<b>${r.manda}</b>`}</td>
+        <td class="num ${giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${salvato ? "—" : giac}${spuntabile && giac > 0 ? ' <span class="disp-si" title="Adesso è in giacenza">● c\'è</span>' : ""}</td>
+        <td class="num">${!attiva ? '<span style="color:var(--muted)">—</span>' : mod ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-pos="${r.pos}">−</button><input class="num-mod" data-pos="${r.pos}" value="${r.manda}"><button class="btn-riga" data-passo="1" data-pos="${r.pos}">+</button></span>` : `<b>${r.manda}</b>`}</td>
         ${daOrdine ? `<td class="num">${r.ordinata == null ? "" : inev > 0 ? `<span class="inevaso">${inev}</span>` : '<span class="ok-tutto">✔</span>'}</td>` : ""}
         <td class="num">${numero(r.prezzo)}</td>
-        <td class="num">${numero(cent(r.manda * r.prezzo))}</td>
+        <td class="num">${attiva ? numero(cent(r.manda * r.prezzo)) : ""}</td>
         <td class="solo-mod">${r.ordineRigaId ? "" : `<button class="btn-riga cestino" data-togli="${r.pos}" title="Togli">🗑</button>`}</td>
       </tr>`;
-    }).join("") : `<tr><td colspan="9"><div class="vuoto"><b>Nessun articolo</b><span>Spara o cerca gli articoli da mandare qui sopra.</span></div></td></tr>`;
+  }
+  const SEZIONI = [
+    { k: "A", titolo: `✔ Da preparare: articoli disponibili dell'ordine #${ordineId}`, aiuto: "quello che non mandi diventa un nuovo inevaso", vuoto: "Nessun articolo dell'ordine è disponibile adesso" },
+    { k: "nuovo", titolo: "⏳ Nuovi inevasi di questo ordine", aiuto: "qui non ci sono: spunta per mandarli lo stesso", vuoto: "Nessuno: tutti gli articoli dell'ordine sono disponibili" },
+    { k: "vecchio", titolo: "🕑 Inevasi accumulati dagli ordini precedenti", aiuto: "spunta quelli che puoi mandare ora", vuoto: "Nessun inevaso precedente per questa filiale" }
+  ];
+  function disegna() {
+    const mod = modifica();
+    if (!RIGHE.length && !conInevasi) {
+      $("righe").innerHTML = `<tr><td colspan="${colonne}"><div class="vuoto"><b>Nessun articolo</b><span>Spara o cerca gli articoli da mandare qui sopra.</span></div></td></tr>`;
+    } else if (conInevasi) {
+      $("righe").innerHTML = SEZIONI.map(z => {
+        const lista = RIGHE.filter(r => r.sez === z.k);
+        return `<tr class="sez sez-${z.k}"><td colspan="${colonne}">${z.titolo}<span class="n">${lista.length}</span><small>${z.aiuto}</small></td></tr>` +
+          (lista.length ? lista.map(r => rigaHtml(r, mod)).join("") : `<tr class="sez-vuota"><td colspan="${colonne}">${z.vuoto}</td></tr>`);
+      }).join("");
+    } else $("righe").innerHTML = RIGHE.map(r => rigaHtml(r, mod)).join("");
     const pezzi = RIGHE.reduce((s, r) => s + r.manda, 0);
-    const inevasi = RIGHE.filter(r => r.ordinata != null && r.ordinata > r.manda);
+    const inevasi = RIGHE.filter(r => inevasoDi(r) > 0);
     $("topPezzi").textContent = `${cent(pezzi)} pezzi da mandare`;
     $("riepilogo").innerHTML = `<span>Articoli: <b>${RIGHE.filter(r => r.manda > 0).length}</b></span><span>Pezzi: <b>${cent(pezzi)}</b></span>` +
       `<span>Valore a costo: <b>${euro(RIGHE.reduce((s, r) => s + r.manda * r.prezzo, 0))}</b></span>` +
-      (daOrdine ? `<span>Restano inevasi: <b style="color:var(--ko)">${inevasi.length} articoli, ${cent(inevasi.reduce((s, r) => s + r.ordinata - r.manda, 0))} pezzi</b></span>` : "");
+      (daOrdine ? `<span>Restano inevasi: <b style="color:var(--ko)">${inevasi.length} articoli, ${cent(inevasi.reduce((s, r) => s + inevasoDi(r), 0))} pezzi</b></span>` : "");
   }
   const riga = pos => RIGHE.find(r => r.pos === +pos);
   $("righe").onclick = e => {
@@ -191,10 +260,18 @@
     disegna();
   };
   $("righe").onchange = e => {
+    // inevaso spuntato: si propone quello che c'è in giacenza (se non risulta niente, tutto l'inevaso: si può correggere)
+    if (e.target.dataset.scegli) {
+      const r = riga(e.target.dataset.scegli), g = r.articolo.giac ?? 0;
+      r.scelto = e.target.checked;
+      r.manda = r.scelto ? (g > 0 ? Math.min(r.ordinata, g) : r.ordinata) : 0;
+      disegna();
+      return;
+    }
     const r = riga(e.target.dataset.pos);
     if (r) { r.manda = Math.max(0, cent(num(e.target.value))); disegna(); }
   };
-  $("btnTuttoDisp").onclick = () => { RIGHE.forEach(r => { if (r.ordinata != null) r.manda = Math.max(0, Math.min(r.ordinata, r.articolo.giac ?? 0)); }); disegna(); };
+  $("btnTuttoDisp").onclick = () => { RIGHE.forEach(r => { if (r.ordinata != null && r.sez === "A") r.manda = Math.max(0, Math.min(r.ordinata, r.articolo.giac ?? 0)); }); disegna(); };
   $("btnAzzera").onclick = () => { RIGHE.forEach(r => r.manda = 0); disegna(); };
 
   // Aggiunta a mano (anche con la pistola): articoli senza ordine
@@ -211,7 +288,7 @@
     const n = Math.max(1, num($("addQta").value) || 1);
     const r = RIGHE.find(x => x.articolo.id === a.id && !x.ordineRigaId);
     if (r) r.manda = cent(r.manda + n);
-    else RIGHE.push({ pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, articolo: a, ordinata: null, manda: n, prezzo: a.costo, ordineRigaId: null });
+    else RIGHE.push({ pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, articolo: a, ordinata: null, manda: n, prezzo: a.costo, ordineRigaId: null, sez: "A" });
     $("addArt").value = ""; $("addQta").value = 1; $("suggArt").classList.remove("show");
     disegna(); $("addArt").focus();
     avviso(`${a.codice}: ${n} da mandare`);
@@ -240,6 +317,8 @@
     }
     const sopra = daMandare.filter(r => r.ordinata != null && r.manda > r.ordinata);
     if (sopra.length && !confirm(`Per ${sopra.length} articoli mandi più di quanto ordinato. Confermi?`)) return;
+    const oltre = daMandare.filter(r => r.manda > (r.articolo.giac ?? 0));
+    if (oltre.length && !confirm(`Per ${oltre.length} articoli mandi più di quanto risulta in giacenza qui:\n` + oltre.map(r => `• ${r.articolo.codice}: mandi ${r.manda}, in giacenza ${r.articolo.giac ?? 0}`).join("\n") + "\n\nLa giacenza andrà sotto zero. Confermi?")) return;
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
     try {
@@ -263,6 +342,33 @@
       pulsanti.forEach(b => b.disabled = false);
     }
   }
+  // ---------- Nota di preparazione: articoli da mandare con quantità e prezzi (si stampa solo questa) ----------
+  $("btnStampa").onclick = () => {
+    const lista = RIGHE.filter(r => r.manda > 0);
+    if (!lista.length) { avviso("Non c'è niente da preparare: metti le quantità da mandare"); return; }
+    const dest = $("fDest").value ? nomeDest($("fDest").value) : "—";
+    const tot = cent(lista.reduce((s, r) => s + cent(r.manda * r.prezzo), 0));
+    const restano = RIGHE.filter(r => inevasoDi(r) > 0);
+    const titoloNota = salvato ? `Trasferimento #${mov.id}` : ordineId ? `Ordine #${ordineId}` : "Trasferimento a filiale";
+    const causale = $("fCausale").value.trim();
+    $("stampa").innerHTML = `
+      <div class="testa">
+        <div><h1>Nota di preparazione</h1>${titoloNota}${causale && causale !== titoloNota ? ` · ${esc(causale)}` : ""}</div>
+        <div style="text-align:right">Da: <b>${esc(sedeLavoro)}</b><br>A: <b>${esc(dest)}</b><br>Data: ${dataIt($("fData").value || oggi)}</div>
+      </div>
+      <table>
+        <thead><tr><th style="width:24px"></th><th>Codice</th><th>Descrizione</th><th class="n">Quantità</th><th class="n">Prezzo</th><th class="n">Totale</th></tr></thead>
+        <tbody>${lista.map(r => `<tr><td><span class="box"></span></td><td>${esc(r.articolo.codice)}</td>
+          <td>${esc(r.articolo.descr)}${r.sez === "vecchio" ? `<div class="inev">inevaso dell'ordine #${r.ordineId} del ${dataIt(r.dataOrdine)}</div>` : r.sez === "nuovo" ? '<div class="inev">inevaso di questo ordine</div>' : ""}</td>
+          <td class="n">${r.manda}</td><td class="n">${numero(r.prezzo)}</td><td class="n">${numero(cent(r.manda * r.prezzo))}</td></tr>`).join("")}
+          <tr class="tot"><td></td><td colspan="2">Totale: ${lista.length} articoli</td><td class="n">${cent(lista.reduce((s, r) => s + r.manda, 0))}</td><td></td><td class="n">${numero(tot)}</td></tr>
+        </tbody>
+      </table>
+      ${restano.length ? `<p style="margin-top:14px;font-size:9.5pt">Restano inevasi (da mandare più avanti): ${restano.length} articoli, ${cent(restano.reduce((s, r) => s + inevasoDi(r), 0))} pezzi.</p>` : ""}
+      <div class="firme"><div>Preparato da</div><div>Controllato da</div><div>Ricevuto da</div></div>`;
+    window.print();
+  };
+
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnAnnulla").onclick = () => { if (confirm("Uscire senza salvare?")) history.length > 1 ? history.back() : location.href = "trasferimenti-a-filiali.html"; };
