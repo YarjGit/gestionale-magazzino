@@ -98,7 +98,8 @@
   .cella .cifrato { font-family: "JetBrains Mono", monospace; font-weight: 700; letter-spacing: 0.05em; }
   .cella .p { font-weight: 700; font-size: 1.25em; }
   /* Barcode con le cifre dentro le barre, in basso su fondo bianco (come l'etichetta del negozio) */
-  .cella .barre { position: relative; flex: 1; min-height: 0; margin-top: auto; }
+  /* barcode più basso ma leggibile dalla pistola: circa il 40% dell'etichetta (≈10 mm sul 4 × 12) */
+  .cella .barre { position: relative; flex: 0 0 42%; min-height: 0; margin-top: auto; }
   .cella .barre svg { display: block; width: 100%; height: 100%; }
   .cella .barre .n { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0.1em 0.5em 0; background: #fff; line-height: 1; white-space: nowrap; font-family: "JetBrains Mono", monospace; font-size: 1em; color: #000; letter-spacing: 0.05em; }
 
@@ -186,6 +187,7 @@
     <div class="campi-imp">
       <div><label for="formato" style="font-weight:600">Formato</label>
         <select id="formato">
+          <option value="f4x12">Foglio A4 adesivo – 4 × 12 (48 etichette 52,5 × 24,7 mm)</option>
           <option value="f4x14">Foglio A4 adesivo – 4 × 14 (56 etichette 52,5 × 21,2 mm)</option>
           <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52,5 × 29,7 mm)</option>
           <option value="f3x8">Foglio A4 adesivo – 3 × 8 (24 etichette 70 × 37 mm)</option>
@@ -230,8 +232,9 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   // Formati dei fogli A4 in millimetri: colonne, righe, etichetta, margini, spazi.
-  // 4 × 14 è quello usato in negozio (4 per riga, 14 righe); "pers" = misure scritte dall'utente (memorizzate su questo PC)
+  // 4 × 12 è quello usato in negozio (4 per riga, 12 righe); "pers" = misure scritte dall'utente (memorizzate su questo PC)
   const FORMATI = {
+    f4x12: { c: 4, r: 12, w: 52.5, h: 24.7, mt: 0.3, ml: 0, gx: 0, gy: 0 },
     f4x14: { c: 4, r: 14, w: 52.5, h: 21.2, mt: 0.1, ml: 0, gx: 0, gy: 0 },
     f4x10: { c: 4, r: 10, w: 52.5, h: 29.7, mt: 0, ml: 0, gx: 0, gy: 0 },
     f3x8: { c: 3, r: 8, w: 70, h: 37, mt: 0.5, ml: 0, gx: 0, gy: 0 }
@@ -240,7 +243,7 @@
     leggi: k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* senza memoria si usa il predefinito */ } }
   };
-  FORMATI.pers = memoria.leggi("etichette.misure") || { ...FORMATI.f4x14 };
+  FORMATI.pers = memoria.leggi("etichette.misure") || { ...FORMATI.f4x12 };
   const CAMPI_MISURE = { mC: "c", mR: "r", mW: "w", mH: "h", mMt: "mt", mMl: "ml", mGx: "gx", mGy: "gy" };
   const misureFoglio = f => FORMATI[f];
   const perFoglio = f => f === "rotolo" ? Infinity : misureFoglio(f).c * misureFoglio(f).r;
@@ -433,7 +436,7 @@
     $("misure").hidden = $("formato").value !== "pers";
     Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).value = FORMATI.pers[k]);
   }
-  $("formato").value = memoria.leggi("etichette.formato") || "f4x14";
+  $("formato").value = memoria.leggi("etichette.formato") || "f4x12";
   mostraMisure();
   $("formato").addEventListener("change", () => { memoria.scrivi("etichette.formato", $("formato").value); mostraMisure(); disegna(); });
   Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).addEventListener("input", () => {

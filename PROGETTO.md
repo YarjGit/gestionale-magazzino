@@ -55,7 +55,7 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 **Giacenza**
 - Gli articoli sono **divisi per anno di acquisto** (lotti): serve per una corretta gestione.
 - L'**anno si stampa sull'etichetta del prezzo** di ogni articolo; le etichette si stampano ogni volta che la merce viene caricata in giacenza (anno = anno del carico).
-- **Etichette**: foglio A4 con **4 etichette per riga e 14 righe** (56 per foglio, 52,5 × 21,2 mm). Su ogni etichetta: codice, descrizione, poi "26  MP-DD  45,60"
+- **Etichette**: foglio A4 con **4 etichette per riga e 12 righe** (48 per foglio, 52,5 × 24,7 mm), barcode alto circa 9 mm (non di meno: la pistola deve leggerlo). Su ogni etichetta: codice, descrizione, poi "26  MP-DD  45,60"
   (anno di carico in due cifre, **costo d'acquisto cifrato**, prezzo di vendita), barcode e cifre.
 - **Cifrario del costo**: M=1 A=2 G=3 I=4 S=5 T=6 E=7 R=8 P=9 D=0; euro e centesimi separati da un trattino (19,00 → MP-DD, 2,20 → A-AD).
 - La giacenza **aumenta** con un **Carico da fornitore** o con un **Trasferimento da filiale**.
