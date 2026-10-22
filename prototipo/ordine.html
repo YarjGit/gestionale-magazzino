@@ -120,8 +120,8 @@
 
     <section class="panel">
       <div class="schede" id="schede">
-        <button class="scheda-tab${nuovo ? "" : " active"}" data-t="dettagli">📄 Dettagli</button>
-        <button class="scheda-tab${nuovo ? " active" : ""}" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
         <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
         <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
         <span class="spazio"></span>
@@ -130,7 +130,7 @@
       </div>
 
       <!-- DETTAGLI -->
-      <div class="pannello-tab" id="tab-dettagli" ${nuovo ? "hidden" : ""}>
+      <div class="pannello-tab" id="tab-dettagli">
         <div class="dettagli">
           <div>
             <div class="gruppo">
@@ -187,7 +187,7 @@
       </div>
 
       <!-- ARTICOLI -->
-      <div class="pannello-tab" id="tab-articoli" ${nuovo ? "" : "hidden"}>
+      <div class="pannello-tab" id="tab-articoli" hidden>
         <div class="scegli-forn cerca-forn" id="boxForn">
           <span class="ico">🏭</span>
           <input class="mod" id="cercaForn" placeholder="Scegli il fornitore: scrivi nome, codice o partita IVA…" autocomplete="off">
@@ -500,7 +500,8 @@
   }
   ricalcola();
   modalita(nuovo);
-  if (nuovo) $("cercaForn").focus();
+  // anche l'ordine nuovo parte dalla scheda Dettagli, con il cursore sul fornitore
+  if (nuovo) $("fornDettagli").focus();
 
   // Dopo l'accesso: fornitori e articoli veri dal database
   dbPronto.then(async db => {
