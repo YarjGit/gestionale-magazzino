@@ -13,7 +13,6 @@
 //   dati                   righe; campi usati da filtri e totali: id, stato, data, cp, lab, tot, nArt
 //   csv                    nome del file esportato
 //   dettaglio              pagina della scheda (es. "carico.html"): la riga si apre con ?id=…
-//   paginaNuovo            pagina aperta da "Nuovo …" (?nuovo=1) quando c'è solo la scheda del nuovo movimento
 //   senzaModifica         nasconde la matita di modifica (es. riallineamenti)
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
@@ -214,8 +213,39 @@ function avviaElenco(cfg) {
   const ID_EXTRA = extra.map(f => f.id);
   const CAMPI_FILTRO = ["fLab", "fArt", "fDescr", ...ID_CP, "fDal", "fAl", "fStato", ...ID_EXTRA, "fCodDa", "fCodA"];
 
+  // Ricerca: ogni parola scritta deve comparire (anche a metà, in qualsiasi ordine, accenti ignorati).
+  // Es. "cal" trova tutti i movimenti di Calandrini; "cal commissione" solo quelli con "commissione" nella causale.
+  const senzaAccenti = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const paroleCerca = () => senzaAccenti($("cerca").value).split(/\s+/).filter(Boolean);
+  // Evidenzia in giallo le parole cercate nel testo delle celle (non tocca pulsanti e attributi)
+  function evidenzia(contenitore, parole) {
+    if (!parole.length) return;
+    const re = new RegExp(parole.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "gi");
+    const giro = document.createTreeWalker(contenitore, NodeFilter.SHOW_TEXT);
+    const nodi = [];
+    while (giro.nextNode()) nodi.push(giro.currentNode);
+    nodi.forEach(n => {
+      // il confronto si fa sul testo senza accenti, che ha la stessa lunghezza solo se non ci sono lettere accentate
+      const piatto = senzaAccenti(n.data);
+      if (piatto.length !== n.data.length || !re.test(piatto)) return;
+      re.lastIndex = 0;
+      const pezzi = document.createDocumentFragment();
+      let da = 0;
+      piatto.replace(re, (m, i) => {
+        pezzi.append(n.data.slice(da, i));
+        const mark = document.createElement("mark");
+        mark.className = "trovato";
+        mark.textContent = n.data.slice(i, i + m.length);
+        pezzi.append(mark);
+        da = i + m.length;
+      });
+      pezzi.append(n.data.slice(da));
+      n.replaceWith(pezzi);
+    });
+  }
+
   function filtra() {
-    const q = $("cerca").value.trim().toLowerCase();
+    const parole = paroleCerca();
     const anno = $("fAnno").value;
     return cfg.dati.filter(r => {
       if (tabStato && r.stato !== tabStato) return false;
@@ -227,9 +257,9 @@ function avviaElenco(cfg) {
       if ($("fStato").value && r.stato !== $("fStato").value) return false;
       if ($("fDal").value && r.data < $("fDal").value) return false;
       if ($("fAl").value && r.data > $("fAl").value) return false;
-      if (q) {
-        const testo = [`#${r.id}`, r.prot, r.doc, r.cpNome, r.causale, r.stato, r.tag && r.tag.testo].join(" ").toLowerCase();
-        if (!testo.includes(q)) return false;
+      if (parole.length) {
+        const testo = senzaAccenti([`#${r.id}`, r.prot, r.doc, r.cpNome, r.causale, r.stato, r.tag && r.tag.testo].join(" "));
+        if (!parole.every(p => testo.includes(p))) return false;
       }
       return true;
     });
@@ -278,6 +308,8 @@ function avviaElenco(cfg) {
         <b>${cfg.dati.length ? "Nessun movimento con questi filtri" : `Ancora nessun movimento in ${cfg.titolo}`}</b>
         <span>${cfg.dati.length ? "Prova a cambiare o azzerare i filtri." : `Usa "${cfg.nuovo}" in alto per registrare il primo.`}</span>
       </div></td></tr>`;
+
+    $("righe").querySelectorAll("td:not(:nth-child(-n+2))").forEach(td => evidenzia(td, paroleCerca()));
 
     const validi = righe.filter(r => !cfg.statiBarrati.includes(r.stato));
     $("totali").innerHTML = `
@@ -361,8 +393,7 @@ function avviaElenco(cfg) {
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   $("btnEtichette").onclick = () => cfg.paginaEtichette ? location.href = cfg.paginaEtichette : avviso("Stampa etichette: la definiamo insieme");
-  const paginaNuovo = cfg.dettaglio || cfg.paginaNuovo;
-  $("btnCrea").onclick = () => paginaNuovo ? location.href = `${paginaNuovo}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
+  $("btnCrea").onclick = () => cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
 
   disegna();
 }

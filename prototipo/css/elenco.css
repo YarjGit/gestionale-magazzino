@@ -334,3 +334,6 @@ tr.barrato .testo-lungo, tr.barrato .testo-medio { text-decoration: line-through
   .cerca { margin-left: 0; width: 100%; }
   .pagine { margin-left: 0; }
 }
+
+/* Parole trovate dalla ricerca */
+mark.trovato { padding: 0 1px; border-radius: 3px; background: #fff09a; color: inherit; }

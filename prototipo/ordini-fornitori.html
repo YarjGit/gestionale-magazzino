@@ -16,14 +16,12 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-ordini.js"></script>
 <script>
-  // "Riordino" = ordine creato in automatico con gli articoli non evasi di un ordine precedente
-  const INEVASI = { testo: "da inevasi", colore: "#7c4dff" };
-
   avviaElenco({
     titolo: "Ordini a Fornitori",
     nuovo: "Nuovo ordine",
-    paginaNuovo: "ordine.html",
+    dettaglio: "ordine.html",
     csv: "ordini-fornitori",
     stati: [STATO.provvisorio, STATO.definitivo, STATO.riordino, STATO.evaso, STATO.annullato],
     statiBarrati: ["Annullato"],
@@ -40,20 +38,7 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: [
-      { id: 8819, prot: "2026-000183", tag: INEVASI, stato: "Riordino", data: "2026-10-20", cp: 1, causale: "Ordine creato con gli articoli non evasi del 2026-000170", tot: 120.53, nArt: 5, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8808, prot: "2026-000184", stato: "Definitivo", data: "2026-10-21", cp: 6, causale: "Commissione camice su misura", tot: 1239.72, nArt: 17, ricevuti: 6, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 8801, prot: "2026-000182", tag: INEVASI, stato: "Riordino", data: "2026-10-15", cp: 3, causale: "Ordine creato con gli articoli non evasi del 2026-000161", tot: 314.63, nArt: 74, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8795, prot: "2026-000181", stato: "Definitivo", data: "2026-10-15", cp: 7, causale: "", tot: 328.67, nArt: 60, ricevuti: 42, lab: "Laboratori Sede Centrale" },
-      { id: 8786, stato: "Provvisorio", data: "2026-10-15", cp: 8, causale: "Ceri per corona d'Avvento", tot: 13.41, nArt: 1, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8783, stato: "Provvisorio", data: "2026-10-14", cp: 1, causale: "", tot: 194.89, nArt: 4, ricevuti: 0, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 8779, stato: "Provvisorio", data: "2026-10-14", cp: 2, causale: "", tot: 25.67, nArt: 4, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8764, prot: "2026-000177", stato: "Evaso", data: "2026-10-13", cp: 4, causale: "", tot: 172, nArt: 14, ricevuti: 14, lab: "Laboratorio Ceramiche" },
-      { id: 8755, stato: "Provvisorio", data: "2026-10-12", cp: 5, causale: "", tot: 17.57, nArt: 6, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8754, prot: "2026-000176", stato: "Provvisorio", data: "2026-10-12", cp: 0, causale: "", tot: 43.19, nArt: 1, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8711, prot: "2026-000170", stato: "Evaso", data: "2026-10-06", cp: 1, causale: "Riassortimento stole", tot: 612.4, nArt: 30, ricevuti: 25, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 8702, stato: "Annullato", data: "2026-10-05", cp: 3, causale: "", tot: 0, nArt: 0, ricevuti: 0, lab: "Laboratori Sede Centrale" }
-    ]
+    dati: ORDINI
   });
 </script>
 </body>

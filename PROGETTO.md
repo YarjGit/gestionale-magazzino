@@ -45,6 +45,7 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 7. Macro gruppi di codici e Categorie: sono due classificazioni diverse?
 8. Misura delle etichette prodotto e stampante usata
 9. App Settings: aliquota IVA predefinita "23" non esiste tra le aliquote
+10. Ordini a fornitori, prezzi e aliquote: il costo proposto è circa la metà del prezzo di vendita; il prezzo totale della riga è IVA inclusa (3 × 18,50 al 22% = 67,71). Da decidere insieme come si calcolano costo, ricarico e prezzo di rivendita e quale aliquota usare per riga
 
 ## Prossimi passi
 
