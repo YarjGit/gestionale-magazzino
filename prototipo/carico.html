@@ -68,6 +68,10 @@
 
   document.title = `${nuovo ? "Nuovo carico" : `Carico #${car.id}`} – Gestionale Magazzino`;
   const fornitore = FORNITORI[car.cp] || "";
+  // Fornitori delle tendine: quelli di esempio finché non arrivano quelli veri dal database (solo carico nuovo)
+  let FORN = FORNITORI.map((nome, i) => ({ id: String(i), codice: String(600 + i * 9), nome }));
+  const opzioniForn = scelto => '<option value="">— scegli il fornitore —</option>' +
+    FORN.map(f => `<option value="${esc(f.id)}"${f.id === scelto ? " selected" : ""}>${esc(f.codice)}: ${esc(f.nome)}</option>`).join("");
   const stato = Object.values(STATO).find(s => s.nome === car.stato);
   const annullato = car.stato === "Annullato";
 
@@ -134,7 +138,7 @@
             <div class="gruppo">
               <h3>🏭 Fornitore e pagamento</h3>
               <div class="campi">
-                ${campo("s4", "Fornitore", `<select class="mod" id="selFornitore" disabled>${car.cp < 0 ? '<option value="" selected>— scegli il fornitore —</option>' : ""}${FORNITORI.map((f, i) => `<option${i === car.cp ? " selected" : ""}>${String(600 + i * 9)}: ${esc(f)}</option>`).join("")}</select>`)}
+                ${campo("s4", "Fornitore", `<select class="mod" id="selFornitore" disabled>${opzioniForn(car.cp < 0 ? "" : String(car.cp))}</select>`)}
                 ${campo("s2", "Sconto %", inp("", 'type="number" min="0" max="100" style="text-align:right"'))}
                 ${campo("s3", "Condizione di pagamento", `<select class="mod" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."])}</select>`)}
                 ${campo("s3", "Sede che riceve", `<input value="${esc(car.lab)}" disabled>`)}
@@ -174,7 +178,7 @@
         ${nuovo ? `
         <div class="nota-viola">💡 È importante collegare le consegne agli ordini corrispondenti (se ci sono): così gli articoli arrivati risultano evasi e la giacenza virtuale resta giusta.</div>
         <div class="collega">
-          <div class="f" style="flex:2"><label for="colFornitore">Fornitore</label><select id="colFornitore"><option value="">— scegli il fornitore —</option>${FORNITORI.map((f, i) => `<option value="${i}">${esc(f)}</option>`).join("")}</select></div>
+          <div class="f" style="flex:2"><label for="colFornitore">Fornitore</label><select id="colFornitore">${opzioniForn("")}</select></div>
           <div class="f" style="flex:2"><label for="colOrdine">Ordine a fornitore</label><select id="colOrdine" disabled><option value="">— prima scegli il fornitore —</option></select></div>
           <button class="btn btn-primary" id="btnCollega" disabled>🔗 Collega ordine</button>
           <button class="btn btn-light" id="btnSalta">Salta ›</button>
@@ -338,9 +342,10 @@
   // ---------- Collegamento a un ordine (solo carico nuovo) ----------
   let ordineCollegato = null;
   if (nuovo) {
+    // Le due tendine (Dettagli e Movimenti collegati) mostrano sempre lo stesso fornitore
     const sincronizzaFornitore = i => {
       $("colFornitore").value = i;
-      $("selFornitore").value = i === "" ? "" : $("selFornitore").options[[...$("selFornitore").options].findIndex(o => o.textContent.endsWith(": " + FORNITORI[i]))]?.value;
+      $("selFornitore").value = i;
       const ordini = ORDINI_APERTI.filter(o => String(o.cp) === String(i));
       $("colOrdine").innerHTML = i === ""
         ? '<option value="">— prima scegli il fornitore —</option>'
@@ -351,10 +356,7 @@
       $("btnCollega").disabled = true;
     };
     $("colFornitore").onchange = () => sincronizzaFornitore($("colFornitore").value);
-    $("selFornitore").addEventListener("change", () => {
-      const i = FORNITORI.findIndex(f => $("selFornitore").selectedOptions[0].textContent.endsWith(": " + f));
-      sincronizzaFornitore(i < 0 ? "" : String(i));
-    });
+    $("selFornitore").addEventListener("change", () => sincronizzaFornitore($("selFornitore").value));
     $("colOrdine").onchange = () => $("btnCollega").disabled = !$("colOrdine").value;
     $("btnCollega").onclick = () => {
       const o = ORDINI_APERTI.find(x => x.prot === $("colOrdine").value);
@@ -534,9 +536,21 @@
   // Un carico nuovo si apre già in modifica, sulla scheda Dettagli
   if (nuovo) modalita(true);
 
-  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database
-  dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]))
-    .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+  // Dopo l'accesso: articoli (ricerca e pistola) e, per un carico nuovo, i fornitori veri del database.
+  // I carichi esistenti sono ancora di esempio e tengono il loro fornitore.
+  dbPronto.then(async db => {
+    if (!db) return;
+    const [{ data, error }] = await Promise.all([
+      nuovo ? db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale") : { data: null },
+      caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome])
+    ]);
+    if (error) throw error;
+    if (data) {
+      FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+      const scelto = $("selFornitore").value;
+      ["selFornitore", "colFornitore"].forEach(id => $(id).innerHTML = opzioniForn(scelto));
+    }
+  }).catch(err => avviso("Errore nel leggere articoli e fornitori: " + err.message));
 </script>
 </body>
 </html>
