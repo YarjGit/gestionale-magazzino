@@ -39,14 +39,14 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 1. "Record attuali": cosa fa?
 2. "Validazione": mostra solo i movimenti provvisori?
 3. Pallino a inizio riga in Tutti i Movimenti: apre l'elenco articoli del movimento?
-4. Giacenze, colonna anni (es. "2025 / 2 / 0"): cosa sono i due numeri?
+4. ~~Giacenze, colonna anni~~ RISOLTA (vedi STUDIO-GESTIONALE.md): anno di acquisto / quantità iniziale / quantità attuale del lotto, con il costo del lotto
 5. Aliquote IVA: significato di "A" e "C" in Applicazione IVA
 6. Gruppi (Configurazione): a cosa servono?
 7. Macro gruppi di codici e Categorie: sono due classificazioni diverse?
 8. Misura delle etichette prodotto e stampante usata
 9. App Settings: aliquota IVA predefinita "23" non esiste tra le aliquote
-10. Ordini a fornitori, prezzi e aliquote: il costo proposto è circa la metà del prezzo di vendita; il prezzo totale della riga è IVA inclusa (3 × 18,50 al 22% = 67,71). Da decidere insieme come si calcolano costo, ricarico e prezzo di rivendita e quale aliquota usare per riga
-11. Vendite giornaliere, colonne Ordinata e Spedita: nel prototipo si scarica la quantità Spedita (all'inizio uguale a Ordinata). È giusto? Nelle vendite la colonna prezzo è il prezzo di vendita IVA inclusa
+10. Ordini a fornitori, prezzi e aliquote: il costo proposto è circa la metà del prezzo di vendita; il prezzo totale della riga è IVA inclusa (3 × 18,50 al 22% = 67,71). Da decidere insieme come si calcolano costo, ricarico e prezzo di rivendita e quale aliquota usare per riga — CHIARITO (STUDIO-GESTIONALE.md): prezzo = (costo + spese confezione/imballaggio/accessorie) × (1 + ricarico%) × IVA, poi arrotondato; con ricarico 100% il costo è la metà
+11. ~~Vendite, Ordinata e Spedita~~ RISOLTA: nel gestionale attuale Ordinata resta vuota e la quantità venduta è in Spedita
 
 ## Prossimi passi
 
