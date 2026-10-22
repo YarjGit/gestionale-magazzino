@@ -114,7 +114,7 @@
         <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
       </div>
     </div>
-    <div class="banner provv" id="bannerProvv" hidden><span>◷</span><span>L'ordine è <b>provvisorio</b>: si può ancora completare nei prossimi giorni e <b>non viene contato</b> nelle giacenze.</span></div>
+    <div class="banner provv" id="bannerProvv" hidden><span>◷</span><span>L'ordine è <b>provvisorio</b>: si può ancora completare nei prossimi giorni e <b>non viene contato</b> nelle giacenze.<span id="provvSede"></span></span></div>
     ${ord && ord.stato === "Annullato" ? '<div class="banner ann">✕ Questo ordine è annullato: non si può modificare.</div>' : ""}
     <div class="banner mod" id="bannerModifica" hidden>✎ Stai modificando l'ordine. Ricordati di salvare.</div>
 
@@ -232,6 +232,8 @@
     $("btnProvv").className = "btn solo-mod " + (provv ? "btn-giallo" : "btn-primary");
     $("btnProvv").hidden = !["Provvisorio", "Definitivo"].includes(s.nome);
     $("bannerProvv").hidden = !provv;
+    // ordine a un'altra sede: finché è provvisorio non le arriva
+    $("provvSede").innerHTML = fornitore && fornitore.sede ? ` Il <b>${esc(fornitore.nome)}</b> non lo vede finché non lo rendi definitivo.` : "";
   }
   $("selStato").onchange = mostraStato;
   $("btnProvv").onclick = () => {
@@ -256,6 +258,7 @@
     $(box).classList.add("show");
   }
   function mostraFornitore() {
+    mostraStato();   // l'avviso "provvisorio" dice se il fornitore-sede vede l'ordine
     CAMPI_FORN.forEach(([campo, box]) => { $(campo).value = fornitore ? nomeFornitore(fornitore) : ""; $(box).classList.remove("show"); });
     $("boxForn").classList.toggle("scelto", !!fornitore);
     $("togliForn").hidden = !fornitore || !document.body.classList.contains("in-modifica");
@@ -465,7 +468,7 @@
         articolo_id: r.articolo.id, quantita: r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: 0
       })), ord && ord.dbId);
       avviso(mov.stato === "Definitivo" && fornitore.sede ? `Ordine inviato: il ${fornitore.nome} lo trova nella sua Dashboard`
-        : mov.stato === "Definitivo" ? "Ordine salvato" : "Ordine salvato come provvisorio: si può completare nei prossimi giorni");
+        : mov.stato === "Definitivo" ? "Ordine salvato" : fornitore.sede ? `Ordine salvato come provvisorio: il ${fornitore.nome} non lo vede finché non lo rendi definitivo` : "Ordine salvato come provvisorio: si può completare nei prossimi giorni");
       setTimeout(() => location.replace(chiudi ? "ordini-fornitori.html" : `ordine.html?db=${id}`), 900);
     } catch (err) {
       avviso("Errore nel salvare l'ordine: " + err.message);
