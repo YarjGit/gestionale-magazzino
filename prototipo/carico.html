@@ -93,8 +93,8 @@
   // Righe articolo del carico (da dati-carichi.js: articoli veri dell'anagrafica)
   const RIGHE = nuovo ? [] : movDb ? movDb.righe.map((r, i) => ({
       pos: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, barcode: r.articolo.barcode, articolo: r.articolo,
-      qta: r.quantita, ordinata: r.quantita_ordinata ?? undefined, prezzo: +r.prezzo, sconto: +r.sconto,
-      etichette: r.etichette, etichetteMan: r.etichette !== r.quantita, tot: +r.totale
+      qta: +r.quantita, ordinata: r.quantita_ordinata ?? undefined, prezzo: +r.prezzo, sconto: +r.sconto,
+      etichette: r.etichette, etichetteMan: r.etichette !== +r.quantita, tot: +r.totale
     })) : righeCarico(car);
   if (movDb) {
     car.totArt = Math.round(RIGHE.reduce((s, r) => s + r.tot, 0) * 100) / 100;

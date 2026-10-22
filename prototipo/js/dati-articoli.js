@@ -52,7 +52,7 @@ async function caricaArticoliDalDb(db, sedeId) {
   }
   const { data: giac, error: errGiac } = await db.from("giacenze").select("articolo_id, sede_id, quantita");
   if (errGiac) throw errGiac;
-  const giacenza = new Map(giac.filter(g => g.sede_id === sedeId).map(g => [g.articolo_id, g.quantita]));
+  const giacenza = new Map(giac.filter(g => g.sede_id === sedeId).map(g => [g.articolo_id, +g.quantita]));
   ARTICOLI.length = 0;
   letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.has(a.id) ? giacenza.get(a.id) : null)));
   return ARTICOLI.length;

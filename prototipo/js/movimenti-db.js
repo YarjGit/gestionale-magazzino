@@ -18,7 +18,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina) {
       stato: m.stato, data: m.data_movimento, bolla: m.data_bolla || "", causale: m.causale || "",
       cpNome: m.fornitori ? m.fornitori.ragione_sociale : "",
       totArt, tot: Math.round((totArt + +m.spese) * 100) / 100,
-      nArt: m.movimenti_righe.reduce((s, r) => s + r.quantita, 0), lab: ""
+      nArt: m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0), lab: ""
     };
   });
 }
@@ -32,7 +32,7 @@ async function leggiMovimentoDb(db, id, sedeId) {
   if (!m) return null;
   const ids = m.movimenti_righe.map(r => r.articoli.id);
   const { data: giac } = ids.length ? await db.from("giacenze").select("articolo_id, quantita").eq("sede_id", sedeId).in("articolo_id", ids) : { data: [] };
-  const giacenza = new Map((giac || []).map(g => [g.articolo_id, g.quantita]));
+  const giacenza = new Map((giac || []).map(g => [g.articolo_id, +g.quantita]));
   m.righe = m.movimenti_righe.sort((a, b) => a.id - b.id).map(r => ({ ...r, articolo: articoloDalDb(r.articoli, giacenza.get(r.articoli.id) ?? null) }));
   return m;
 }

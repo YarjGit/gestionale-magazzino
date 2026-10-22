@@ -61,6 +61,8 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   `strumenti/collega-fornitori-excel.ps1` genera `riferimenti/import/08-fornitori-da-excel.sql` (da incollare su Supabase; sostituisce 04 e 07).
   Excel: 4.983 articoli; gli altri sono dedotti dal codice (famiglia prima dello slash, poi numero fornitore; senza slash = Magazzino Centrale) e segnati `fornitore_dedotto = true` (da verificare). I 234 rimasti senza sono del Magazzino Centrale (confermato): `database/12-senza-fornitore-a-magazzino-centrale.sql`.
   I prodotti nostri hanno come fornitore "MAGAZZINO CENTRALE" (900009), non "Produzione propria".
+- Giacenze di partenza (lette dalla pagina Giacenze del gestionale attuale col Chrome dell'utente, 22/10/2026): `riferimenti/giacenze/` (solo PC di lavoro).
+  `strumenti/importa-giacenze.ps1` genera `riferimenti/import/13-giacenze-iniziali.sql`: un movimento "esistenza" per sede e anno di acquisto; le quantità diventano numeriche (decimali per i metri).
 - Database **Supabase**: progetto `gestionale-magazzino` (piano gratuito, regione Europa, separato dall'altra web app dell'utente su Vercel).
   URL e chiave publishable in `prototipo/js/supabase-config.js`. Tabelle in `database/01-tabelle.sql` (l'utente le incolla nel SQL Editor).
   Accesso: link via email (`signInWithOtp`). Su Supabase il **Site URL** è `https://yarjgit.github.io/gestionale-magazzino/prototipo/dashboard.html` (i Redirect URLs non sono riusciti a salvarli: il Site URL basta per il sito online). Google da aggiungere.

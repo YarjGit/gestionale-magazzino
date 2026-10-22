@@ -393,7 +393,7 @@
     const nuovoArt = articoloDa({
       id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode, costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
       iva: perc, forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, scorta: a.scorta_minima, anno: a.anno_listino,
-      giac: ((giac || []).find(x => x.sede_id === ID_SEDI_DB[sedeLavoro]) || {}).quantita ?? 0
+      giac: +(((giac || []).find(x => x.sede_id === ID_SEDI_DB[sedeLavoro]) || {}).quantita ?? 0)
     });
     nuovoArt.costoLordo = cent(+a.costo_lordo || +a.costo_netto);
     nuovoArt.sconto = +a.sconto || 0;
