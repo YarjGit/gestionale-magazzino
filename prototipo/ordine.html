@@ -22,16 +22,6 @@
   .cerca-forn.manca input { border-color: #f1a5a5; background: #fff6f6; }
 
   /* Articoli del fornitore scelto */
-  .catalogo { margin-bottom: 14px; border: 1px solid #cfe0f7; border-radius: 12px; background: #fbfdff; }
-  .catalogo-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #e3edf9; }
-  .catalogo-head b { font-size: 0.92rem; }
-  .catalogo-head .cerca { width: min(280px, 100%); }
-  .catalogo .table-wrap { max-height: 340px; overflow-y: auto; border: none; border-radius: 0 0 12px 12px; }
-  .catalogo tbody td { padding: 4px 7px; }
-  .catalogo input.num-mod { width: 58px; }
-  .sotto { color: var(--ko); font-weight: 700; }
-  .dedotto { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 5px; background: #fff3dd; color: #b26a00; font-size: 0.68rem; font-weight: 600; }
-  .gia-in { color: var(--ok); font-size: 0.75rem; font-weight: 600; }
 </style>
 </head>
 <body data-page="ordini-fornitori">
@@ -69,7 +59,7 @@
 <script src="js/movimenti-db.js"></script>
 <script type="module">
   // Scheda ordine a fornitore: ?nuovo=1 un ordine vuoto già in modifica; ?db=12 un ordine salvato nel database;
-  // ?id=8783 un ordine di esempio. Il fornitore è obbligatorio; scelto il fornitore, sotto compaiono i suoi articoli.
+  // ?id=8783 un ordine di esempio. Il fornitore è obbligatorio; scelto il fornitore, gli articoli si aggiungono dal campo "Aggiungi articolo" (ricerca tra i suoi articoli, anche con la pistola).
   // Se il fornitore è una sede (es. MAGAZZINO CENTRALE) l'ordine arriva a quella sede, che lo prepara con un
   // trasferimento; quello che manca resta negli INEVASI. Le righe articolo sono in js/righe-movimento.js.
   // ("module": permette di aspettare il database prima di disegnare un ordine salvato)
@@ -206,21 +196,6 @@
         </div>
 
         <div class="box-attesa" id="notaInevasi" hidden></div>
-        <div class="catalogo solo-mod" id="catalogo" hidden>
-          <div class="catalogo-head">
-            <b id="titCatalogo"></b>
-            <label class="interr" style="margin-left:0"><span class="switch"><input type="checkbox" id="soloSotto"><span></span></span> Solo sotto scorta</label>
-            <button class="btn btn-light" id="aggSotto" style="padding:6px 10px;font-size:0.8rem">➕ Aggiungi quelli sotto scorta</button>
-            <div class="cerca">${icoCerca}<input id="cercaCat" type="search" placeholder="Cerca tra i suoi articoli…"></div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Articolo</th><th class="num">Giac.</th><th class="num" title="Scorta minima">Scorta</th><th class="num">Costo</th><th class="num">Quantità</th><th style="width:90px"></th></tr></thead>
-              <tbody id="righeCat"></tbody>
-            </table>
-          </div>
-        </div>
-
         ${righeHtmlAggiungi(true)}
         <div class="art-toolbar">
           <div class="nota-viola" style="margin:0;flex:1">💶 In questa pagina si indicano i <b>prezzi di acquisto</b>.</div>
@@ -292,8 +267,6 @@
     if (fornitore && righe.RIGHE.length && f !== fornitore && !confirm(`Cambiare fornitore? Le ${righe.RIGHE.length} righe già inserite restano nell'ordine.`)) { mostraFornitore(); return; }
     fornitore = f;
     mostraFornitore();
-    $("cercaCat").value = "";
-    disegnaCatalogo();
     righe.disegna();
     aggiornaInAttesa();
   }
@@ -367,8 +340,8 @@
       chiediAttesa(art, n, procedi);
       return true;
     },
-    testoVuoto: () => fornitore ? "Aggiungi gli articoli del fornitore dall'elenco qui sopra, con il tasto ＋ o sparandoli con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
-    cambiato: () => { ricalcola(); disegnaCatalogo(); }
+    testoVuoto: () => fornitore ? "Scrivi almeno 2 caratteri in \"Aggiungi articolo\" e scegli tra i suggerimenti, oppure spara il barcode con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
+    cambiato: () => ricalcola()
   });
 
   // ---------- Articolo già in attesa: si spiega e si chiede (Invio = "Va bene, non lo aggiungo") ----------
@@ -416,50 +389,6 @@
   }
   document.querySelectorAll(".spesa").forEach(i => i.oninput = ricalcola);
 
-  // ---------- Articoli del fornitore ----------
-  const sottoScorta = a => a.scorta > 0 && (a.giac ?? 0) < a.scorta;
-  // Quanti pezzi proporre: quelli che mancano per tornare alla scorta minima, altrimenti 1
-  // (i pezzi già in attesa dal fornitore-sede contano come già ordinati)
-  const daOrdinare = a => sottoScorta(a) ? Math.max(0, a.scorta - Math.max(0, a.giac ?? 0) - (inAttesa.get(a.id) || 0)) : 1;
-  function disegnaCatalogo() {
-    $("catalogo").hidden = !fornitore;
-    if (!fornitore) return;
-    const tutti = articoliDel(fornitore);
-    const q = $("cercaCat").value;
-    const lista = tutti.filter(a => (!$("soloSotto").checked || sottoScorta(a)) && corrispondeArticolo(a, q))
-      .sort((a, b) => a.codice.localeCompare(b.codice));
-    const nSotto = tutti.filter(sottoScorta).length;
-    $("titCatalogo").textContent = `Articoli di ${fornitore.nome} (${tutti.length})`;
-    $("aggSotto").disabled = !nSotto;
-    $("aggSotto").textContent = `➕ Aggiungi quelli sotto scorta (${nSotto})`;
-    $("righeCat").innerHTML = lista.length ? lista.map(a => {
-      const r = righe.RIGHE.find(x => x.articolo === a);
-      return `<tr>
-        <td class="art-cella"><span class="codice">${esc(a.codice)}</span>${a.fornDedotto ? '<span class="dedotto" title="Fornitore dedotto dal codice: da verificare">da verificare</span>' : ""}<b>${esc(a.descr)}</b></td>
-        <td class="num${sottoScorta(a) ? " sotto" : ""}">${a.giac ?? "—"}</td>
-        <td class="num" style="color:var(--muted)">${a.scorta || "—"}</td>
-        <td class="num">${numero(a.costo)}</td>
-        <td class="num"><input class="num-mod" type="number" min="1" value="${daOrdinare(a)}" data-qcat="${esc(a.codice)}"></td>
-        <td>${r ? `<span class="gia-in">✔ ${r.qta} nell'ordine</span>` : inAttesa.get(a.id) ? `<span class="q-attesa" style="color:#5b34c9;font-weight:700;font-size:0.8rem;margin-right:6px" title="Già messi da parte per voi">⏳ ${inAttesa.get(a.id)} in attesa</span><button class="btn btn-light" style="padding:4px 8px;font-size:0.75rem" data-agg="${esc(a.codice)}">➕</button>` : `<button class="btn btn-light" style="padding:4px 10px;font-size:0.8rem" data-agg="${esc(a.codice)}">➕ Aggiungi</button>`}</td>
-      </tr>`;
-    }).join("") : `<tr><td colspan="6"><div class="vuoto" style="padding:20px"><b>${tutti.length ? "Nessun articolo con questi filtri" : "Nessun articolo collegato a questo fornitore"}</b>${tutti.length ? "" : "<span>Puoi comunque aggiungere articoli qui sotto, con la pistola o cercandoli.</span>"}</div></td></tr>`;
-  }
-  $("cercaCat").oninput = disegnaCatalogo;
-  $("soloSotto").onchange = disegnaCatalogo;
-  $("righeCat").onclick = e => {
-    const b = e.target.closest("[data-agg]");
-    if (!b) return;
-    const q = b.closest("tr").querySelector("[data-qcat]");
-    righe.aggiungi(ARTICOLI.find(x => x.codice === b.dataset.agg), Math.max(1, +q.value || 1), { vaiAlCampo: false });
-  };
-  $("aggSotto").onclick = () => {
-    const da = articoliDel(fornitore).filter(a => sottoScorta(a) && daOrdinare(a) > 0 && !righe.RIGHE.some(r => r.articolo === a));
-    // la quantità tiene già conto dei pezzi in attesa: quello che resta è davvero in più
-    da.forEach(a => righe.aggiungi(a, daOrdinare(a), { silenzioso: true, forza: true }));
-    righe.aggiorna(); ricalcola(); disegnaCatalogo();
-    avviso(da.length ? `Aggiunti ${da.length} articoli sotto scorta` : "Gli articoli sotto scorta sono già nell'ordine");
-  };
-
   // ---------- Pulsanti in alto ----------
   function controlla() {
     if (!serveFornitore()) return false;
@@ -479,7 +408,7 @@
     ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = !modifica);
     $("bannerModifica").hidden = !modifica || nuovo;
     mostraFornitore();
-    disegnaCatalogo(); righe.disegna();
+    righe.disegna();
   }
   $("btnModifica").onclick = () => {
     valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.type === "checkbox" ? el.checked : el.value);
@@ -576,12 +505,12 @@
     if (error) throw error;
     FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale, piva: f.partita_iva || "", sede: f.sede_collegata }));
     // Ordine salvato: lo stesso fornitore, ora con tutti i dati; gli ordini di esempio tengono il loro
-    if (movDb) { fornitore = FORN.find(f => f.id === movDb.fornitore_id) || fornitore; mostraFornitore(); disegnaCatalogo(); aggiornaInAttesa(); return; }
-    if (!nuovo) { disegnaCatalogo(); righe.disegna(); return; }
+    if (movDb) { fornitore = FORN.find(f => f.id === movDb.fornitore_id) || fornitore; mostraFornitore(); aggiornaInAttesa(); return; }
+    if (!nuovo) { righe.disegna(); return; }
     // le scelte fatte con i dati di esempio non valgono più
     fornitore = null; mostraFornitore();
     righe.carica([]);
-    ricalcola(); disegnaCatalogo();
+    ricalcola();
   }).catch(err => avviso("Errore nel leggere fornitori e articoli: " + err.message));
 </script>
 </body>
