@@ -630,7 +630,8 @@
     if (data) {
       FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
       const scelto = $("selFornitore").value;
-      ["selFornitore", "colFornitore"].forEach(id => $(id).innerHTML = opzioniForn(scelto));
+      // la tendina di "Movimenti collegati" c'è solo nel carico nuovo
+      ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
     }
   }).catch(err => avviso("Errore nel leggere articoli e fornitori: " + err.message));
 </script>
