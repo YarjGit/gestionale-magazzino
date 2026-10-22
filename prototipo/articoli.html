@@ -365,9 +365,9 @@
     disegna();
   });
   $("annullaSel").onclick = () => { selezionati.clear(); disegna(); };
-  const stampaEtichette = () => avviso(selezionati.size
-    ? `Stampa etichette per ${selezionati.size} articoli: la definiamo insieme`
-    : "Seleziona gli articoli con le caselle a sinistra");
+  // Apre la stampa etichette: con gli articoli selezionati già dentro, oppure vuota (si aggiungono lì)
+  const stampaEtichette = () => location.href = "etichette.html?" +
+    (selezionati.size ? [...selezionati].map(c => "cod=" + encodeURIComponent(c)).join("&") : "da=articoli");
   $("etichetteSel").onclick = stampaEtichette;
   $("btnEtichette").onclick = stampaEtichette;
   $("btnCrea").onclick = () => location.href = "articolo.html?nuovo=1";

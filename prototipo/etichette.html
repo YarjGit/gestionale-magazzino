@@ -90,6 +90,25 @@
   .cella svg { width: 100%; flex: 1; min-height: 0; margin-top: auto; }
   .cella .n { text-align: center; font-family: "JetBrains Mono", monospace; letter-spacing: 0.05em; }
 
+  /* ---------- Stampa: solo i fogli, alle misure vere ---------- */
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff !important; }
+    body * { visibility: hidden; }
+    #fogli, #fogli * { visibility: visible; }
+    #fogli { position: absolute; left: 0; top: 0; display: block; padding: 0; background: none; min-height: 0; }
+    .foglio { width: 210mm; height: 297mm; aspect-ratio: auto; box-shadow: none; break-after: page; }
+    .foglio.f3x8 { padding: 0.5mm 0; grid-template-columns: repeat(3, 70mm); grid-template-rows: repeat(8, 37mm); }
+    .foglio.f4x10 { padding: 3.5mm 1mm; grid-template-columns: repeat(4, 52mm); grid-template-rows: repeat(10, 29mm); }
+    .foglio.f3x8 .cella { font-size: 9pt; padding: 2mm 3mm; }
+    .foglio.f4x10 .cella { font-size: 7pt; padding: 1.5mm 2mm; }
+    .cella { border: none !important; }
+    .cella.saltata { background: none; }
+    .rotolo { display: block; }
+    .rotolo .cella { width: 50mm; height: 25mm; font-size: 7pt; padding: 1.5mm 2mm; box-shadow: none; border-radius: 0; break-after: page; }
+    .rotolo + .altre { display: none; }
+  }
+
   .modal .campi-imp { display: grid; gap: 12px; }
   .modal .campi-imp label { display: flex; align-items: center; gap: 8px; }
   .modal select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
@@ -105,7 +124,7 @@
       <h1 class="page-title">Stampa etichette</h1>
       <div class="crumbs">
         <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
-        <span>-</span><span>Movimenti</span><span>-</span><a href="carichi-fornitori.html">Carichi da Fornitori</a><span>-</span><span id="crumbOrigine">Etichette</span>
+        <span>-</span><span id="crumbSezione">Movimenti</span><span>-</span><a href="carichi-fornitori.html" id="crumbPagina">Carichi da Fornitori</a><span>-</span><span id="crumbOrigine">Etichette</span>
       </div>
     </div>
   </div>
@@ -173,6 +192,10 @@
 </div>
 
 <script src="js/sedi.js"></script>
+<script>
+  // Arrivando dalla pagina Articoli (?da=articoli o ?cod=…) nel menu resta evidenziato "Articoli"
+  if (/[?&](da=articoli|cod=)/.test(location.search)) document.body.dataset.page = "articoli";
+</script>
 <script src="js/layout.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -190,8 +213,17 @@
   const qs = new URLSearchParams(location.search);
   const caricoId = +qs.get("carico");
   const carico = CARICHI.find(c => c.id === caricoId);
-  const codArticolo = qs.get("cod");
-  const ritorno = carico ? `carico.html?id=${carico.id}` : codArticolo ? `articolo.html?cod=${encodeURIComponent(codArticolo)}` : "carichi-fornitori.html";
+  // ?cod=A&cod=B → un'etichetta per ciascun articolo (dalla scheda articolo o dagli articoli selezionati)
+  // ?da=articoli → pagina vuota aperta dal tasto "Stampa etichette" della pagina Articoli
+  const codici = qs.getAll("cod");
+  const codArticolo = codici.length === 1 ? codici[0] : null;
+  const daArticoli = qs.get("da") === "articoli" || codici.length > 0;
+  const ritorno = carico ? `carico.html?id=${carico.id}` : codArticolo ? `articolo.html?cod=${encodeURIComponent(codArticolo)}` : daArticoli ? "articoli.html" : "carichi-fornitori.html";
+  if (daArticoli && !carico) {
+    $("crumbSezione").textContent = "Magazzino";
+    $("crumbPagina").textContent = "Articoli";
+    $("crumbPagina").href = "articoli.html";
+  }
 
   // righe: [{ art, n, anno }]. anno = anno di carico (lotto), stampato su ogni etichetta:
   // dal carico è l'anno del carico, altrimenti l'anno in corso (si può correggere nella tabella)
@@ -205,12 +237,13 @@
     $("crumbOrigine").innerHTML = `<a href="${ritorno}">Carico #${carico.id}</a><span> - </span>Etichette`;
   }
   const etichettaArticolo = () => {
-    const art = ARTICOLI.find(a => a.codice === codArticolo);
-    if (!art || righe.some(r => r.art.codice === codArticolo)) return;
-    righe.push({ art, n: 1, anno: annoInCorso });
-    $("crumbOrigine").innerHTML = `<a href="${ritorno}">Articolo ${esc(codArticolo)}</a><span> - </span>Etichette`;
+    codici.forEach(cod => {
+      const art = ARTICOLI.find(a => a.codice === cod);
+      if (art && !righe.some(r => r.art.codice === cod)) righe.push({ art, n: 1, anno: annoInCorso });
+    });
+    if (codArticolo) $("crumbOrigine").innerHTML = `<a href="${ritorno}">Articolo ${esc(codArticolo)}</a><span> - </span>Etichette`;
   };
-  if (codArticolo) etichettaArticolo();
+  if (codici.length) etichettaArticolo();
 
   // ---------- Aggiunta: a mano o con la pistola ----------
   // La pistola si comporta come una tastiera: scrive il barcode e preme Invio
@@ -227,8 +260,14 @@
   }
   function aggiungi(art) {
     const n = Math.max(1, +$("qta").value || 1);
+    // Le etichette dello stesso articolo stanno sempre vicine: se c'è già (anche con un altro anno)
+    // la nuova riga va subito dopo, così sul foglio escono in sequenza
     const esistente = righe.find(r => r.art === art && r.anno === annoInCorso);
-    if (esistente) esistente.n += n; else righe.push({ art, n, anno: annoInCorso });
+    if (esistente) esistente.n += n;
+    else {
+      const ultima = righe.map(r => r.art).lastIndexOf(art);
+      righe.splice(ultima < 0 ? righe.length : ultima + 1, 0, { art, n, anno: annoInCorso });
+    }
     $("cercaArt").value = "";
     $("qta").value = 1;
     $("suggerimenti").classList.remove("show");
@@ -279,7 +318,8 @@
     </div>`;
   }
 
-  function disegna(evidenzia) {
+  // perStampa: sul rotolo l'anteprima mostra le prime 30, la stampa le mette tutte
+  function disegna(evidenzia, perStampa) {
     const o = opzioni();
     const totale = righe.reduce((s, r) => s + r.n, 0);
     const salta = Math.max(0, +$("salta").value || 0);
@@ -302,8 +342,9 @@
     // celle: prima quelle da saltare (solo sui fogli A4), poi un'etichetta per copia
     const copie = righe.flatMap(r => Array(r.n).fill(r));
     if (o.formato === "rotolo") {
-      $("fogli").innerHTML = copie.length ? `<div class="rotolo">${copie.slice(0, 30).map(a => etichettaHtml(a, o)).join("")}</div>` +
-        (copie.length > 30 ? `<p style="align-self:flex-end;color:var(--muted)">… e altre ${copie.length - 30}</p>` : "") : "";
+      const mostrate = perStampa ? copie : copie.slice(0, 30);
+      $("fogli").innerHTML = copie.length ? `<div class="rotolo">${mostrate.map(a => etichettaHtml(a, o)).join("")}</div>` +
+        (copie.length > mostrate.length ? `<p class="altre" style="align-self:flex-end;color:var(--muted)">… e altre ${copie.length - 30}</p>` : "") : "";
       $("pagine").textContent = copie.length ? `${copie.length} etichette sul rotolo` : "";
     } else {
       const per = PER_FOGLIO[o.formato];
@@ -334,9 +375,13 @@
   $("chiudiImp").onclick = () => $("modalImp").classList.remove("show");
   $("modalImp").onclick = e => { if (e.target.id === "modalImp") $("modalImp").classList.remove("show"); };
   $("btnChiudi").onclick = () => location.href = ritorno;
-  $("btnStampa").onclick = () => righe.length
-    ? avviso("Stampa: la colleghiamo alla vostra stampante quando sappiamo modello e formato")
-    : avviso("Aggiungi almeno un'etichetta");
+  // Stampa: apre la finestra di stampa del browser con solo i fogli (misure vere, vedi @media print)
+  $("btnStampa").onclick = () => {
+    if (!righe.some(r => r.n > 0)) { avviso("Aggiungi almeno un'etichetta"); return; }
+    disegna(null, true);
+    window.print();
+    disegna();
+  };
 
   disegna();
 
@@ -345,7 +390,7 @@
     if (!db) return;
     const n = await caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]);
     // arrivando dalla scheda articolo: l'etichetta usa l'articolo vero
-    if (codArticolo) { righe = []; etichettaArticolo(); disegna(); }
+    if (codici.length) { righe = []; etichettaArticolo(); disegna(); }
     avviso(`Ricerca pronta su ${n.toLocaleString("it-IT")} articoli`);
   }).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>
