@@ -189,7 +189,7 @@
     <div class="campi-imp">
       <div><label for="formato" style="font-weight:600">Formato</label>
         <select id="formato">
-          <option value="f4x12">Foglio A4 adesivo – 4 × 12 (48 etichette 52,5 × 24,7 mm)</option>
+          <option value="f4x12">Foglio A4 adesivo – 4 × 12 (48 etichette 41 × 24,7 mm)</option>
           <option value="f4x14">Foglio A4 adesivo – 4 × 14 (56 etichette 52,5 × 21,2 mm)</option>
           <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52,5 × 29,7 mm)</option>
           <option value="f3x8">Foglio A4 adesivo – 3 × 8 (24 etichette 70 × 37 mm)</option>
@@ -236,7 +236,8 @@
   // Formati dei fogli A4 in millimetri: colonne, righe, etichetta, margini, spazi.
   // 4 × 12 è quello usato in negozio (4 per riga, 12 righe); "pers" = misure scritte dall'utente (memorizzate su questo PC)
   const FORMATI = {
-    f4x12: { c: 4, r: 12, w: 52.5, h: 24.7, mt: 0.3, ml: 0, gx: 0, gy: 0 },
+    // etichetta larga 4,1 cm, centrata nella sua colonna (passo 52,5 mm: 5,75 mm di margine, 11,5 mm tra le colonne)
+    f4x12: { c: 4, r: 12, w: 41, h: 24.7, mt: 0.3, ml: 5.75, gx: 11.5, gy: 0 },
     f4x14: { c: 4, r: 14, w: 52.5, h: 21.2, mt: 0.1, ml: 0, gx: 0, gy: 0 },
     f4x10: { c: 4, r: 10, w: 52.5, h: 29.7, mt: 0, ml: 0, gx: 0, gy: 0 },
     f3x8: { c: 3, r: 8, w: 70, h: 37, mt: 0.5, ml: 0, gx: 0, gy: 0 }
