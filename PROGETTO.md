@@ -50,6 +50,15 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 12. Prezzo in etichetta: l'arrotondamento è sempre all'euro superiore (53,91 → 54,00) o a volte a 0,50 / 0,10? Nel prototipo il tasto "↑ €" propone l'euro superiore e si può correggere a mano
 13. Scheda articolo: nel vecchio gestionale "Costo + IVA" (18,50) non torna con costo 16,65 × 1,22: è un valore vecchio o un altro calcolo?
 
+## Inventario (come si fa oggi in magazzino)
+
+- Si spara ogni pezzo con la pistola uno per uno; con quantità alte si spara un pezzo solo e si scrive la quantità a mano.
+- Tutti i pezzi contati vanno sull'**anno in corso** (anno di acquisto).
+- Durante l'inventario **non si fanno vendite né scarichi**, per non creare confusione.
+- Si fa un paio di volte l'anno.
+- Da chiedere alla collega: gli articoli non trovati vanno messi a zero? Chi conferma le differenze prima di aggiornare la giacenza?
+- Partenza col nuovo gestionale: copiare le giacenze dal gestionale attuale (serve un export) oppure contare tutto da capo.
+
 ## Prossimi passi
 
 1. Rispondere alle domande aperte
