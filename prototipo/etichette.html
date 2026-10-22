@@ -61,14 +61,23 @@
   .anteprima-head h2 { font-size: 0.95rem; }
   .anteprima-head .pagine { color: var(--muted); font-size: 0.85rem; }
   .fogli { display: flex; gap: 18px; flex-wrap: wrap; padding: 16px; background: #e9edf3; border-radius: 12px; min-height: 160px; }
+  /* Il foglio si disegna dalle misure in mm (variabili --c colonne, --r righe, --w/--h etichetta,
+     --mt/--ml margini, --gx/--gy spazi): sullo schermo 1 mm = --s pixel, in stampa 1 mm vero */
   .foglio {
-    width: 360px; aspect-ratio: 210 / 297;
-    padding: 4.5% 2.5%;
+    --s: 1.714px;   /* 360 px / 210 mm */
+    width: calc(210 * var(--s)); height: calc(297 * var(--s));
+    padding: calc(var(--mt) * var(--s)) 0 0 calc(var(--ml) * var(--s));
     background: #fff; box-shadow: 0 4px 16px rgba(20,30,50,0.15);
-    display: grid; gap: 0;
+    display: grid; align-content: start;
+    grid-template-columns: repeat(var(--c), calc(var(--w) * var(--s)));
+    grid-template-rows: repeat(var(--r), calc(var(--h) * var(--s)));
+    column-gap: calc(var(--gx) * var(--s)); row-gap: calc(var(--gy) * var(--s));
   }
-  .foglio.f3x8 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(8, 1fr); }
-  .foglio.f4x10 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(10, 1fr); }
+  /* testo proporzionato all'altezza dell'etichetta (29,7 mm → circa 7 punti) */
+  .foglio .cella { font-size: calc(var(--h) * var(--s) * 0.085); padding: calc(var(--h) * var(--s) * 0.05) calc(var(--h) * var(--s) * 0.07); }
+  .misure { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  .misure label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--muted); }
+  .misure input { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; text-align: right; }
   .rotolo { display: flex; flex-direction: column; gap: 8px; }
   .rotolo .cella { width: 200px; height: 100px; background: #fff; box-shadow: 0 2px 8px rgba(20,30,50,0.12); border-radius: 4px; }
   .cella {
@@ -97,11 +106,7 @@
     body * { visibility: hidden; }
     #fogli, #fogli * { visibility: visible; }
     #fogli { position: absolute; left: 0; top: 0; display: block; padding: 0; background: none; min-height: 0; }
-    .foglio { width: 210mm; height: 297mm; aspect-ratio: auto; box-shadow: none; break-after: page; }
-    .foglio.f3x8 { padding: 0.5mm 0; grid-template-columns: repeat(3, 70mm); grid-template-rows: repeat(8, 37mm); }
-    .foglio.f4x10 { padding: 3.5mm 1mm; grid-template-columns: repeat(4, 52mm); grid-template-rows: repeat(10, 29mm); }
-    .foglio.f3x8 .cella { font-size: 9pt; padding: 2mm 3mm; }
-    .foglio.f4x10 .cella { font-size: 7pt; padding: 1.5mm 2mm; }
+    .foglio { --s: 1mm; box-shadow: none; break-after: page; }
     .cella { border: none !important; }
     .cella.saltata { background: none; }
     .rotolo { display: block; }
@@ -174,14 +179,28 @@
 <div class="modal-bg" id="modalImp">
   <div class="modal" role="dialog" aria-labelledby="titoloImp">
     <h2 id="titoloImp">Impostazioni etichette</h2>
-    <p>Valgono per questa stampa. Le misure vere le decidiamo quando sappiamo che etichette e stampante usate.</p>
+    <p>Il formato scelto resta memorizzato su questo computer. Le misure sono in millimetri: si leggono sulla confezione dei fogli adesivi.</p>
     <div class="campi-imp">
       <div><label for="formato" style="font-weight:600">Formato</label>
         <select id="formato">
+          <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52,5 × 29,7 mm)</option>
           <option value="f3x8">Foglio A4 adesivo – 3 × 8 (24 etichette 70 × 37 mm)</option>
-          <option value="f4x10">Foglio A4 adesivo – 4 × 10 (40 etichette 52 × 29 mm)</option>
+          <option value="pers">Foglio A4 – misure personalizzate</option>
           <option value="rotolo">Rotolo per stampante etichette – 50 × 25 mm</option>
         </select>
+      </div>
+      <div class="misure" id="misure" hidden>
+        <label>Colonne<input type="number" id="mC" min="1" max="10"></label>
+        <label>Righe<input type="number" id="mR" min="1" max="30"></label>
+        <span></span>
+        <label>Larghezza etichetta (mm)<input type="number" id="mW" step="0.1"></label>
+        <label>Altezza etichetta (mm)<input type="number" id="mH" step="0.1"></label>
+        <span></span>
+        <label>Margine sopra (mm)<input type="number" id="mMt" step="0.1"></label>
+        <label>Margine sinistro (mm)<input type="number" id="mMl" step="0.1"></label>
+        <span></span>
+        <label>Spazio tra colonne (mm)<input type="number" id="mGx" step="0.1"></label>
+        <label>Spazio tra righe (mm)<input type="number" id="mGy" step="0.1"></label>
       </div>
       <label><input type="checkbox" id="mostraCodice" checked> Mostra codice articolo</label>
       <label><input type="checkbox" id="mostraDescr" checked> Mostra descrizione</label>
@@ -205,7 +224,20 @@
 <script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const PER_FOGLIO = { f3x8: 24, f4x10: 40, rotolo: Infinity };
+  // Formati dei fogli A4 in millimetri: colonne, righe, etichetta, margini, spazi.
+  // 4 × 10 come nel gestionale attuale; "pers" = misure scritte dall'utente (memorizzate su questo PC)
+  const FORMATI = {
+    f4x10: { c: 4, r: 10, w: 52.5, h: 29.7, mt: 0, ml: 0, gx: 0, gy: 0 },
+    f3x8: { c: 3, r: 8, w: 70, h: 37, mt: 0.5, ml: 0, gx: 0, gy: 0 }
+  };
+  const memoria = {
+    leggi: k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* senza memoria si usa il predefinito */ } }
+  };
+  FORMATI.pers = memoria.leggi("etichette.misure") || { ...FORMATI.f4x10 };
+  const CAMPI_MISURE = { mC: "c", mR: "r", mW: "w", mH: "h", mMt: "mt", mMl: "ml", mGx: "gx", mGy: "gy" };
+  const misureFoglio = f => FORMATI[f];
+  const perFoglio = f => f === "rotolo" ? Infinity : misureFoglio(f).c * misureFoglio(f).r;
 
   // ---------- Da dove arrivo ----------
   // ?carico=8815 → etichette del carico (una per pezzo; &perPezzo=0 → una per articolo; &righe=1,3 → solo quelle righe)
@@ -356,11 +388,13 @@
         (copie.length > mostrate.length ? `<p class="altre" style="align-self:flex-end;color:var(--muted)">… e altre ${copie.length - 30}</p>` : "") : "";
       $("pagine").textContent = copie.length ? `${copie.length} etichette sul rotolo` : "";
     } else {
-      const per = PER_FOGLIO[o.formato];
+      const per = perFoglio(o.formato);
+      const m = misureFoglio(o.formato);
+      const stile = `--c:${m.c};--r:${m.r};--w:${m.w};--h:${m.h};--mt:${m.mt};--ml:${m.ml};--gx:${m.gx};--gy:${m.gy}`;
       const celle = Array(copie.length ? Math.min(salta, per - 1) : 0).fill(null).concat(copie);
       const fogli = [];
       for (let i = 0; i < celle.length; i += per) fogli.push(celle.slice(i, i + per));
-      $("fogli").innerHTML = fogli.map(f => `<div class="foglio ${o.formato}">${f.map(a => a ? etichettaHtml(a, o) : '<div class="cella saltata" title="Saltata"></div>').join("")}${'<div class="cella" style="border-color:#eef1f5"></div>'.repeat(per - f.length)}</div>`).join("");
+      $("fogli").innerHTML = fogli.map(f => `<div class="foglio" style="${stile}">${f.map(a => a ? etichettaHtml(a, o) : '<div class="cella saltata" title="Saltata"></div>').join("")}${'<div class="cella" style="border-color:#eef1f5"></div>'.repeat(per - f.length)}</div>`).join("");
       $("pagine").textContent = fogli.length ? `${fogli.length} fogl${fogli.length === 1 ? "io" : "i"} A4${salta ? ` · ${Math.min(salta, per - 1)} posizioni saltate sul primo` : ""}` : "";
     }
     if (!copie.length) $("fogli").innerHTML = '<div class="vuoto" style="margin:auto"><b>L\'anteprima comparirà qui</b></div>';
@@ -380,6 +414,21 @@
   };
   ["salta", "nascondiPrezzo", "formato", "mostraCodice", "mostraDescr", "mostraNumero"].forEach(id => $(id).addEventListener("input", () => disegna()));
 
+  // Formato: ricordato su questo PC; con "misure personalizzate" compaiono i campi in mm
+  function mostraMisure() {
+    $("misure").hidden = $("formato").value !== "pers";
+    Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).value = FORMATI.pers[k]);
+  }
+  $("formato").value = memoria.leggi("etichette.formato") || "f4x10";
+  mostraMisure();
+  $("formato").addEventListener("change", () => { memoria.scrivi("etichette.formato", $("formato").value); mostraMisure(); disegna(); });
+  Object.entries(CAMPI_MISURE).forEach(([id, k]) => $(id).addEventListener("input", () => {
+    const v = parseFloat($(id).value);
+    if (!(v >= 0)) return;
+    FORMATI.pers[k] = ["c", "r"].includes(k) ? Math.max(1, Math.round(v)) : v;
+    memoria.scrivi("etichette.misure", FORMATI.pers);
+    disegna();
+  }));
   $("btnImpostazioni").onclick = () => $("modalImp").classList.add("show");
   $("chiudiImp").onclick = () => $("modalImp").classList.remove("show");
   $("modalImp").onclick = e => { if (e.target.id === "modalImp") $("modalImp").classList.remove("show"); };
