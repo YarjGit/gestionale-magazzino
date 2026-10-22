@@ -17,8 +17,10 @@
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-carichi.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Carichi da Fornitori",
     nuovo: "Nuovo carico",
     csv: "carichi-fornitori",
@@ -41,6 +43,15 @@
     ],
     dati: CARICHI
   });
+
+  // Dopo l'accesso: i carichi salvati nel database della sede di lavoro, in cima a quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const sede = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const righe = await elencoMovimentiDb(db, "carico_fornitore", sede, "carico.html");
+    righe.forEach(r => r.lab = trovaSede(leggiSede()).nome);
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere i carichi: " + err.message));
 </script>
 </body>
 </html>

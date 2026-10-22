@@ -47,19 +47,33 @@
 <script src="js/dati-articoli-reali.js"></script>
 <script src="js/dati-articoli.js"></script>
 <script src="js/dati-carichi.js"></script>
-<script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
+  // "module": permette di aspettare il database (await) prima di disegnare un carico salvato
   const $ = id => document.getElementById(id);
-  // ?id=8815 apre un carico esistente; ?nuovo=1 apre un carico vuoto già in modifica
+  // ?nuovo=1 apre un carico vuoto già in modifica; ?db=12 un carico salvato nel database;
+  // ?id=8815 un carico di esempio. Salvando un carico nuovo (Definitivo) la merce entra in giacenza.
   const qs = new URLSearchParams(location.search);
   const nuovo = qs.has("nuovo");
   const id = +qs.get("id");
+  const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  // Carico salvato: si legge dal database prima di disegnare la pagina
+  const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro])).catch(err => { avviso("Errore nel leggere il carico: " + err.message); return null; }) : null;
   const car = nuovo
-    ? { id: null, stato: "Definitivo", data: oggi, dataDoc: oggi, cp: -1, bolla: "", doc: "", causale: "", totArt: 0, tot: 0, nArt: 0, lab: leggiSede() || "CAL SMM Roma" }
+    ? { id: null, stato: "Definitivo", data: oggi, dataDoc: oggi, cp: -1, bolla: "", doc: "", causale: "", totArt: 0, tot: 0, nArt: 0, lab: sedeLavoro }
+    : dbId ? movDb && {
+        id: movDb.id, dbId: movDb.id, stato: movDb.stato, data: movDb.data_movimento, dataDoc: movDb.data_documento || "", bolla: movDb.data_bolla || "",
+        doc: movDb.numero_documento || "", cp: movDb.fornitore_id || -1, fornNome: movDb.fornitori ? movDb.fornitori.ragione_sociale : "",
+        causale: movDb.causale || "", annotazioni: movDb.annotazioni || "", porto: movDb.porto, condPag: movDb.condizione_pagamento,
+        sped: movDb.spedizioniere, tracking: movDb.tracking || "", spese: +movDb.spese, creatoDa: movDb.creato_da, creatoIl: movDb.creato_il,
+        totArt: 0, tot: 0, nArt: 0, lab: sedeLavoro
+      }
     : CARICHI.find(c => c.id === id);
 
   if (!car) {
-    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Carico #${esc(id || "")} non trovato</b>
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Carico #${esc(id || dbId || "")} non trovato</b>
       <span><a href="carichi-fornitori.html" style="color:var(--accent)">Torna all'elenco dei carichi</a></span></div></div>`;
     document.querySelectorAll(".top-actions .btn").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
     $("btnChiudi").onclick = () => location.href = "carichi-fornitori.html";
@@ -67,16 +81,26 @@
   }
 
   document.title = `${nuovo ? "Nuovo carico" : `Carico #${car.id}`} – Gestionale Magazzino`;
-  const fornitore = FORNITORI[car.cp] || "";
-  // Fornitori delle tendine: quelli di esempio finché non arrivano quelli veri dal database (solo carico nuovo)
-  let FORN = FORNITORI.map((nome, i) => ({ id: String(i), codice: String(600 + i * 9), nome }));
+  const fornitore = car.fornNome || FORNITORI[car.cp] || "";
+  // Fornitori delle tendine: quelli di esempio finché non arrivano quelli veri dal database (carico nuovo o salvato)
+  let FORN = movDb && movDb.fornitori ? [{ id: movDb.fornitori.id, codice: movDb.fornitori.codice, nome: movDb.fornitori.ragione_sociale }]
+    : FORNITORI.map((nome, i) => ({ id: String(i), codice: String(600 + i * 9), nome }));
   const opzioniForn = scelto => '<option value="">— scegli il fornitore —</option>' +
     FORN.map(f => `<option value="${esc(f.id)}"${f.id === scelto ? " selected" : ""}>${esc(f.codice)}: ${esc(f.nome)}</option>`).join("");
   const stato = Object.values(STATO).find(s => s.nome === car.stato);
   const annullato = car.stato === "Annullato";
 
   // Righe articolo del carico (da dati-carichi.js: articoli veri dell'anagrafica)
-  const RIGHE = nuovo ? [] : righeCarico(car);
+  const RIGHE = nuovo ? [] : movDb ? movDb.righe.map((r, i) => ({
+      pos: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, barcode: r.articolo.barcode, articolo: r.articolo,
+      qta: r.quantita, ordinata: r.quantita_ordinata ?? undefined, prezzo: +r.prezzo, sconto: +r.sconto,
+      etichette: r.etichette, etichetteMan: r.etichette !== r.quantita, tot: +r.totale
+    })) : righeCarico(car);
+  if (movDb) {
+    car.totArt = Math.round(RIGHE.reduce((s, r) => s + r.tot, 0) * 100) / 100;
+    car.nArt = RIGHE.reduce((s, r) => s + r.qta, 0);
+    car.tot = car.totArt + car.spese;
+  }
 
   // ---------- Struttura della pagina ----------
   const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
@@ -124,14 +148,14 @@
                 ${campo("s2", "Tipo di movimento", `<select class="mod" disabled>${opz(["Carico da fornitore", "Carico da lab. interni", "Doni"], "Carico da fornitore")}</select>`)}
                 ${campo("s2", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato" style="background:${stato.colore}"></span><select class="mod" id="selStato" disabled>${opz(["Provvisorio", "Definitivo", "Annullato"], car.stato)}</select><button class="btn btn-light" id="btnProvv" style="padding:6px 10px;font-size:0.8rem" hidden></button></div>`)}
                 ${campo("s2", "Aliquota IVA", `<select class="mod" disabled>${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
-                ${campo("s2", "Data documento", inp(car.dataDoc || "", 'type="date"'))}
-                ${campo("s2", "Data bolla", inp(car.bolla || "", 'type="date"'))}
-                ${campo("s1", "Numero bolla", inp((car.doc || "").replace(/^n\./, "").replace(/ DDT$/, "")))}
-                ${campo("s1", "Porto", `<select class="mod" disabled>${opz(["Franco", "Assegnato"], "Franco")}</select>`)}
+                ${campo("s2", "Data documento", inp(car.dataDoc || "", 'type="date" id="fDataDoc"'))}
+                ${campo("s2", "Data bolla", inp(car.bolla || "", 'type="date" id="fDataBolla"'))}
+                ${campo("s1", "Numero bolla", inp(car.dbId ? car.doc : (car.doc || "").replace(/^n\./, "").replace(/ DDT$/, ""), 'id="fNumBolla"'))}
+                ${campo("s1", "Porto", `<select class="mod" id="fPorto" disabled>${opz(["Franco", "Assegnato"], car.porto || "Franco")}</select>`)}
                 ${campo("s2", "Riferimento fattura", inp(""))}
-                ${campo("s1", "Anno", inp(car.data.slice(0, 4), 'style="text-align:right"'))}
+                ${campo("s1", "Anno", `<input value="${car.data.slice(0, 4)}" disabled style="text-align:right" title="Anno di acquisto: si stampa sulle etichette">`)}
                 ${campo("s1", "ID", `<input value="${car.id ?? ""}" placeholder="nuovo" disabled style="text-align:right">`, "assegnato al salvataggio")}
-                ${campo("s2", "Data carico", inp(car.data, 'type="date"'))}
+                ${campo("s2", "Data carico", inp(car.data, 'type="date" id="fDataCarico"'), "l'anno è l'anno di acquisto")}
               </div>
             </div>
 
@@ -140,7 +164,7 @@
               <div class="campi">
                 ${campo("s4", "Fornitore", `<select class="mod" id="selFornitore" disabled>${opzioniForn(car.cp < 0 ? "" : String(car.cp))}</select>`)}
                 ${campo("s2", "Sconto %", inp("", 'type="number" min="0" max="100" style="text-align:right"'))}
-                ${campo("s3", "Condizione di pagamento", `<select class="mod" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."])}</select>`)}
+                ${campo("s3", "Condizione di pagamento", `<select class="mod" id="fCondPag" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], car.condPag)}</select>`)}
                 ${campo("s3", "Sede che riceve", `<input value="${esc(car.lab)}" disabled>`)}
               </div>
             </div>
@@ -148,8 +172,8 @@
             <div class="gruppo">
               <h3>🚚 Spedizione</h3>
               <div class="campi">
-                ${campo("s2", "Spedizioniere", `<select class="mod" disabled><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"])}</select>`)}
-                ${campo("s2", "Tracking number", inp(""))}
+                ${campo("s2", "Spedizioniere", `<select class="mod" id="fSped" disabled><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"], car.sped)}</select>`)}
+                ${campo("s2", "Tracking number", inp(car.tracking || "", 'id="fTracking"'))}
                 ${campo("s2", "Tempo di consegna", inp(""))}
               </div>
             </div>
@@ -157,8 +181,8 @@
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
-                ${campo("s3", "Causale", `<textarea class="mod" disabled>${esc(car.causale)}</textarea>`, "non stampata sul documento")}
-                ${campo("s3", "Annotazioni", `<textarea class="mod" disabled></textarea>`, "stampate sul documento")}
+                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale" disabled>${esc(car.causale)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot" disabled>${esc(car.annotazioni || "")}</textarea>`, "stampate sul documento")}
               </div>
             </div>
           </div>
@@ -167,7 +191,7 @@
             <h3>Riepilogo importi</h3>
             <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="${numero(car.totArt)}" disabled></div>
             ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map((s, i) =>
-              `<div class="voce-imp"><label>+ ${s}</label><input class="mod spesa" data-i="${i}" value="${car.tot - car.totArt && i === 1 ? numero(car.tot - car.totArt) : ""}" placeholder="0,00" disabled></div>`).join("")}
+              `<div class="voce-imp"><label>+ ${s}</label><input class="mod spesa" data-i="${i}" value="${car.dbId ? (i === 0 && car.spese ? numero(car.spese) : "") : car.tot - car.totArt && i === 1 ? numero(car.tot - car.totArt) : ""}" placeholder="0,00" disabled></div>`).join("")}
             <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl"></span></div>
           </aside>
         </div>
@@ -183,7 +207,7 @@
           <button class="btn btn-primary" id="btnCollega" disabled>🔗 Collega ordine</button>
           <button class="btn btn-light" id="btnSalta">Salta ›</button>
         </div>
-        <div id="ordiniCollegati"></div>` : `<div class="collegato">
+        <div id="ordiniCollegati"></div>` : car.dbId ? '<div class="vuoto"><b>Nessun ordine collegato</b><span>Il collegamento agli ordini arriverà quando salveremo anche gli ordini nel database.</span></div>' : `<div class="collegato">
           <div class="ico">📋</div>
           <div class="testo"><b>Ordine a fornitore 2026-000170</b><span>${esc(fornitore)} · da cui è nato questo carico (esempio)</span></div>
           <a class="btn btn-light" href="ordini-fornitori.html">Apri</a>
@@ -201,6 +225,7 @@
           <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
           <div class="f" style="width:120px"><label for="addPrezzo">Costo unit.</label><input id="addPrezzo" placeholder="dall'articolo" style="text-align:right"></div>
           <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+          <label class="interr" style="margin:0 0 8px" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> anche di altri fornitori</label>
         </div>
         <div class="nota-viola" id="notaPrezzi" hidden>💶 In questa scheda si indicano i <b>prezzi di acquisto</b>.</div>
         <div class="art-toolbar">
@@ -229,7 +254,8 @@
       <!-- STORICO -->
       <div class="pannello-tab" id="tab-storico" hidden>
         ${nuovo ? '<div class="vuoto"><b>Carico non ancora salvato</b><span>Dopo il salvataggio qui comparirà chi lo ha creato e modificato.</span></div>' : ""}
-        <div class="timeline" ${nuovo ? "hidden" : ""}>
+        ${car.dbId ? `<div class="timeline"><div class="evento ok"><div class="quando">${new Date(car.creatoIl).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · ${esc(car.creatoDa || "")}</div><div class="cosa">Carico salvato</div><div class="dett">Stato ${car.stato} · ${car.nArt} pezzi${car.stato === "Definitivo" ? " caricati in giacenza" : ""}</div></div></div>` : ""}
+        <div class="timeline" ${nuovo || car.dbId ? "hidden" : ""}>
           <div class="evento"><div class="quando">${dataIt(car.data)} · 09:12 · Mario Rossi</div><div class="cosa">Carico creato</div><div class="dett">Stato: Provvisorio · fornitore ${esc(fornitore)}</div></div>
           <div class="evento"><div class="quando">${dataIt(car.data)} · 09:40 · Mario Rossi</div><div class="cosa">Aggiunti ${RIGHE.length} articoli</div><div class="dett">${car.nArt} pezzi per ${euro(car.totArt)}</div></div>
           <div class="evento"><div class="quando">${dataIt(car.data)} · 09:44 · Mario Rossi</div><div class="cosa">Stampate le etichette</div><div class="dett">${car.nArt} etichette</div></div>
@@ -389,12 +415,12 @@
     const mancanti = RIGHE.filter(r => r.ordinata != null && r.qta < r.ordinata);
     document.querySelector('.scheda-tab[data-t="riordini"] .n').textContent = mancanti.length;
     $("tab-riordini").innerHTML = mancanti.length ? `
-      <div class="nota-viola">🧩 Questi articoli erano nell'ordine ${ordineCollegato ? ordineCollegato.prot : ""} ma non sono arrivati tutti. Con il riordino si crea un nuovo ordine solo per la parte mancante.</div>
+      <div class="nota-viola">🧩 Questi articoli erano nell'ordine ${ordineCollegato ? ordineCollegato.prot : ""} ma non sono arrivati tutti. La parte mancante va in un <b>nuovo ordine Provvisorio "ordine INEVASI"</b> allo stesso fornitore.</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Arrivata</th><th class="num">Da riordinare</th></tr></thead>
         <tbody>${mancanti.map(r => `<tr><td class="art-cella"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td><td class="num">${r.ordinata}</td><td class="num">${r.qta}</td><td class="num"><span class="arrivo parziale">${r.ordinata - r.qta}</span></td></tr>`).join("")}</tbody>
       </table></div>
-      <div style="margin-top:12px;text-align:right"><button class="btn btn-primary" onclick="avviso('Riordino: verrà creato un ordine a fornitore con stato Riordino (da definire insieme)')">🧩 Crea riordino</button></div>`
+      <div style="margin-top:12px;text-align:right"><button class="btn btn-primary" onclick="avviso('Ordine INEVASI: verrà creato un ordine a fornitore Provvisorio con gli articoli mancanti (quando gli ordini si salveranno nel database)')">🧩 Crea ordine INEVASI</button></div>`
       : '<div class="vuoto"><b>Nessun riordino</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa riordinare.</span></div>';
   }
   $("righeArt").onclick = e => {
@@ -406,18 +432,33 @@
   };
 
   // Aggiunta articolo: a mano o con la pistola (scrive il barcode e preme Invio)
-  const trovaArticoli = testo => cercaArticoli(testo);
+  // Si cercano solo gli articoli del fornitore scelto (salvo l'interruttore "anche di altri fornitori")
+  const delFornitore = a => $("tuttiForn").checked || String(a.forn) === $("selFornitore").value;
+  const trovaArticoli = testo => cercaArticoli(testo, () => 0, delFornitore);
+  const serveFornitore = () => {
+    if ($("selFornitore").value) return true;
+    avviso("Scegli prima il fornitore: si cercano solo i suoi articoli");
+    document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("selFornitore").focus();
+    return false;
+  };
+  // Niente trovato: se il codice è di un altro fornitore lo si dice, così si capisce perché
+  const nessunoTrovato = testo => {
+    if (!$("selFornitore").value) return "Scegli prima il fornitore (in Dettagli): si cercano solo i suoi articoli";
+    const altrove = cercaArticoli(testo)[0];
+    return altrove && !ricercaCorta ? `${altrove.codice} è di un altro fornitore: attiva "anche di altri fornitori" per aggiungerlo` : testoNessunArticolo();
+  };
   let suggAttivo = 0;
   function mostraSugg() {
     const lista = trovaArticoli($("addArt").value);
     suggAttivo = Math.min(suggAttivo, Math.max(0, lista.length - 1));
     $("suggArt").innerHTML = lista.length
       ? lista.map((a, i) => `<div class="sugg${i === suggAttivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>${a.barcode}</small></div>`).join("")
-      : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
+      : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessunoTrovato($("addArt").value)}</div>`;
     $("suggArt").classList.toggle("show", !!$("addArt").value.trim());
     return lista;
   }
   function aggiungiArticolo(art) {
+    if (!serveFornitore()) return;
     const n = Math.max(1, +$("addQta").value || 1);
     const prezzo = $("addPrezzo").value ? Math.round(num($("addPrezzo").value) * 100) / 100 : null;
     // Stesso articolo già in elenco (anche dall'ordine collegato): aumenta la quantità arrivata
@@ -437,6 +478,7 @@
     $("addArt").focus();
   }
   $("addArt").oninput = () => { suggAttivo = 0; mostraSugg(); };
+  $("tuttiForn").onchange = () => { mostraSugg(); $("addArt").focus(); };
   $("addArt").onkeydown = e => {
     const lista = trovaArticoli($("addArt").value);
     if (e.key === "ArrowDown") { suggAttivo = Math.min(suggAttivo + 1, lista.length - 1); mostraSugg(); e.preventDefault(); }
@@ -445,7 +487,7 @@
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[suggAttivo]) aggiungiArticolo(lista[suggAttivo]);
-      else if ($("addArt").value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
+      else if ($("addArt").value.trim()) avviso(ricercaCorta || cercaArticoli($("addArt").value).length ? nessunoTrovato($("addArt").value) : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
     }
   };
   $("suggArt").onclick = e => {
@@ -464,9 +506,17 @@
   disegnaArticoli();
 
   // ---------- Etichette: apre la pagina di stampa già riempita ----------
+  // Le righe del carico passano alla pagina etichette (stessa scheda del browser), con l'anno del carico:
+  // con "Barcode duplicati" un'etichetta per pezzo (colonna Etichette), altrimenti una per articolo
   const paginaEtichette = solo => {
-    const righe = solo ? `&righe=${[...selezionati].join(",")}` : "";
-    location.href = `etichette.html?carico=${car.id}&perPezzo=${$("barcodeDup").checked ? 1 : 0}${righe}`;
+    const perPezzo = $("barcodeDup").checked;
+    const anno = +car.data.slice(0, 4);
+    const righe = RIGHE.filter(r => r.qta > 0 && (!solo || selezionati.has(r.pos))).map(r => ({
+      art: { codice: r.cod, descr: r.descr, barcode: r.barcode, costo: r.prezzo, prezzo: r.articolo.prezzo },
+      n: perPezzo ? r.etichette : 1, anno
+    }));
+    sessionStorage.setItem("etichette", JSON.stringify({ titolo: car.id ? `Carico #${car.id}` : "Nuovo carico", ritorno: location.pathname.split("/").pop() + location.search, righe }));
+    location.href = "etichette.html?da=sessione";
   };
   $("btnEtichette").onclick = () => paginaEtichette(false);
   $("etichetteSel").onclick = () => selezionati.size ? paginaEtichette(true) : avviso("Seleziona almeno un articolo");
@@ -522,26 +572,58 @@
     RIGHE.splice(0, RIGHE.length, ...righePrima);
     mostraStato(); ricalcola(); modalita(false);
   };
-  $("btnSalva").onclick = () => {
+  // Salvataggio nel database (carico nuovo o già salvato). Se è Definitivo la merce entra subito in giacenza;
+  // poi si riapre il carico in sola lettura (da lì "Etichette movimento"), oppure si torna all'elenco.
+  // I carichi di esempio non si salvano.
+  async function salva(chiudi) {
     if (!controlla()) return;
-    avviso(nuovo ? "Carico salvato (solo anteprima: il salvataggio vero arriverà con il database)" : "Modifiche salvate (solo anteprima)");
-    if (!nuovo) modalita(false);
-  };
-  $("btnSalvaChiudi").onclick = () => {
-    if (!controlla()) return;
-    avviso("Salvato (solo anteprima)");
-    setTimeout(() => location.href = "carichi-fornitori.html", 700);
-  };
+    if (!nuovo && !car.dbId) {
+      avviso("Questo è un carico di esempio: le modifiche non si salvano");
+      modalita(false);
+      return;
+    }
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const fornitoreId = $("selFornitore").value;
+    if (!/^[0-9a-f-]{36}$/i.test(fornitoreId)) { avviso("I fornitori veri non sono ancora arrivati dal database: aspetta un attimo e riprova"); return; }
+    const righe = RIGHE.filter(r => r.qta > 0);
+    if (righe.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
+    const testo = id => $(id).value.trim() || null;
+    const mov = {
+      tipo: "carico_fornitore", stato: $("selStato").value, sede_id: ID_SEDI_DB[sedeLavoro], fornitore_id: fornitoreId,
+      numero_documento: testo("fNumBolla"), data_movimento: $("fDataCarico").value || oggi,
+      data_documento: $("fDataDoc").value || null, data_bolla: $("fDataBolla").value || null,
+      causale: testo("fCausale"), annotazioni: testo("fAnnot"), porto: $("fPorto").value,
+      condizione_pagamento: $("fCondPag").value || null, spedizioniere: $("fSped").value || null, tracking: testo("fTracking"),
+      spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
+    };
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const nuovoId = await salvaMovimentoDb(db, mov, righe.map(r => ({
+        articolo_id: r.articolo.id, quantita: r.qta, quantita_ordinata: r.ordinata ?? null,
+        prezzo: r.prezzo, sconto: r.sconto || 0, etichette: r.etichette
+      })), car.dbId);
+      avviso(mov.stato === "Definitivo" ? `Carico salvato: ${righe.reduce((s, r) => s + r.qta, 0)} pezzi caricati in giacenza`
+        : `Carico salvato come ${mov.stato.toLowerCase()}: la giacenza non cambia finché non è definitivo`);
+      setTimeout(() => location.replace(chiudi ? "carichi-fornitori.html" : `carico.html?db=${nuovoId}`), 900);
+    } catch (err) {
+      avviso("Errore nel salvare il carico: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
 
   // Un carico nuovo si apre già in modifica, sulla scheda Dettagli
   if (nuovo) modalita(true);
 
-  // Dopo l'accesso: articoli (ricerca e pistola) e, per un carico nuovo, i fornitori veri del database.
-  // I carichi esistenti sono ancora di esempio e tengono il loro fornitore.
+  // Dopo l'accesso: articoli (ricerca e pistola) e, per un carico nuovo o salvato, i fornitori veri del database.
+  // I carichi di esempio tengono il loro fornitore.
   dbPronto.then(async db => {
     if (!db) return;
     const [{ data, error }] = await Promise.all([
-      nuovo ? db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale") : { data: null },
+      nuovo || car.dbId ? db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale") : { data: null },
       caricaArticoliDalDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome])
     ]);
     if (error) throw error;

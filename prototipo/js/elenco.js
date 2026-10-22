@@ -17,6 +17,7 @@
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
 //   nota                   testo (HTML) mostrato in un riquadro sotto il titolo, per spiegare come funziona la pagina
+// Restituisce { aggiungi(righe) } per mettere in cima i movimenti letti dal database.
 
 // Stati dei movimenti: colore della striscia, dell'etichetta e della scheda in alto
 const STATO = {
@@ -42,7 +43,8 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 // Colonne pronte da usare nelle pagine
 const COL = {
   numero: (t = "Numero / Doc.") => ({
-    k: "numero", t, sort: r => r.id,
+    // i movimenti veri (dal database) vengono prima di quelli di esempio
+    k: "numero", t, sort: r => r.chiave ? 1e9 + r.id : r.id,
     html: r => `<td class="num-mov">${r.prot ? `<span class="id">${r.prot}</span><span class="sec">#${r.id}</span>` : `<span class="id">#${r.id}</span>`}${r.tag ? `<span class="tag" style="background:${r.tag.colore}22;color:${r.tag.colore}">${esc(r.tag.testo)}</span>` : ""}${r.doc ? `<span class="doc">${esc(r.doc)}${r.dataDoc ? ` del ${dataIt(r.dataDoc)}` : ""}</span>` : ""}</td>`,
     csv: r => [r.prot || "", r.id, r.doc || "", dataIt(r.dataDoc)], csvT: ["Protocollo", "Movimento", "Documento", "Data doc."]
   }),
@@ -96,11 +98,14 @@ function avviaElenco(cfg) {
   const statoDi = nome => cfg.stati.find(s => s.nome === nome);
   // Controparte facoltativa: Aumento Giacenza, ad esempio, non ha né cliente né fornitore
   const cp = cfg.controparte;
-  cfg.dati.forEach(r => {
+  // Le righe dal database arrivano già con cpNome (e con url e chiave: vedi aggiungi() in fondo)
+  const prepara = r => {
+    if (r.cpNome != null) return;
     const c = cp && r.cp != null ? cp.elenco[r.cp] : "";
     r.cpNome = typeof c === "string" ? c : c.nome;
     r.cpColore = typeof c === "string" ? null : c.colore;
-  });
+  };
+  cfg.dati.forEach(prepara);
 
   // Uno o più filtri sulla controparte (es. Altri Carichi: Fornitore e Cliente).
   // Ogni filtro mostra solo le voci dell'elenco con quel tipo.
@@ -297,7 +302,7 @@ function avviaElenco(cfg) {
 
     $("righe").innerHTML = righe.length ? righe.slice((pagina - 1) * per, pagina * per).map(r => {
       const st = statoDi(r.stato);
-      return `<tr class="${cfg.statiBarrati.includes(r.stato) ? "barrato" : ""}${cfg.dettaglio ? " cliccabile" : ""}" data-id="${r.id}">
+      return `<tr class="${cfg.statiBarrati.includes(r.stato) ? "barrato" : ""}${cfg.dettaglio ? " cliccabile" : ""}" data-id="${r.chiave || r.id}">
         <td class="stato-bar"><span style="background:${st.colore}"></span></td>
         <td><div class="azioni">
           ${cfg.senzaModifica ? "" : `<button class="icon-btn" title="Modifica" data-az="Modifica"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>`}
@@ -372,7 +377,12 @@ function avviaElenco(cfg) {
   // Menu azioni della riga
   let rigaMenu = null;
   // Con cfg.dettaglio la riga intera è cliccabile e apre la scheda del movimento
-  const apri = id => cfg.dettaglio ? location.href = `${cfg.dettaglio}?id=${id}` : avviso(`Modifica #${id}: schermata da costruire`);
+  const apri = id => {
+    const r = cfg.dati.find(x => String(x.chiave || x.id) === String(id));
+    if (r && r.url) location.href = r.url;
+    else if (cfg.dettaglio) location.href = `${cfg.dettaglio}?id=${id}`;
+    else avviso(`Modifica #${id}: schermata da costruire`);
+  };
   $("righe").onclick = e => {
     const btn = e.target.closest(".icon-btn");
     const tr = e.target.closest("tr[data-id]");
@@ -398,4 +408,14 @@ function avviaElenco(cfg) {
   $("btnCrea").onclick = () => cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
 
   disegna();
+
+  return {
+    // Movimenti veri dal database, messi in cima a quelli di esempio.
+    // Ogni riga: i campi soliti + cpNome, chiave (unica, es. "db-12") e url della scheda.
+    aggiungi(nuove) {
+      nuove.forEach(prepara);
+      cfg.dati.unshift(...nuove);
+      disegna();
+    }
+  };
 }

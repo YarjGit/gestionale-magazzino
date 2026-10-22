@@ -244,6 +244,15 @@
     if (codArticolo) $("crumbOrigine").innerHTML = `<a href="${ritorno}">Articolo ${esc(codArticolo)}</a><span> - </span>Etichette`;
   };
   if (codici.length) etichettaArticolo();
+  // ?da=sessione → righe preparate dalla scheda (es. "Etichette movimento" di un carico): { titolo, ritorno, righe }
+  let daSessione = null;
+  if (qs.get("da") === "sessione") {
+    try { daSessione = JSON.parse(sessionStorage.getItem("etichette")); } catch (e) { daSessione = null; }
+    if (daSessione) {
+      righe = daSessione.righe;
+      $("crumbOrigine").innerHTML = `<a href="${esc(daSessione.ritorno)}">${esc(daSessione.titolo)}</a><span> - </span>Etichette`;
+    }
+  }
 
   // ---------- Aggiunta: a mano o con la pistola ----------
   // La pistola si comporta come una tastiera: scrive il barcode e preme Invio
@@ -262,10 +271,10 @@
     const n = Math.max(1, +$("qta").value || 1);
     // Le etichette dello stesso articolo stanno sempre vicine: se c'è già (anche con un altro anno)
     // la nuova riga va subito dopo, così sul foglio escono in sequenza
-    const esistente = righe.find(r => r.art === art && r.anno === annoInCorso);
+    const esistente = righe.find(r => r.art.codice === art.codice && r.anno === annoInCorso);
     if (esistente) esistente.n += n;
     else {
-      const ultima = righe.map(r => r.art).lastIndexOf(art);
+      const ultima = righe.map(r => r.art.codice).lastIndexOf(art.codice);
       righe.splice(ultima < 0 ? righe.length : ultima + 1, 0, { art, n, anno: annoInCorso });
     }
     $("cercaArt").value = "";
@@ -374,7 +383,7 @@
   $("btnImpostazioni").onclick = () => $("modalImp").classList.add("show");
   $("chiudiImp").onclick = () => $("modalImp").classList.remove("show");
   $("modalImp").onclick = e => { if (e.target.id === "modalImp") $("modalImp").classList.remove("show"); };
-  $("btnChiudi").onclick = () => location.href = ritorno;
+  $("btnChiudi").onclick = () => location.href = daSessione ? daSessione.ritorno : ritorno;
   // Stampa: apre la finestra di stampa del browser con solo i fogli (misure vere, vedi @media print)
   $("btnStampa").onclick = () => {
     if (!righe.some(r => r.n > 0)) { avviso("Aggiungi almeno un'etichetta"); return; }

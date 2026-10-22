@@ -26,7 +26,8 @@ const ivaDiArticolo = (art, sedeEstera) => sedeEstera ? "--" : art.iva === 4 ? "
 const nomeIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k])[1];
 const percIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k, 0])[2];
 
-function righeHtmlAggiungi() {
+// conFornitore: aggiunge l'interruttore "anche di altri fornitori" (di solito si cercano solo gli articoli del fornitore scelto)
+function righeHtmlAggiungi(conFornitore) {
   return `<div class="aggiungi-art solo-mod richiede-forn">
       <div class="f cerca-art">
         <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
@@ -35,6 +36,7 @@ function righeHtmlAggiungi() {
       </div>
       <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
       <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+      ${conFornitore ? `<label class="interr" style="margin:0 0 8px" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> anche di altri fornitori</label>` : ""}
     </div>`;
 }
 
@@ -208,11 +210,18 @@ function avviaRighe(cfg) {
     cambiato();
   };
 
-  // Ricerca articoli (cercaArticoli): il codice o barcode esatto in cima per la pistola, poi quelli del fornitore scelto
-  const trova = testo => cercaArticoli(testo, a => +altro(a));
-  const suggerimenti = (lista, attivo) => lista.length
+  // Ricerca articoli (cercaArticoli): il codice o barcode esatto in cima per la pistola, poi quelli del fornitore scelto.
+  // Con l'interruttore "anche di altri fornitori" (#tuttiForn) spento si vedono solo gli articoli del fornitore.
+  const soloDelFornitore = () => $("tuttiForn") && !$("tuttiForn").checked;
+  const trova = testo => cercaArticoli(testo, a => +altro(a), a => !soloDelFornitore() || !altro(a));
+  const nessuno = testo => {
+    const altrove = soloDelFornitore() && !ricercaCorta && cercaArticoli(testo)[0];
+    return altrove ? `${esc(altrove.codice)} è di un altro fornitore: attiva "anche di altri fornitori" per aggiungerlo` : testoNessunArticolo();
+  };
+  if ($("tuttiForn")) $("tuttiForn").onchange = () => { $("addArt").dispatchEvent(new Event("input")); $("addArt").focus(); };
+  const suggerimenti = (lista, attivo, testo = "") => lista.length
     ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}<small>${a.barcode}</small></div>`).join("")
-    : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
+    : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessuno(testo)}</div>`;
 
   // Ricerca dentro la riga vuota (anche con la pistola: codice + Invio)
   let suggRiga = 0;
@@ -221,7 +230,7 @@ function avviaRighe(cfg) {
     if (!pos) return;
     suggRiga = 0;
     const box = document.querySelector(`[data-suggriga="${pos}"]`);
-    box.innerHTML = suggerimenti(trova(e.target.value), suggRiga);
+    box.innerHTML = suggerimenti(trova(e.target.value), suggRiga, e.target.value);
     box.classList.toggle("show", !!e.target.value.trim());
   };
   $("righeArt").onkeydown = e => {
@@ -230,14 +239,14 @@ function avviaRighe(cfg) {
     const lista = trova(e.target.value), box = document.querySelector(`[data-suggriga="${pos}"]`);
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       suggRiga = Math.max(0, Math.min(suggRiga + (e.key === "ArrowDown" ? 1 : -1), lista.length - 1));
-      box.innerHTML = suggerimenti(lista, suggRiga);
+      box.innerHTML = suggerimenti(lista, suggRiga, e.target.value);
       e.preventDefault();
     }
     if (e.key === "Escape") box.classList.remove("show");
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[suggRiga]) completaRiga(RIGHE.find(x => x.pos === +pos), lista[suggRiga]);
-      else if (e.target.value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${e.target.value.trim()}"`);
+      else if (e.target.value.trim()) avviso(ricercaCorta || cercaArticoli(e.target.value).length ? nessuno(e.target.value) : `Nessun articolo con codice o barcode "${e.target.value.trim()}"`);
     }
   };
 
@@ -246,7 +255,7 @@ function avviaRighe(cfg) {
   function mostraSugg() {
     const lista = trova($("addArt").value);
     suggAttivo = Math.min(suggAttivo, Math.max(0, lista.length - 1));
-    $("suggArt").innerHTML = suggerimenti(lista, suggAttivo);
+    $("suggArt").innerHTML = suggerimenti(lista, suggAttivo, $("addArt").value);
     $("suggArt").classList.toggle("show", !!$("addArt").value.trim());
   }
   const aggiungiDaCampo = art => {
@@ -264,7 +273,7 @@ function avviaRighe(cfg) {
     if (e.key === "Enter") {
       e.preventDefault();
       if (lista[suggAttivo]) aggiungiDaCampo(lista[suggAttivo]);
-      else if ($("addArt").value.trim()) avviso(ricercaCorta ? testoNessunArticolo() : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
+      else if ($("addArt").value.trim()) avviso(ricercaCorta || cercaArticoli($("addArt").value).length ? nessuno($("addArt").value) : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
     }
   };
   $("suggArt").onclick = e => {

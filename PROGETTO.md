@@ -66,6 +66,12 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
   "Vestire è servire" (Q11/05) è un libro: va a 0% con `database/10-libro-vestire-e-servire.sql`. Da decidere: Q08 Calendario liturgico (oggi 0%).
 - Le **sedi estere** sono a **0%** (IVA non applicata). Da sapere: quali sono le sedi estere? (nel prototipo l'elenco `SEDI_ESTERE` in `js/sedi.js` è vuoto).
 
+**Carico da fornitore** (salvataggio vero dal 22/10/2026)
+- Scelto il fornitore, nella scheda Articoli si cercano **solo i suoi articoli** (interruttore "anche di altri fornitori" per le eccezioni). Lo stesso nell'ordine a fornitore.
+- Con "Rendi definitivo" acceso, **Salva** carica subito la merce in giacenza; si riapre il carico e da **Etichette movimento** si stampano le etichette (anno del carico).
+- **Movimenti collegati**: il carico si collega al suo ordine; gli articoli **non arrivati** vanno in un **nuovo ordine Provvisorio con scritto "ordine INEVASI"**.
+  Da fare quando anche gli ordini si salvano nel database.
+
 **Da fare nel database (quando si salvano i movimenti)**: segnare l'anno di acquisto su ogni riga di carico e trasferimento, e calcolare la giacenza per sede, articolo e anno.
 
 ## Inventario (come si fa oggi in magazzino)

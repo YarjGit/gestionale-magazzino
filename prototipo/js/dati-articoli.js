@@ -17,7 +17,8 @@ function corrispondeArticolo(a, testo) {
 const MAX_SUGGERIMENTI = 50, MIN_CARATTERI = 2;
 let ricercaCorta = false;
 const testoNessunArticolo = () => ricercaCorta ? `Scrivi almeno ${MIN_CARATTERI} caratteri` : "Nessun articolo trovato";
-function cercaArticoli(testo, prima = () => 0) {
+// filtro(a): false esclude l'articolo (es. solo gli articoli del fornitore scelto)
+function cercaArticoli(testo, prima = () => 0, filtro = () => true) {
   const t = testo.trim().toLowerCase();
   ricercaCorta = t.length > 0 && t.length < MIN_CARATTERI;
   if (!t || ricercaCorta) return [];
@@ -26,7 +27,7 @@ function cercaArticoli(testo, prima = () => 0) {
     const cod = normalizza(a.codice);
     return a.barcode === t || a.codice.toLowerCase() === t ? 0 : cod.startsWith(n) ? 1 : cod.includes(n) ? 2 : 3;
   };
-  return ARTICOLI.filter(a => corrispondeArticolo(a, t))
+  return ARTICOLI.filter(a => filtro(a) && corrispondeArticolo(a, t))
     .map(a => ({ a, p: posto(a) }))
     .sort((x, y) => (x.p > 0) - (y.p > 0) || prima(x.a) - prima(y.a) || x.p - y.p || x.a.codice.localeCompare(y.a.codice))
     .slice(0, MAX_SUGGERIMENTI).map(x => x.a);
@@ -43,7 +44,7 @@ async function caricaArticoliDalDb(db, sedeId) {
   const letti = [];
   for (let da = 0; ; da += 1000) {   // il database ne restituisce al massimo 1000 per volta
     const { data, error } = await db.from("articoli")
-      .select("id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)")
+      .select(CAMPI_ARTICOLO)
       .order("codice").range(da, da + 999);
     if (error) throw error;
     letti.push(...data);
@@ -53,15 +54,17 @@ async function caricaArticoliDalDb(db, sedeId) {
   if (errGiac) throw errGiac;
   const giacenza = new Map(giac.filter(g => g.sede_id === sedeId).map(g => [g.articolo_id, g.quantita]));
   ARTICOLI.length = 0;
-  letti.forEach(a => ARTICOLI.push({
-    id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
-    costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
-    giac: giacenza.has(a.id) ? giacenza.get(a.id) : null,
-    forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
-    importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
-  }));
+  letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.has(a.id) ? giacenza.get(a.id) : null)));
   return ARTICOLI.length;
 }
+// Campi da leggere per un articolo, e come diventa un articolo del prototipo (stessa forma di ARTICOLI)
+const CAMPI_ARTICOLO = "id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)";
+const articoloDalDb = (a, giac) => ({
+  id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
+  costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato, giac,
+  forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
+  importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
+});
 
 // Id della sede di lavoro scelta in alto, come scritto nel database
 const ID_SEDI_DB = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale" };
