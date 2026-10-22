@@ -25,7 +25,10 @@ const STATO = {
   provvisorio: { nome: "Provvisorio", plurale: "Provvisori",  colore: "#e58a00", icona: "◷" },
   riordino:    { nome: "Riordino",    plurale: "Riordini",    colore: "#7c4dff", icona: "↻" },
   evaso:       { nome: "Evaso",       plurale: "Evasi",       colore: "#64748b", icona: "■" },
-  annullato:   { nome: "Annullato",   plurale: "Annullati",   colore: "#c62828", icona: "✕" }
+  annullato:   { nome: "Annullato",   plurale: "Annullati",   colore: "#c62828", icona: "✕" },
+  // trasferimenti visti dalla sede che riceve: la merce entra in giacenza solo con "Conferma ricevuto"
+  daRicevere:  { nome: "Da ricevere", plurale: "Da ricevere", colore: "#0891b2", icona: "📦" },
+  ricevuto:    { nome: "Ricevuto",    plurale: "Ricevuti",    colore: "#18a058", icona: "✔" }
 };
 
 // Tipi di movimento: E = entrata in magazzino, U = uscita, R = rettifica

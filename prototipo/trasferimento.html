@@ -63,6 +63,8 @@
   <button class="btn btn-light" id="btnStampa" title="Stampa la nota con gli articoli da preparare, quantità e prezzi">🖨️ Stampa nota</button>
   <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
   <button class="btn btn-light" id="btnAnnullaTr" hidden>⛔ Annulla trasferimento</button>
+  <button class="btn btn-light" id="btnEtichetteTr" hidden title="Etichette degli articoli arrivati (una per pezzo)">🏷️ Stampa etichette</button>
+  <button class="btn btn-verde" id="btnConferma" hidden title="La merce entra nella giacenza di questa sede">✔ Conferma ricevuto</button>
   <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
   <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
   <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
@@ -86,7 +88,9 @@
   //                       (vista "inevasi", database/14-inevasi.sql)
   // ?nuovo=1&righe=5,9   → si mandano inevasi scelti nella pagina Inevasi (righe d'ordine 5 e 9)
   // ?nuovo=1             → trasferimento a mano, senza ordine
-  // ?db=20               → trasferimento salvato, in sola lettura (si può annullare)
+  // ?db=20               → trasferimento salvato, in sola lettura (chi lo ha fatto lo può annullare finché non è ricevuto).
+  //                         Aperto dalla sede che riceve: "Da ricevere" → Stampa etichette e Conferma ricevuto;
+  //                         solo con la conferma la merce entra nella sua giacenza (database/15-ricezione-trasferimenti.sql)
   const $ = id => document.getElementById(id);
   const qs = new URLSearchParams(location.search);
   const nuovo = qs.has("nuovo");
@@ -139,12 +143,17 @@
     throw new Error("trasferimento non trovato");
   }
   const salvato = !!mov;
+  // Trasferimento visto dalla sede che lo riceve
+  const ricevente = salvato && mov.sede_altra_id === sedeId && mov.sede_id !== sedeId;
+  const spedito = salvato && ["Definitivo", "Evaso"].includes(mov.stato);
+  const ricevuto = spedito && (!("ricevuto_il" in mov) || !!mov.ricevuto_il);
+  const daRicevere = ricevente && spedito && !ricevuto;
   RIGHE.forEach(r => { if (!r.sez) r.sez = "A"; });
   const daOrdine = RIGHE.some(r => r.ordineRigaId);
   const conInevasi = !!ordineId && !salvato;   // sezioni separate e spunte solo preparando l'ordine di una filiale
   const stato = mov ? mov.stato : "Definitivo";
-  const st = Object.values(STATO).find(s => s.nome === stato);
-  const sediDest = SEDI.filter(s => s.nome !== sedeLavoro && ID_SEDI_DB[s.nome]);
+  const st = ricevente && spedito ? (ricevuto ? STATO.ricevuto : STATO.daRicevere) : Object.values(STATO).find(s => s.nome === stato);
+  const sediDest = SEDI.filter(s => (ricevente || s.nome !== sedeLavoro) && ID_SEDI_DB[s.nome]);
   const opzSedi = sediDest.map(s => `<option value="${ID_SEDI_DB[s.nome]}"${ID_SEDI_DB[s.nome] === destinazione ? " selected" : ""}>${esc(s.nome)}</option>`).join("");
   const nomeDest = id => (sediDest.find(s => ID_SEDI_DB[s.nome] === id) || { nome: id }).nome;
 
@@ -152,20 +161,24 @@
   $("contenuto").innerHTML = `
     <div class="scheda-head">
       <div>
-        <h1 class="page-title">${salvato ? `Trasferimento a filiale <span class="num">#${mov.id}</span>` : "Nuovo trasferimento a filiale"}
-          <span class="pill" style="background:${st.colore}1f;color:${st.colore}">${st.icona} ${stato}</span></h1>
+        <h1 class="page-title">${ricevente ? `Trasferimento da ${esc(nomeDest(mov.sede_id))} <span class="num">#${mov.id}</span>` : salvato ? `Trasferimento a filiale <span class="num">#${mov.id}</span>` : "Nuovo trasferimento a filiale"}
+          <span class="pill" style="background:${st.colore}1f;color:${st.colore}">${st.icona} ${st.nome}</span></h1>
         <div class="crumbs">
           <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
-          <span>-</span><span>Movimenti</span><span>-</span><a href="trasferimenti-a-filiali.html">Trasferimenti a Filiali</a><span>-</span><span>${salvato ? "#" + mov.id : "Nuovo"}</span>
+          <span>-</span><span>Movimenti</span><span>-</span>${ricevente ? '<a href="trasferimenti-da-filiali.html">Trasferimenti da Filiali</a>' : '<a href="trasferimenti-a-filiali.html">Trasferimenti a Filiali</a>'}<span>-</span><span>${salvato ? "#" + mov.id : "Nuovo"}</span>
         </div>
       </div>
       <div class="totale-top">
-        <div class="t">Da ${esc(sedeLavoro)} a</div>
-        <div class="v" id="topDest">${destinazione ? esc(nomeDest(destinazione)) : "—"}</div>
+        <div class="t">Da ${esc(ricevente ? nomeDest(mov.sede_id) : sedeLavoro)} a</div>
+        <div class="v" id="topDest">${ricevente ? esc(sedeLavoro) : destinazione ? esc(nomeDest(destinazione)) : "—"}</div>
         <div class="p" id="topPezzi"></div>
       </div>
     </div>
     ${stato === "Annullato" ? '<div class="banner ann">✕ Trasferimento annullato: la merce non risulta uscita e gli inevasi sono tornati come prima.</div>' : ""}
+    ${daRicevere ? `<div class="banner" style="background:#ecfaff;border:2px solid #67c7dc;color:#0b5566">📦 <span><b>Merce in arrivo da ${esc(nomeDest(mov.sede_id))}.</b> Controlla gli articoli, stampa le etichette e premi <b>Conferma ricevuto</b>: solo allora la merce entra nella giacenza di ${esc(sedeLavoro)}.</span></div>` : ""}
+    ${ricevente && stato === "Provvisorio" ? `<div class="banner provv">◷ <span>${esc(nomeDest(mov.sede_id))} sta ancora preparando questo trasferimento: lo potrai ricevere quando sarà definitivo.</span></div>` : ""}
+    ${!ricevente && spedito && !ricevuto ? `<div class="banner provv">⏳ <span>In attesa che <b>${esc(nomeDest(mov.sede_altra_id))}</b> confermi l'arrivo: finché non conferma, la merce non è ancora nella sua giacenza.</span></div>` : ""}
+    ${spedito && ricevuto && mov.ricevuto_il ? `<div class="banner" style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Ricevuto il <b>${new Date(mov.ricevuto_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</b>${mov.ricevuto_da ? ` da ${esc(mov.ricevuto_da)}` : ""}: la merce è nella giacenza di ${esc(ricevente ? sedeLavoro : nomeDest(mov.sede_altra_id))}.</span></div>` : ""}
 
     <section class="panel">
       <div class="gruppo" style="margin-bottom:14px">
@@ -222,7 +235,7 @@
         <td class="art-cella"><span class="codice">${esc(a.codice)}</span>${tag}<b>${esc(a.descr)}</b></td>
         ${conInevasi ? `<td style="white-space:nowrap">${r.ordineId ? `#${r.ordineId} <small style="color:var(--muted)">${dataIt(r.dataOrdine)}</small>` : '<small style="color:var(--muted)">a mano</small>'}</td>` : ""}
         ${daOrdine ? `<td class="num">${r.ordinata ?? "—"}</td>` : ""}
-        <td class="num ${giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${salvato ? "—" : giac}${spuntabile && giac > 0 ? ' <span class="disp-si" title="Adesso è in giacenza">● c\'è</span>' : ""}</td>
+        <td class="num ${!salvato && giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${!salvato ? giac : !ricevente ? "—" : daRicevere ? `${giac} <span style="color:var(--ok);font-weight:700" title="Giacenza dopo la conferma">→ ${cent(giac + r.manda)}</span>` : giac}${spuntabile && giac > 0 ? ' <span class="disp-si" title="Adesso è in giacenza">● c\'è</span>' : ""}</td>
         <td class="num">${!attiva ? '<span style="color:var(--muted)">—</span>' : mod ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-pos="${r.pos}">−</button><input class="num-mod" data-pos="${r.pos}" value="${r.manda}"><button class="btn-riga" data-passo="1" data-pos="${r.pos}">+</button></span>` : `<b>${r.manda}</b>`}</td>
         ${daOrdine ? `<td class="num">${r.ordinata == null ? "" : inev > 0 ? `<span class="inevaso">${inev}</span>` : '<span class="ok-tutto">✔</span>'}</td>` : ""}
         <td class="num">${numero(r.prezzo)}</td>
@@ -338,7 +351,7 @@
         if (error) throw error;
       }
       const inev = RIGHE.filter(r => r.ordinata != null && r.ordinata > r.manda).length;
-      avviso(stato === "Definitivo" ? `Trasferimento salvato: la merce è passata a ${nomeDest(dest)}${inev ? ` · ${inev} articoli restano negli inevasi` : ""}` : "Trasferimento salvato come provvisorio: la merce non esce finché non è definitivo");
+      avviso(stato === "Definitivo" ? `Trasferimento salvato: la merce è uscita, ${nomeDest(dest)} la troverà in "Trasferimenti da Filiali" da confermare${inev ? ` · ${inev} articoli restano negli inevasi` : ""}` : "Trasferimento salvato come provvisorio: la merce non esce finché non è definitivo");
       setTimeout(() => location.replace(chiudi ? "trasferimenti-a-filiali.html" : `trasferimento.html?db=${id}`), 1000);
     } catch (err) {
       avviso("Errore nel salvare il trasferimento: " + err.message);
@@ -375,7 +388,7 @@
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnAnnulla").onclick = () => { if (confirm("Uscire senza salvare?")) history.length > 1 ? history.back() : location.href = "trasferimenti-a-filiali.html"; };
-  $("btnChiudi").onclick = () => location.href = "trasferimenti-a-filiali.html";
+  $("btnChiudi").onclick = () => location.href = ricevente ? "trasferimenti-da-filiali.html" : "trasferimenti-a-filiali.html";
   // Annullare un trasferimento salvato: la merce torna come prima e gli inevasi si ricalcolano da soli
   $("btnAnnullaTr").onclick = async () => {
     if (!confirm("Annullare questo trasferimento? La merce torna nella giacenza di questa sede e gli articoli tornano negli inevasi.")) return;
@@ -385,12 +398,38 @@
     setTimeout(() => location.reload(), 700);
   };
 
+  // ---------- Sede che riceve: etichette e conferma dell'arrivo ----------
+  $("btnEtichetteTr").onclick = () => {
+    const anno = +(mov.data_movimento || oggi).slice(0, 4);
+    const righe = RIGHE.filter(r => r.manda > 0).map(r => ({
+      art: { codice: r.articolo.codice, descr: r.articolo.descr, barcode: r.articolo.barcode, costo: r.prezzo, prezzo: r.articolo.prezzo },
+      n: Math.max(1, Math.round(r.manda)), anno
+    }));
+    sessionStorage.setItem("etichette", JSON.stringify({ titolo: `Trasferimento #${mov.id}`, ritorno: `trasferimento.html?db=${mov.id}`, righe }));
+    location.href = "etichette.html?da=sessione";
+  };
+  $("btnConferma").onclick = async () => {
+    const pezzi = cent(RIGHE.reduce((s, r) => s + r.manda, 0));
+    if (!confirm(`Confermi di aver ricevuto ${RIGHE.length} articoli (${pezzi} pezzi) da ${nomeDest(mov.sede_id)}?\n\nDa adesso entrano nella giacenza di ${sedeLavoro}.`)) return;
+    $("btnConferma").disabled = true;
+    try {
+      await confermaRicezioneDb(db, mov.id);
+      avviso(`Ricevuto: ${pezzi} pezzi aggiunti alla giacenza di ${sedeLavoro}`);
+      setTimeout(() => location.reload(), 900);
+    } catch (err) { avviso("Errore nel confermare: " + err.message); $("btnConferma").disabled = false; }
+  };
+
   // Nuovo = in modifica; salvato = sola lettura (si può solo annullare)
   document.body.classList.toggle("in-modifica", !salvato);
   document.querySelectorAll(".mod").forEach(el => el.disabled = salvato || el.hasAttribute("data-fisso"));
   ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = salvato);
   $("btnChiudi").hidden = !salvato;
-  $("btnAnnullaTr").hidden = !salvato || stato === "Annullato";
+  // aperto da chi riceve: nel menu a sinistra si accende "Trasferimenti da Filiali"
+  if (ricevente) document.querySelectorAll('.sidebar a[href$=".html"]').forEach(a => a.classList.toggle("active", a.getAttribute("href") === "trasferimenti-da-filiali.html"));
+  // chi riceve non annulla; chi ha mandato può annullare solo finché non è stato ricevuto
+  $("btnAnnullaTr").hidden = !salvato || stato === "Annullato" || ricevente || (spedito && ricevuto && !!mov.ricevuto_il);
+  $("btnEtichetteTr").hidden = !ricevente || !spedito;
+  $("btnConferma").hidden = !daRicevere;
   disegna();
   if (!salvato) $("addArt").focus();
 

@@ -8,6 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/elenco.css">
+<style>
+  .da-ricevere { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; padding: 14px 16px; border: 2px solid #67c7dc; border-radius: 12px; background: #ecfaff; }
+  .da-ricevere a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: #fff; color: var(--text); text-decoration: none; font-weight: 500; }
+  .da-ricevere a:hover { background: #eef5ff; }
+  .da-ricevere a span { margin-left: auto; padding: 4px 12px; border-radius: 7px; background: #0891b2; color: #fff; font-weight: 600; font-size: 0.82rem; }
+</style>
 </head>
 <body data-page="trasferimenti-da-filiali" data-top="elenco">
 <main class="content"></main>
@@ -19,15 +25,17 @@
 <script src="js/dati-articoli.js"></script>
 <script src="js/movimenti-db.js"></script>
 <script>
-  // Gli arrivi sono automatici: quando una sede fa un "Trasferimento a filiale" verso questa sede,
-  // il movimento compare qui e la giacenza aumenta da sola. Qui non si crea niente a mano (niente "Nuovo").
+  // Gli arrivi compaiono da soli: quando una sede fa un "Trasferimento a filiale" verso questa sede, il movimento
+  // compare qui "Da ricevere". Si apre, si stampano le etichette e si conferma: solo allora la giacenza aumenta.
+  // Qui non si crea niente a mano (niente "Nuovo").
   const elenco = avviaElenco({
     titolo: "Trasferimenti da Filiali",
-    nota: "🔄 <b>Arrivano in automatico.</b> Quando un'altra sede manda la merce qui (Trasferimento a filiale), il movimento compare in questo elenco e la <b>giacenza aumenta da sola</b>. Non serve ricaricarla a mano. Finché la sede che manda lo tiene <i>provvisorio</i>, la merce non conta ancora.",
+    nota: "🔄 <b>Arrivano in automatico.</b> Quando un'altra sede manda la merce qui (Trasferimento a filiale), il movimento compare in questo elenco come <b>Da ricevere</b>. Aprilo, controlla gli articoli, stampa le etichette e premi <b>Conferma ricevuto</b>: solo allora la merce entra nella giacenza di questa sede.",
+    dettaglio: "trasferimento.html",
     csv: "trasferimenti-da-filiali",
-    stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
+    stati: [STATO.daRicevere, STATO.ricevuto, STATO.provvisorio, STATO.annullato],
     statiBarrati: ["Annullato"],
-    statiValidazione: ["Provvisorio"],
+    statiValidazione: ["Da ricevere"],
     senzaModifica: true,
     controparte: { filtro: "Sede di provenienza", elenco: SEDI_CP },
     azioniRiga: ["Vedi articoli", "Stampa etichette", "Stampa documento"],
@@ -42,25 +50,33 @@
       COL.intero("nArt", "Pezzi")
     ],
     dati: [
-      { id: 8802, prot: "2026-000242", doc: "n.310", dataDoc: "2026-10-14", stato: "Definitivo", data: "2026-10-15", cp: sede("Magazzino Centrale"), bolla: "2026-10-14", causale: "", tot: 3896.81, nArt: 160, lab: "Laboratori Sede Centrale" },
-      { id: 8765, prot: "2026-000238", doc: "n.41", dataDoc: "2026-10-08", stato: "Definitivo", data: "2026-10-13", cp: sede("CAL Palermo"), bolla: "2026-10-08", causale: "Reso merce non venduta", tot: 395.89, nArt: 13, lab: "Laboratori Sede Centrale" },
-      { id: 8712, prot: "2026-000231", stato: "Definitivo", data: "2026-10-06", cp: sede("Magazzino Centrale"), bolla: "", causale: "", tot: 2495.52, nArt: 61, lab: "Laboratori Sede Centrale" },
-      { id: 8686, prot: "2026-000225", stato: "Definitivo", data: "2026-10-01", cp: sede("Magazzino Centrale"), bolla: "", causale: "Per la Germania", tot: 717.51, nArt: 205, lab: "Laboratori Sede Centrale" },
+      { id: 8802, prot: "2026-000242", doc: "n.310", dataDoc: "2026-10-14", stato: "Da ricevere", data: "2026-10-15", cp: sede("Magazzino Centrale"), bolla: "2026-10-14", causale: "", tot: 3896.81, nArt: 160, lab: "Laboratori Sede Centrale" },
+      { id: 8765, prot: "2026-000238", doc: "n.41", dataDoc: "2026-10-08", stato: "Ricevuto", data: "2026-10-13", cp: sede("CAL Palermo"), bolla: "2026-10-08", causale: "Reso merce non venduta", tot: 395.89, nArt: 13, lab: "Laboratori Sede Centrale" },
+      { id: 8712, prot: "2026-000231", stato: "Ricevuto", data: "2026-10-06", cp: sede("Magazzino Centrale"), bolla: "", causale: "", tot: 2495.52, nArt: 61, lab: "Laboratori Sede Centrale" },
+      { id: 8686, prot: "2026-000225", stato: "Ricevuto", data: "2026-10-01", cp: sede("Magazzino Centrale"), bolla: "", causale: "Per la Germania", tot: 717.51, nArt: 205, lab: "Laboratori Sede Centrale" },
       { id: 8670, stato: "Provvisorio", data: "2026-09-29", cp: sede("CAL Firenze"), bolla: "", causale: "In arrivo", tot: 268.4, nArt: 9, lab: "Laboratori Sede Centrale" },
-      { id: 8654, prot: "2026-000219", stato: "Definitivo", data: "2026-09-25", cp: sede("Magazzino Centrale"), bolla: "", causale: "", tot: 1695.46, nArt: 34, lab: "Laboratori Sede Centrale" },
+      { id: 8654, prot: "2026-000219", stato: "Ricevuto", data: "2026-09-25", cp: sede("Magazzino Centrale"), bolla: "", causale: "", tot: 1695.46, nArt: 34, lab: "Laboratori Sede Centrale" },
       { id: 8584, stato: "Annullato", data: "2026-09-16", cp: sede("Magazzino Centrale"), bolla: "", causale: "", tot: 0, nArt: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8579, prot: "2026-000208", doc: "n.106", dataDoc: "2026-05-14", stato: "Definitivo", data: "2026-09-15", cp: sede("CAL Sede di Roma"), bolla: "2026-05-14", causale: "", tot: 77.01, nArt: 2, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 8572, prot: "2026-000207", doc: "n.22", dataDoc: "2026-01-11", stato: "Definitivo", data: "2026-09-15", cp: sede("CAL Sede di Roma"), bolla: "2026-01-11", causale: "", tot: 829.5, nArt: 2, lab: "Laboratori Sede Centrale" },
-      { id: 6756, prot: "2026-000105", stato: "Definitivo", data: "2026-05-14", cp: sede("Laboratorio Ceramiche"), bolla: "", causale: "", tot: 127.5, nArt: 1, lab: "Laboratorio Ceramiche" },
-      { id: 6658, prot: "2026-000089", doc: "n.8", dataDoc: "2026-04-22", stato: "Definitivo", data: "2026-04-27", cp: sede("CAL Cagliari"), bolla: "2026-04-22", causale: "", tot: 495.62, nArt: 12, lab: "Laboratori Sede Centrale" }
+      { id: 8579, prot: "2026-000208", doc: "n.106", dataDoc: "2026-05-14", stato: "Ricevuto", data: "2026-09-15", cp: sede("CAL Sede di Roma"), bolla: "2026-05-14", causale: "", tot: 77.01, nArt: 2, lab: "Laboratorio Confezione Sede Centrale" },
+      { id: 8572, prot: "2026-000207", doc: "n.22", dataDoc: "2026-01-11", stato: "Ricevuto", data: "2026-09-15", cp: sede("CAL Sede di Roma"), bolla: "2026-01-11", causale: "", tot: 829.5, nArt: 2, lab: "Laboratori Sede Centrale" },
+      { id: 6756, prot: "2026-000105", stato: "Ricevuto", data: "2026-05-14", cp: sede("Laboratorio Ceramiche"), bolla: "", causale: "", tot: 127.5, nArt: 1, lab: "Laboratorio Ceramiche" },
+      { id: 6658, prot: "2026-000089", doc: "n.8", dataDoc: "2026-04-22", stato: "Ricevuto", data: "2026-04-27", cp: sede("CAL Cagliari"), bolla: "2026-04-22", causale: "", tot: 495.62, nArt: 12, lab: "Laboratori Sede Centrale" }
     ]
   });
 
   // Dopo l'accesso: i trasferimenti arrivati da altre sedi (salvati nel database), in cima a quelli di esempio
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", ID_SEDI_DB[trovaSede(leggiSede()).nome], "trasferimento.html", { inArrivo: true });
+    const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const righe = await elencoMovimentiDb(db, "trasferimento_a_filiale", sedeId, "trasferimento.html", { inArrivo: true });
     if (righe.length) elenco.aggiungi(righe);
+    // Merce in arrivo da confermare: in cima, ben visibile
+    const arrivi = await trasferimentiDaRicevereDb(db, sedeId);
+    if (arrivi.length) document.querySelector(".page-head").insertAdjacentHTML("afterend", `
+      <div class="da-ricevere">
+        <b>📦 Merce in arrivo da confermare: ${arrivi.length}</b>
+        ${arrivi.map(a => `<a href="trasferimento.html?db=${a.id}">${esc(a.da)} · trasferimento #${a.id} del ${dataIt(a.data)} · ${a.articoli} articoli, ${a.pezzi} pezzi <span>Apri e conferma →</span></a>`).join("")}
+      </div>`);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>

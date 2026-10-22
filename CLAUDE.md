@@ -43,6 +43,9 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - **Niente doppi ordini**: una filiale non deve riordinare quello che è già in attesa (inevasi o ordini non ancora preparati).
   In `ordine.html` verso un fornitore-sede: riquadro "Già in attesa" e l'articolo in attesa non entra (finestra "Va bene / Ne servono di più";
   i pezzi aggiunti lo stesso hanno l'etichetta IN PIÙ, anche nel trasferimento del Magazzino Centrale). Tasto "INEVASI IN ATTESA" in Ordini a Fornitori.
+- **Ricezione dei trasferimenti** (`database/15-ricezione-trasferimenti.sql`): il trasferimento Definitivo toglie subito la merce a chi manda;
+  chi riceve lo trova "Da ricevere" in Trasferimenti da Filiali e in Dashboard, lo apre (`trasferimento.html?db=N`), stampa le etichette e preme
+  "Conferma ricevuto" (`ricevuto_il`, `ricevuto_da`): solo allora la merce entra nella sua giacenza. Dopo la ricezione chi manda non può più annullare.
 - `inevasi.html`: elenco degli ordini con inevasi (tasto INEVASI in Trasferimenti a Filiali e in Dashboard) → `?filiale=…&ordine=N` inevasi della filiale divisi per data dell'ordine, da spuntare per preparare il trasferimento.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 

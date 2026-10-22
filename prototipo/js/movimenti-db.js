@@ -18,10 +18,13 @@ async function nomeSedeDb(db, id) {
 // inArrivo: movimenti fatti da altre sedi verso questa (es. trasferimenti ricevuti); la controparte è la sede che manda.
 // Per i trasferimenti la controparte è la sede di arrivo, per gli altri il fornitore.
 async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } = {}) {
-  const { data, error } = await db.from("movimenti")
-    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, sede_id, sede_altra_id, fornitori(ragione_sociale), movimenti_righe(quantita, totale)")
+  const leggi = campi => db.from("movimenti")
+    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, sede_id, sede_altra_id, fornitori(ragione_sociale), movimenti_righe(quantita, totale)" + campi)
     .eq("tipo", tipo).eq(inArrivo ? "sede_altra_id" : "sede_id", sedeId)
     .order("data_movimento", { ascending: false }).order("id", { ascending: false });
+  let { data, error } = await leggi(", ricevuto_il");
+  // database senza la colonna della ricezione (15-ricezione-trasferimenti.sql non ancora eseguito): tutto come ricevuto
+  if (error && error.code === "42703") ({ data, error } = await leggi(""));
   if (error) throw error;
   const righe = [];
   for (const m of data) {
@@ -31,7 +34,12 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
     righe.push({
       id: m.id, chiave: "db-" + m.id, url: `${pagina}?db=${m.id}`,
       prot: m.protocollo || "", doc: m.numero_documento || "", dataDoc: m.data_documento || "",
-      stato: m.stato, data: m.data_movimento, bolla: m.data_bolla || "", causale: m.causale || "",
+      // Trasferimenti: chi riceve vede "Da ricevere" finché non conferma; chi manda vede l'etichetta "da confermare"
+      stato: tipo !== "trasferimento_a_filiale" ? m.stato : !inArrivo ? m.stato
+        : !["Definitivo", "Evaso"].includes(m.stato) ? m.stato : daRicevere(m) ? "Da ricevere" : "Ricevuto",
+      tag: tipo === "trasferimento_a_filiale" && !inArrivo && ["Definitivo", "Evaso"].includes(m.stato)
+        ? (daRicevere(m) ? { testo: "da confermare", colore: "#0891b2" } : { testo: "ricevuto", colore: "#18a058" }) : null,
+      data: m.data_movimento, bolla: m.data_bolla || "", causale: m.causale || "",
       cpNome, totArt, tot: Math.round((totArt + +m.spese) * 100) / 100,
       nArt: m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0), lab: "",
       // per la colonna "Arrivato" degli ordini: un ordine evaso è stato preparato
@@ -39,6 +47,30 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
     });
   }
   return righe;
+}
+
+// Trasferimento arrivato ma non ancora confermato da chi riceve (ricevuto_il manca solo se la colonna esiste)
+const daRicevere = m => "ricevuto_il" in m && !m.ricevuto_il;
+
+// Trasferimenti verso questa sede da confermare (merce in arrivo): [{ id, data, da, articoli, pezzi }]
+async function trasferimentiDaRicevereDb(db, sedeId) {
+  const { data, error } = await db.from("movimenti").select("id, data_movimento, sede_id, ricevuto_il, movimenti_righe(quantita)")
+    .eq("tipo", "trasferimento_a_filiale").eq("sede_altra_id", sedeId).in("stato", ["Definitivo", "Evaso"]).is("ricevuto_il", null)
+    .order("data_movimento", { ascending: true });
+  if (error) { if (error.code === "42703") return []; throw error; }
+  const lista = [];
+  for (const m of data) lista.push({ id: m.id, data: m.data_movimento, da: await nomeSedeDb(db, m.sede_id), articoli: m.movimenti_righe.length,
+    pezzi: Math.round(m.movimenti_righe.reduce((s, r) => s + +r.quantita, 0) * 100) / 100 });
+  return lista;
+}
+
+// La sede che riceve conferma l'arrivo: da adesso la merce è nella sua giacenza
+async function confermaRicezioneDb(db, id) {
+  const { data: { session } } = await db.auth.getSession();
+  const { data, error } = await db.from("movimenti").update({ ricevuto_il: new Date().toISOString(), ricevuto_da: session ? session.user.email : null })
+    .eq("id", id).is("ricevuto_il", null).select("id");
+  if (error) throw error;
+  if (!data || !data.length) throw new Error("già confermato (o annullato) da qualcun altro: ricarica la pagina");
 }
 
 // ---------- Ordini alle sedi e INEVASI (vista "inevasi", database/14-inevasi.sql) ----------

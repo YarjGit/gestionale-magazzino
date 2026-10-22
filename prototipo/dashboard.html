@@ -136,6 +136,15 @@
   <div class="stats" id="stats"></div>
 
   <div class="panel">
+    <section class="section" id="sezArrivi" hidden>
+      <h2 class="section-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Merce in arrivo da confermare
+        <span class="count" id="countArrivi">…</span>
+      </h2>
+      <div class="cards" id="arrivi"></div>
+    </section>
+
     <section class="section" id="sezRicevuti">
       <h2 class="section-title">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
@@ -240,6 +249,24 @@
   };
   sel.onchange = () => evidenzia(sel.value);
   cardsOpen.querySelectorAll(".card").forEach(c => c.onclick = () => { sel.value = c.dataset.i; evidenzia(c.dataset.i); });
+
+  // ---------- Merce in arrivo da altre sedi: entra in giacenza solo dopo "Conferma ricevuto" ----------
+  dbPronto.then(async db => {
+    if (!db) return;
+    const arrivi = await trasferimentiDaRicevereDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]);
+    document.getElementById("sezArrivi").hidden = !arrivi.length;
+    document.getElementById("countArrivi").textContent = arrivi.length;
+    document.getElementById("arrivi").innerHTML = arrivi.map(a => `
+      <div class="card nuovo-ord" style="outline-color:#67c7dc" onclick="location.href='trasferimento.html?db=${a.id}'" title="Apri, stampa le etichette e conferma l'arrivo">
+        <div class="card-head trasf"><span class="name">Da ${esc(a.da)} · trasferimento #${a.id}</span><span class="tot">${a.pezzi} pezzi</span></div>
+        <div class="card-body three">
+          <div><div class="k">Spedito il</div><div class="v">${dataIt(a.data)}</div></div>
+          <div><div class="k">Articoli</div><div class="v">${a.articoli}</div></div>
+          <div class="r"><div class="k">Giacenza</div><div class="v">non ancora caricata</div></div>
+        </div>
+        <div class="card-apri"><span style="background:#0891b2">Apri e conferma ricevuto →</span></div>
+      </div>`).join("");
+  }).catch(err => avviso("Errore nel leggere la merce in arrivo: " + err.message));
 
   // ---------- Ordini ricevuti dalle filiali (dal database) ----------
   // Ordini a fornitore Definitivi il cui fornitore è questa sede (es. SMM → Magazzino Centrale), ancora da preparare.
