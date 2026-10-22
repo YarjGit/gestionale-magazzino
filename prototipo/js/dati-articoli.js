@@ -16,7 +16,7 @@ async function caricaArticoliDalDb(db, sedeId) {
   const letti = [];
   for (let da = 0; ; da += 1000) {   // il database ne restituisce al massimo 1000 per volta
     const { data, error } = await db.from("articoli")
-      .select("id, codice, descrizione, barcode, fornitore_id, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)")
+      .select("id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)")
       .order("codice").range(da, da + 999);
     if (error) throw error;
     letti.push(...data);
@@ -30,7 +30,7 @@ async function caricaArticoliDalDb(db, sedeId) {
     id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
     costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,
     giac: giacenza.has(a.id) ? giacenza.get(a.id) : null,
-    forn: a.fornitore_id, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
+    forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
     importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
   }));
   return ARTICOLI.length;

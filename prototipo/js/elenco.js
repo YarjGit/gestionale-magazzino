@@ -13,6 +13,7 @@
 //   dati                   righe; campi usati da filtri e totali: id, stato, data, cp, lab, tot, nArt
 //   csv                    nome del file esportato
 //   dettaglio              pagina della scheda (es. "carico.html"): la riga si apre con ?id=…
+//   paginaNuovo            pagina aperta da "Nuovo …" (?nuovo=1) quando c'è solo la scheda del nuovo movimento
 //   senzaModifica         nasconde la matita di modifica (es. riallineamenti)
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
@@ -360,7 +361,8 @@ function avviaElenco(cfg) {
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   $("btnEtichette").onclick = () => cfg.paginaEtichette ? location.href = cfg.paginaEtichette : avviso("Stampa etichette: la definiamo insieme");
-  $("btnCrea").onclick = () => cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
+  const paginaNuovo = cfg.dettaglio || cfg.paginaNuovo;
+  $("btnCrea").onclick = () => paginaNuovo ? location.href = `${paginaNuovo}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
 
   disegna();
 }

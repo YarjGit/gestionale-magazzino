@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuovo ordine – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Scelta del fornitore: campo di ricerca invece della tendina lunga */
+  .scegli-forn { position: relative; margin-bottom: 12px; }
+  .scegli-forn input { width: 100%; padding: 9px 12px 9px 38px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-weight: 600; }
+  .scegli-forn input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,139,255,0.15); }
+  .scegli-forn .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); }
+  .scegli-forn.scelto input { border-color: #9fd8b9; background: #f3fbf6; }
+
+  /* Articoli del fornitore scelto */
+  .catalogo { margin-bottom: 14px; border: 1px solid #cfe0f7; border-radius: 12px; background: #fbfdff; }
+  .catalogo-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #e3edf9; }
+  .catalogo-head b { font-size: 0.92rem; }
+  .catalogo-head .cerca { width: min(280px, 100%); }
+  .catalogo .table-wrap { max-height: 340px; overflow-y: auto; border: none; border-radius: 0 0 12px 12px; }
+  .catalogo tbody td { padding: 4px 7px; }
+  .catalogo input.num-mod { width: 58px; }
+  .sotto { color: var(--ko); font-weight: 700; }
+  .dedotto { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 5px; background: #fff3dd; color: #b26a00; font-size: 0.68rem; font-weight: 600; }
+  .gia-in { color: var(--ok); font-size: 0.75rem; font-weight: 600; }
+  .altro-forn { color: #b26a00; font-size: 0.72rem; }
+  .btn-giallo { background: #ffc531; color: #5a4200; }
+  .btn-giallo:hover { filter: brightness(1.04); }
+</style>
+</head>
+<body data-page="ordini-fornitori">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnAnnulla">✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva">💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi">✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script>
+  // Nuovo ordine a fornitore (?nuovo=1). Scelto il fornitore, sotto compaiono i suoi articoli
+  // da aggiungere all'ordine; la pistola e la ricerca trovano comunque tutti gli articoli.
+  const $ = id => document.getElementById(id);
+  const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  // Fornitori: quelli di esempio finché non arrivano quelli del database ({ id, codice, nome })
+  let FORN = FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome }));
+  let fornitore = null;
+  const RIGHE = [];
+  let ultimaAggiunta = null;
+
+  const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const icoCerca = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+
+  document.body.classList.add("in-modifica");
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">Nuovo ordine a fornitore <span class="pill" id="pillStato"></span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="ordini-fornitori.html">Ordini a Fornitori</a><span>-</span><span>Nuovo</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Totale ordine</div>
+        <div class="v" id="topTotale">${euro(0)}</div>
+        <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab active" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
+        <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <span class="spazio"></span>
+        <label class="interr" title="Ipotesi: un'etichetta per ogni pezzo invece che una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
+        <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli" hidden>
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>📄 Documento</h3>
+              <div class="campi">
+                ${campo("s2", "Tipo di movimento", `<select disabled><option>Ordine a fornitore</option></select>`)}
+                ${campo("s4", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select id="selStato">${opz(["Provvisorio", "Definitivo"], "Definitivo")}</select><button class="btn" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisorio = ancora da completare nei prossimi giorni")}
+                ${campo("s2", "Aliquota IVA", `<select>${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
+                ${campo("s2", "Data documento", `<input type="date" value="${oggi}">`)}
+                ${campo("s2", "Progressivo", `<input disabled placeholder="assegnato al salvataggio">`)}
+                ${campo("s2", "Data bolla", `<input type="date">`)}
+                ${campo("s2", "Numero bolla", `<input>`)}
+                ${campo("s1", "Porto", `<select>${opz(["Franco", "Assegnato"], "Franco")}</select>`)}
+                ${campo("s1", "Anno", `<input value="${oggi.slice(0, 4)}" disabled style="text-align:right">`)}
+                ${campo("s4", "Riferimento fattura", `<input>`)}
+                ${campo("s2", "ID", `<input placeholder="nuovo" disabled style="text-align:right">`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>🏭 Fornitore e pagamento</h3>
+              <div class="campi">
+                ${campo("s4", "Fornitore", `<input id="fornDettagli" disabled placeholder="si sceglie nella scheda Articoli">`)}
+                ${campo("s1", "Sconto %", `<input type="number" min="0" max="100" style="text-align:right">`)}
+                ${campo("s1", "Parz. evaso", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input type="checkbox" id="parzEvaso"><span></span></span></label>`)}
+                ${campo("s3", "Ordine padre", `<select disabled><option>— nessuno —</option></select>`, "l'ordine da cui nasce questo (es. un riordino)")}
+                ${campo("s3", "Condizione di pagamento", `<select><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."])}</select>`)}
+                ${campo("s3", "Sede che ordina", `<input value="${esc(sedeLavoro)}" disabled>`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>🚚 Spedizione</h3>
+              <div class="campi">
+                ${campo("s2", "Spedizioniere", `<select><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"])}</select>`)}
+                ${campo("s2", "Tracking number", `<input>`)}
+                ${campo("s2", "Tempo di consegna", `<input>`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Note</h3>
+              <div class="campi">
+                ${campo("s3", "Causale", `<textarea></textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea></textarea>`, "stampate sull'ordine inviato al fornitore")}
+              </div>
+            </div>
+          </div>
+          <aside class="riepilogo">
+            <h3>Riepilogo importi</h3>
+            <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="0,00" disabled></div>
+            ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map(s =>
+              `<div class="voce-imp"><label>+ ${s}</label><input class="spesa" placeholder="0,00"></div>`).join("")}
+            <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl">0,00</span></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ARTICOLI -->
+      <div class="pannello-tab" id="tab-articoli">
+        <div class="scegli-forn cerca-forn" id="boxForn">
+          <span class="ico">🏭</span>
+          <input id="cercaForn" placeholder="Scegli il fornitore: scrivi nome o codice…" autocomplete="off">
+          <div class="suggerimenti" id="suggForn"></div>
+        </div>
+
+        <div class="catalogo" id="catalogo" hidden>
+          <div class="catalogo-head">
+            <b id="titCatalogo"></b>
+            <label class="interr" style="margin-left:0"><span class="switch"><input type="checkbox" id="soloSotto"><span></span></span> Solo sotto scorta</label>
+            <button class="btn btn-light" id="aggSotto" style="padding:6px 10px;font-size:0.8rem">➕ Aggiungi quelli sotto scorta</button>
+            <div class="cerca">${icoCerca}<input id="cercaCat" type="search" placeholder="Cerca tra i suoi articoli…"></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Articolo</th><th class="num">Giac.</th><th class="num" title="Scorta minima">Scorta</th><th class="num">Costo</th><th class="num">Quantità</th><th style="width:90px"></th></tr></thead>
+              <tbody id="righeCat"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="aggiungi-art">
+          <div class="f cerca-art">
+            <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
+            <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
+            <div class="suggerimenti" id="suggArt"></div>
+          </div>
+          <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
+          <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+        </div>
+        <div class="art-toolbar">
+          <div class="nota-viola" style="margin:0;flex:1">💶 In questa pagina si indicano i <b>prezzi di acquisto</b>.</div>
+          <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Articolo</th><th class="num">Ordinata</th><th class="num" title="Giacenza attuale nella sede">Giac.</th><th class="num">Anno giac.</th>
+              <th class="num">Costo</th><th class="num">IVA</th><th class="num">Sconto %</th><th class="num">Prezzo totale</th><th style="width:36px"></th></tr></thead>
+            <tbody id="righeArt"></tbody>
+            <tfoot><tr><td colspan="2">Totale</td><td class="num" id="totOrd"></td><td colspan="5"></td><td class="num" id="totArt"></td><td></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="pannello-tab" id="tab-riordini" hidden>
+        <div class="vuoto"><b>Nessun riordino</b><span>Qui compariranno gli ordini nati dagli articoli di questo ordine che non arrivano.</span></div>
+      </div>
+      <div class="pannello-tab" id="tab-storico" hidden>
+        <div class="vuoto"><b>Ordine non ancora salvato</b><span>Dopo il salvataggio qui comparirà chi lo ha creato e modificato.</span></div>
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Stato: "Rendi provvisorio" (blu) lascia l'ordine aperto per completarlo nei giorni dopo;
+  // da provvisorio il tasto diventa giallo, "Rendi definitivo", e ricliccandolo si torna indietro ----------
+  function mostraStato() {
+    const s = Object.values(STATO).find(x => x.nome === $("selStato").value);
+    const provv = s.nome === "Provvisorio";
+    $("dotStato").style.background = s.colore;
+    $("pillStato").style.cssText = `background:${s.colore}1f;color:${s.colore}`;
+    $("pillStato").textContent = `${s.icona} ${s.nome}`;
+    $("btnProvv").textContent = provv ? "Rendi definitivo" : "Rendi provvisorio";
+    $("btnProvv").className = "btn " + (provv ? "btn-giallo" : "btn-primary");
+  }
+  $("selStato").onchange = mostraStato;
+  $("btnProvv").onclick = () => {
+    $("selStato").value = $("selStato").value === "Definitivo" ? "Provvisorio" : "Definitivo";
+    mostraStato();
+  };
+  mostraStato();
+
+  // ---------- Totali ----------
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+  const totRiga = r => Math.round(r.qta * r.prezzo * (1 - (r.sconto || 0) / 100) * 100) / 100;
+  function ricalcola() {
+    const tot = Math.round(RIGHE.reduce((s, r) => s + r.tot, 0) * 100) / 100;
+    const pezzi = RIGHE.reduce((s, r) => s + r.qta, 0);
+    const spese = [...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0);
+    $("impArticoli").value = numero(tot);
+    $("totCompl").textContent = numero(tot + spese);
+    $("topTotale").textContent = euro(tot);
+    $("topPezzi").textContent = `${pezzi} pezzi · ${RIGHE.length} righe`;
+    $("nRigheTab").textContent = RIGHE.length;
+    $("totOrd").textContent = pezzi;
+    $("totArt").textContent = numero(tot);
+  }
+  document.querySelectorAll(".spesa").forEach(i => i.oninput = ricalcola);
+
+  // ---------- Scelta del fornitore ----------
+  const trovaFornitori = testo => {
+    const parole = normalizza(testo).split(/\s+/).filter(Boolean);
+    return FORN.filter(f => parole.every(p => normalizza(`${f.codice} ${f.nome}`).includes(p))).slice(0, 15);
+  };
+  const articoliDel = f => ARTICOLI.filter(a => a.forn != null && a.forn === f.id);
+  function mostraSuggForn() {
+    const lista = trovaFornitori($("cercaForn").value);
+    $("suggForn").innerHTML = lista.length
+      ? lista.map(f => `<div class="sugg" data-id="${esc(String(f.id))}"><span class="codice">${esc(f.codice)}</span>${esc(f.nome)}<small>${articoliDel(f).length} articoli</small></div>`).join("")
+      : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun fornitore trovato</div>';
+    $("suggForn").classList.add("show");
+  }
+  function scegliFornitore(f) {
+    if (fornitore && RIGHE.length && f !== fornitore && !confirm(`Cambiare fornitore? Le ${RIGHE.length} righe già inserite restano nell'ordine.`)) { $("cercaForn").value = `${fornitore.codice}: ${fornitore.nome}`; return; }
+    fornitore = f;
+    $("cercaForn").value = `${f.codice}: ${f.nome}`;
+    $("fornDettagli").value = $("cercaForn").value;
+    $("boxForn").classList.add("scelto");
+    $("suggForn").classList.remove("show");
+    $("cercaCat").value = "";
+    disegnaCatalogo();
+    disegnaArticoli();
+  }
+  $("cercaForn").onfocus = () => { $("cercaForn").select(); mostraSuggForn(); };
+  $("cercaForn").oninput = mostraSuggForn;
+  $("cercaForn").onkeydown = e => {
+    if (e.key === "Enter") { e.preventDefault(); const f = trovaFornitori($("cercaForn").value)[0]; if (f) scegliFornitore(f); }
+    if (e.key === "Escape") $("suggForn").classList.remove("show");
+  };
+  $("suggForn").onclick = e => {
+    const s = e.target.closest(".sugg[data-id]");
+    if (s) scegliFornitore(FORN.find(f => String(f.id) === s.dataset.id));
+  };
+
+  // ---------- Articoli del fornitore ----------
+  const sottoScorta = a => a.scorta > 0 && (a.giac ?? 0) < a.scorta;
+  // Quanti pezzi proporre: quelli che mancano per tornare alla scorta minima, altrimenti 1
+  const daOrdinare = a => sottoScorta(a) ? a.scorta - Math.max(0, a.giac ?? 0) : 1;
+  function disegnaCatalogo() {
+    $("catalogo").hidden = !fornitore;
+    if (!fornitore) return;
+    const tutti = articoliDel(fornitore);
+    const q = $("cercaCat").value;
+    const lista = tutti.filter(a => (!$("soloSotto").checked || sottoScorta(a)) && corrispondeArticolo(a, q))
+      .sort((a, b) => a.codice.localeCompare(b.codice));
+    const nSotto = tutti.filter(sottoScorta).length;
+    $("titCatalogo").textContent = `Articoli di ${fornitore.nome} (${tutti.length})`;
+    $("aggSotto").disabled = !nSotto;
+    $("aggSotto").textContent = `➕ Aggiungi quelli sotto scorta (${nSotto})`;
+    $("righeCat").innerHTML = lista.length ? lista.map(a => {
+      const r = RIGHE.find(x => x.articolo === a);
+      return `<tr>
+        <td class="art-cella"><span class="codice">${esc(a.codice)}</span>${a.fornDedotto ? '<span class="dedotto" title="Fornitore dedotto dal codice: da verificare">da verificare</span>' : ""}<b>${esc(a.descr)}</b></td>
+        <td class="num${sottoScorta(a) ? " sotto" : ""}">${a.giac ?? "—"}</td>
+        <td class="num" style="color:var(--muted)">${a.scorta || "—"}</td>
+        <td class="num">${numero(a.costo)}</td>
+        <td class="num"><input class="num-mod" type="number" min="1" value="${daOrdinare(a)}" data-qcat="${esc(a.codice)}"></td>
+        <td>${r ? `<span class="gia-in">✔ ${r.qta} nell'ordine</span>` : `<button class="btn btn-light" style="padding:4px 10px;font-size:0.8rem" data-agg="${esc(a.codice)}">➕ Aggiungi</button>`}</td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="6"><div class="vuoto" style="padding:20px"><b>${tutti.length ? "Nessun articolo con questi filtri" : "Nessun articolo collegato a questo fornitore"}</b>${tutti.length ? "" : "<span>Puoi comunque aggiungere articoli qui sotto, con la pistola o cercandoli.</span>"}</div></td></tr>`;
+  }
+  $("cercaCat").oninput = disegnaCatalogo;
+  $("soloSotto").onchange = disegnaCatalogo;
+  $("righeCat").onclick = e => {
+    const b = e.target.closest("[data-agg]");
+    if (!b) return;
+    const a = ARTICOLI.find(x => x.codice === b.dataset.agg);
+    const q = b.closest("tr").querySelector("[data-qcat]");
+    aggiungiArticolo(a, Math.max(1, +q.value || 1), false);
+  };
+  $("aggSotto").onclick = () => {
+    const da = articoliDel(fornitore).filter(a => sottoScorta(a) && !RIGHE.some(r => r.articolo === a));
+    da.forEach(a => aggiungiArticolo(a, daOrdinare(a), false, true));
+    ricalcola(); disegnaCatalogo(); disegnaArticoli();
+    avviso(da.length ? `Aggiunti ${da.length} articoli sotto scorta` : "Gli articoli sotto scorta sono già nell'ordine");
+  };
+
+  // ---------- Righe dell'ordine ----------
+  function aggiungiArticolo(art, n, vaiAlCampo = true, silenzioso = false) {
+    let r = RIGHE.find(x => x.articolo === art);
+    if (r) r.qta += n;
+    else {
+      r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, qta: n, prezzo: art.costo, sconto: 0, articolo: art };
+      RIGHE.push(r);
+    }
+    r.tot = totRiga(r);
+    ultimaAggiunta = r.pos;
+    if (silenzioso) return;
+    ricalcola(); disegnaCatalogo(); disegnaArticoli();
+    const altro = fornitore && art.forn !== fornitore.id;
+    avviso(`${art.codice}: ${r.qta} nell'ordine` + (altro ? " · attenzione: non risulta di questo fornitore" : ""));
+    if (vaiAlCampo) $("addArt").focus();
+  }
+  function disegnaArticoli() {
+    const ordine = (a, b) => $("ordinaCodice").checked ? a.articolo.codice.localeCompare(b.articolo.codice)
+      : $("nuoviInAlto").checked ? b.pos - a.pos : a.pos - b.pos;
+    const inp = (r, campo, valore, cls = "") => `<input class="num-mod ${cls}" data-campo="${campo}" data-riga="${r.pos}" value="${valore}">`;
+    $("righeArt").innerHTML = RIGHE.length ? RIGHE.slice().sort(ordine).map(r => {
+      const a = r.articolo;
+      const altro = fornitore && a.forn !== fornitore.id;
+      return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">
+        <td style="color:var(--muted)">${r.pos}</td>
+        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span>${altro ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}<b>${esc(a.descr)}</b></td>
+        <td class="num">${inp(r, "qta", r.qta)}</td>
+        <td class="num">${a.giac ?? "—"}</td>
+        <td class="num" style="color:var(--muted)">${a.anno}</td>
+        <td class="num">${inp(r, "prezzo", numero(r.prezzo), "largo")}</td>
+        <td class="num" style="color:var(--muted)">${a.iva}%</td>
+        <td class="num">${inp(r, "sconto", r.sconto)}</td>
+        <td class="num"><b>${numero(r.tot)}</b></td>
+        <td><button class="icon-btn" data-togli="${r.pos}" title="Togli riga">✕</button></td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="10"><div class="vuoto"><b>Nessun articolo nell'ordine</b><span>${fornitore ? "Aggiungi gli articoli del fornitore dall'elenco qui sopra, oppure sparali con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli."}</span></div></td></tr>`;
+  }
+  $("righeArt").onchange = e => {
+    const r = RIGHE.find(x => x.pos === +e.target.dataset.riga);
+    if (!r) return;
+    const campo = e.target.dataset.campo;
+    // I prezzi hanno sempre due decimali
+    if (campo === "prezzo") r.prezzo = Math.round(num(e.target.value) * 100) / 100;
+    else if (campo === "sconto") r.sconto = Math.min(100, Math.max(0, +e.target.value || 0));
+    else r.qta = Math.max(1, +e.target.value || 1);
+    r.tot = totRiga(r);
+    ricalcola(); disegnaCatalogo(); disegnaArticoli();
+  };
+  $("righeArt").onclick = e => {
+    const b = e.target.closest("[data-togli]");
+    if (!b) return;
+    RIGHE.splice(RIGHE.findIndex(x => x.pos === +b.dataset.togli), 1);
+    ricalcola(); disegnaCatalogo(); disegnaArticoli();
+  };
+  $("nuoviInAlto").onchange = disegnaArticoli;
+  $("ordinaCodice").onchange = disegnaArticoli;
+
+  // ---------- Aggiunta con la pistola o la ricerca (tutti gli articoli, prima quelli del fornitore) ----------
+  const trovaArticoli = testo => {
+    const t = testo.trim().toLowerCase();
+    if (!t) return [];
+    const esatto = ARTICOLI.filter(a => a.barcode === t || a.codice.toLowerCase() === t);
+    if (esatto.length) return esatto;
+    const suoi = a => fornitore && a.forn === fornitore.id ? 0 : 1;
+    return ARTICOLI.filter(a => corrispondeArticolo(a, t)).sort((a, b) => suoi(a) - suoi(b)).slice(0, 12);
+  };
+  let suggAttivo = 0;
+  function mostraSugg() {
+    const lista = trovaArticoli($("addArt").value);
+    suggAttivo = Math.min(suggAttivo, Math.max(0, lista.length - 1));
+    $("suggArt").innerHTML = lista.length
+      ? lista.map((a, i) => `<div class="sugg${i === suggAttivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${fornitore && a.forn !== fornitore.id ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}<small>${a.barcode}</small></div>`).join("")
+      : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun articolo trovato</div>';
+    $("suggArt").classList.toggle("show", !!$("addArt").value.trim());
+  }
+  const aggiungiDaCampo = art => {
+    aggiungiArticolo(art, Math.max(1, +$("addQta").value || 1));
+    $("addArt").value = ""; $("addQta").value = 1;
+    $("suggArt").classList.remove("show");
+  };
+  $("addArt").oninput = () => { suggAttivo = 0; mostraSugg(); };
+  $("addArt").onkeydown = e => {
+    const lista = trovaArticoli($("addArt").value);
+    if (e.key === "ArrowDown") { suggAttivo = Math.min(suggAttivo + 1, lista.length - 1); mostraSugg(); e.preventDefault(); }
+    if (e.key === "ArrowUp") { suggAttivo = Math.max(suggAttivo - 1, 0); mostraSugg(); e.preventDefault(); }
+    if (e.key === "Escape") $("suggArt").classList.remove("show");
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (lista[suggAttivo]) aggiungiDaCampo(lista[suggAttivo]);
+      else if ($("addArt").value.trim()) avviso(`Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
+    }
+  };
+  $("suggArt").onclick = e => {
+    const s = e.target.closest(".sugg[data-cod]");
+    if (s) aggiungiDaCampo(ARTICOLI.find(a => a.codice === s.dataset.cod));
+  };
+  $("addBtn").onclick = () => {
+    const lista = trovaArticoli($("addArt").value);
+    if (lista[suggAttivo]) aggiungiDaCampo(lista[suggAttivo]); else { avviso("Spara o scrivi un codice prima di aggiungere"); $("addArt").focus(); }
+  };
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".cerca-art")) $("suggArt").classList.remove("show");
+    if (!e.target.closest(".cerca-forn")) $("suggForn").classList.remove("show");
+  });
+
+  // ---------- Pulsanti in alto ----------
+  function controlla() {
+    if (!fornitore) { avviso("Scegli il fornitore"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); $("cercaForn").focus(); return false; }
+    if (!RIGHE.length) { avviso("Aggiungi almeno un articolo all'ordine"); return false; }
+    return true;
+  }
+  $("btnAnnulla").onclick = () => { if (!RIGHE.length || confirm("Uscire senza salvare il nuovo ordine?")) location.href = "ordini-fornitori.html"; };
+  $("btnSalva").onclick = () => { if (controlla()) avviso("Ordine salvato (solo anteprima: il salvataggio vero arriverà con il database)"); };
+  $("btnSalvaChiudi").onclick = () => {
+    if (!controlla()) return;
+    avviso("Salvato (solo anteprima)");
+    setTimeout(() => location.href = "ordini-fornitori.html", 700);
+  };
+
+  ricalcola(); disegnaArticoli();
+  $("cercaForn").focus();
+
+  // Dopo l'accesso: fornitori e articoli veri dal database
+  dbPronto.then(async db => {
+    if (!db) return;
+    const [{ data, error }] = await Promise.all([
+      db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale"),
+      caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro])
+    ]);
+    if (error) throw error;
+    FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+    // le scelte fatte con i dati di esempio non valgono più
+    fornitore = null; $("cercaForn").value = ""; $("fornDettagli").value = ""; $("boxForn").classList.remove("scelto");
+    RIGHE.length = 0;
+    ricalcola(); disegnaCatalogo(); disegnaArticoli();
+  }).catch(err => avviso("Errore nel leggere fornitori e articoli: " + err.message));
+</script>
+</body>
+</html>
