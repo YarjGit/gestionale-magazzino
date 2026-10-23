@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aumento giacenza – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Motivo dell'aumento: quattro riquadri da cliccare invece della tendina "Tipo di movimento" */
+  .motivi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .motivo { display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; border: 2px solid var(--line); border-radius: 11px; background: #fff; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+  .motivo b { font-size: 0.92rem; }
+  .motivo small { color: var(--muted); font-size: 0.78rem; line-height: 1.3; }
+  .motivo .ico { font-size: 1.25rem; }
+  .motivo:hover:not(:disabled) { border-color: #9cc3f5; }
+  .motivo.scelto { border-color: #18a058; background: #effaf3; }
+  .motivo.scelto b { color: #13804a; }
+  .motivo:disabled { cursor: default; }
+  .motivo:disabled:not(.scelto) { opacity: 0.45; }
+  @media (max-width: 900px) { .motivi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* Anno di acquisto ben visibile: è quello che si stampa sulle etichette */
+  .anno-box { display: flex; align-items: center; gap: 10px; }
+  .anno-box select { width: 110px; font-weight: 700; text-align: right; }
+  .anno-box .vecchio { padding: 3px 9px; border-radius: 6px; background: #fff4d6; color: #9a6a00; font-size: 0.78rem; font-weight: 600; }
+</style>
+</head>
+<body data-page="aumento-giacenza">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnEtichette">🏷️ Etichette movimento</button>
+  <button class="btn btn-light" id="btnExcel">📤 Excel</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/dati-carichi.js"></script>
+<script src="js/dati-aumenti.js"></script>
+<script src="js/righe-movimento.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
+  // Aumento giacenza: merce che entra nella sede senza un fornitore (ritrovata all'inventario, arrivata da altri
+  // centri o da sedi chiuse, donata). Si indicano i prezzi di acquisto e l'anno di acquisto (si stampa sulle etichette).
+  // ?nuovo=1 nuovo già in modifica · ?db=12 salvato nel database · ?id=8790 esempio (solo da guardare).
+  // Definitivo = la merce entra subito nella giacenza della sede. Colonne del database: database/16-aumento-giacenza.sql
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const dbId = +qs.get("db");
+  const esempioId = +qs.get("id");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const ELENCO = "aumento-giacenza.html";
+
+  const MOTIVI = [
+    { k: "Inventario", ico: "🔍", t: "Inventario", s: "merce ritrovata contando il magazzino", es: "es. trovati nello scaffale B durante l'inventario" },
+    { k: "Da altri centri", ico: "🏢", t: "Da altri centri o sedi chiuse", s: "merce che arriva senza trasferimento", es: "es. merce della sede di … chiusa" },
+    { k: "Donazione", ico: "🎁", t: "Donazione", s: "merce regalata", es: "es. donati dalla parrocchia di …" },
+    { k: "Altro", ico: "✏️", t: "Altro", s: "scrivi il perché nella causale", es: "scrivi il motivo" }
+  ];
+
+  // Movimento salvato: si legge dal database prima di disegnare
+  const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro]))
+    .catch(err => { avviso("Errore nel leggere l'aumento: " + err.message); return null; }) : null;
+  const esempio = esempioId ? DATI_AUMENTI.find(x => x.id === esempioId) : null;
+  const mov = nuovo ? { stato: "Definitivo", data: oggi, anno: +oggi.slice(0, 4), motivo: "Inventario", causale: "", annotazioni: "" }
+    : movDb ? { id: movDb.id, stato: movDb.stato, data: movDb.data_movimento, anno: movDb.anno_acquisto || +movDb.data_movimento.slice(0, 4),
+        motivo: movDb.motivo || "", causale: movDb.causale || "", annotazioni: movDb.annotazioni || "", creatoDa: movDb.creato_da, creatoIl: movDb.creato_il }
+    : esempio ? { id: esempio.id, stato: esempio.stato, data: esempio.data, anno: +esempio.data.slice(0, 4), motivo: esempio.causale ? "Inventario" : "",
+        causale: esempio.causale, annotazioni: "", esempio: true }
+    : null;
+
+  if (!mov) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Aumento #${esc(dbId || esempioId || "")} non trovato</b>
+      <span><a href="${ELENCO}" style="color:var(--accent)">Torna all'elenco</a></span></div></div>`;
+    document.querySelectorAll(".top-actions .btn").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
+    $("btnChiudi").onclick = () => location.href = ELENCO;
+    throw new Error("aumento non trovato");
+  }
+  const annullato = mov.stato === "Annullato";
+  document.title = `${nuovo ? "Nuovo aumento" : `Aumento #${mov.id}`} – Gestionale Magazzino`;
+
+  const opz = (lista, scelto) => lista.map(o => `<option${String(o) === String(scelto) ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const annoOggi = +oggi.slice(0, 4);
+  const anni = Array.from({ length: 12 }, (_, i) => annoOggi - i);
+  if (!anni.includes(mov.anno)) anni.push(mov.anno);
+  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nell'aumento" };
+
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuovo aumento giacenza" : `Aumento giacenza <span class="num">#${mov.id}</span>`} <span class="pill" id="pillStato"></span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO}">Aumento Giacenza</a><span>-</span><span>${nuovo ? "Nuovo" : "#" + mov.id}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Valore a costo</div>
+        <div class="v" id="topTotale">${euro(0)}</div>
+        <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
+      </div>
+    </div>
+    ${annullato ? '<div class="banner ann">✕ Questo aumento è annullato: non incide sulle giacenze e non si può modificare.</div>' : ""}
+    ${mov.esempio ? '<div class="banner provv"><span>👁</span><span>Movimento <b>di esempio</b>: si può guardare, ma non si salva.</span></div>' : ""}
+    <div class="banner provv" id="bannerProvv" hidden><span>◷</span><span>L'aumento è <b>provvisorio</b>: la merce <b>non entra</b> ancora nella giacenza.</span></div>
+    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo aumento: scegli il motivo e l'anno, poi aggiungi gli articoli (anche con la pistola)." : "Stai modificando l'aumento. Ricordati di salvare."}</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <span class="spazio"></span>
+        <label class="interr" title="Un'etichetta per ogni pezzo invece che una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
+        <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli">
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>❓ Perché entra questa merce</h3>
+              <div class="motivi" id="motivi">
+                ${MOTIVI.map(m => `<button type="button" class="motivo mod${m.k === mov.motivo ? " scelto" : ""}" data-motivo="${m.k}" disabled>
+                  <span class="ico">${m.ico}</span><b>${m.t}</b><small>${m.s}</small></button>`).join("")}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📄 Movimento</h3>
+              <div class="campi">
+                ${campo("s3", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato" disabled>${opz(["Provvisorio", "Definitivo"].concat(annullato ? ["Annullato"] : []), mov.stato)}</select><button class="btn solo-mod" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisorio = la merce non entra ancora")}
+                ${campo("s2", "Data", `<input class="mod" type="date" id="fData" value="${mov.data}" disabled>`)}
+                ${campo("s2", "Anno di acquisto", `<div class="anno-box"><select class="mod" id="fAnno" disabled>${opz(anni, mov.anno)}</select><span class="vecchio" id="annoVecchio" hidden>anno passato</span></div>`, "si stampa sulle etichette")}
+                ${campo("s2", "Sede che riceve", `<input value="${esc(sedeLavoro)}" disabled>`)}
+                ${campo("s1", "ID", `<input value="${mov.id ?? ""}" placeholder="nuovo" disabled style="text-align:right">`, "assegnato al salvataggio")}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Note</h3>
+              <div class="campi">
+                ${campo("s3", "Causale / da chi arriva", `<textarea class="mod" id="fCausale" disabled>${esc(mov.causale)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot" disabled>${esc(mov.annotazioni)}</textarea>`, "stampate sul documento")}
+              </div>
+            </div>
+          </div>
+          <aside class="riepilogo">
+            <h3>Riepilogo</h3>
+            <div class="voce-imp fissa"><label>Pezzi che entrano</label><input id="impPezzi" value="0" disabled></div>
+            <div class="voce-imp fissa"><label>Valore a costo <small>IVA escl.</small></label><input id="impNetto" value="0,00" disabled></div>
+            <div class="totale-compl"><span>= Valore IVA inclusa</span><span class="v" id="totCompl">0,00</span></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ARTICOLI -->
+      <div class="pannello-tab" id="tab-articoli" hidden>
+        ${righeHtmlAggiungi()}
+        <div class="art-toolbar">
+          <div class="nota-viola" style="flex:1">💶 In questa scheda si indicano i <b>prezzi di acquisto</b> (costo). La quantità che entra va in <b>Arrivata</b>.</div>
+          <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
+        </div>
+        ${righeHtmlTabella(CFG_RIGHE).replace('title="Quanto è uscito davvero">Spedita', 'title="Pezzi che entrano in giacenza">Arrivata')}
+      </div>
+
+      <!-- STORICO -->
+      <div class="pannello-tab" id="tab-storico" hidden>
+        ${movDb ? `<div class="timeline"><div class="evento ok"><div class="quando">${new Date(mov.creatoIl).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · ${esc(mov.creatoDa || "")}</div><div class="cosa">Aumento salvato</div><div class="dett">Stato ${mov.stato}${mov.motivo ? " · " + esc(mov.motivo) : ""}</div></div></div>`
+          : `<div class="vuoto"><b>${nuovo ? "Aumento non ancora salvato" : "Movimento di esempio"}</b><span>Dopo il salvataggio qui comparirà chi lo ha creato e modificato.</span></div>`}
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Motivo e anno ----------
+  let motivo = mov.motivo;
+  const esempioCausale = () => (MOTIVI.find(m => m.k === motivo) || MOTIVI[0]).es;
+  $("motivi").onclick = e => {
+    const b = e.target.closest("[data-motivo]");
+    if (!b || b.disabled) return;
+    motivo = b.dataset.motivo;
+    document.querySelectorAll(".motivo").forEach(x => x.classList.toggle("scelto", x === b));
+    $("fCausale").placeholder = esempioCausale();
+    if (motivo === "Altro") $("fCausale").focus();
+  };
+  $("fCausale").placeholder = esempioCausale();
+  const anno = () => +$("fAnno").value;
+  const mostraAnno = () => { $("annoVecchio").hidden = anno() >= annoOggi; righe.disegna(); };
+  $("fAnno").onchange = mostraAnno;
+
+  // ---------- Stato ----------
+  function mostraStato() {
+    const s = Object.values(STATO).find(x => x.nome === $("selStato").value);
+    const provv = s.nome === "Provvisorio";
+    $("dotStato").style.background = s.colore;
+    $("pillStato").style.cssText = `background:${s.colore}1f;color:${s.colore}`;
+    $("pillStato").textContent = `${s.icona} ${s.nome}`;
+    $("btnProvv").textContent = provv ? "Rendi definitivo" : "Rendi provvisorio";
+    $("btnProvv").className = "btn solo-mod " + (provv ? "btn-giallo" : "btn-primary");
+    $("btnProvv").hidden = annullato;
+    $("bannerProvv").hidden = !provv;
+  }
+  $("selStato").onchange = mostraStato;
+  $("btnProvv").onclick = () => { $("selStato").value = $("selStato").value === "Definitivo" ? "Provvisorio" : "Definitivo"; mostraStato(); };
+  mostraStato();
+
+  // ---------- Righe (costo d'acquisto; la quantità che entra è nella colonna Arrivata) ----------
+  const righe = avviaRighe({
+    ...CFG_RIGHE,
+    prezzoDi: art => art.costo,
+    annoGiac: () => anno(),
+    sedeEstera: () => trovaSede(leggiSede()).estera,
+    giacenzaNeiSuggerimenti: true,
+    testoVuoto: () => "Spara i barcode con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
+    cambiato: () => ricalcola()
+  });
+  function ricalcola() {
+    const ivato = righe.totale();
+    const netto = Math.round(righe.RIGHE.reduce((s, r) => s + (r.articolo ? r.sped * r.prezzo * (1 - (r.sconto || 0) / 100) : 0), 0) * 100) / 100;
+    $("impPezzi").value = righe.pezzi();
+    $("impNetto").value = numero(netto);
+    $("totCompl").textContent = numero(ivato);
+    $("topTotale").textContent = euro(netto);
+    $("topPezzi").textContent = `${righe.pezzi()} pezzi · ${righe.RIGHE.length} righe`;
+    $("nRigheTab").textContent = righe.RIGHE.length;
+  }
+  mostraAnno();
+
+  // ---------- Etichette: anno di acquisto scelto, costo cifrato e prezzo ----------
+  $("btnEtichette").onclick = () => {
+    const perPezzo = $("barcodeDup").checked;
+    const lista = righe.RIGHE.filter(r => r.articolo && r.sped > 0).map(r => ({
+      art: { codice: r.articolo.codice, descr: r.articolo.descr, barcode: r.articolo.barcode, costo: r.prezzo, prezzo: r.articolo.prezzo },
+      n: perPezzo ? r.sped : 1, anno: anno()
+    }));
+    if (!lista.length) { avviso("Non ci sono articoli per le etichette"); return; }
+    sessionStorage.setItem("etichette", JSON.stringify({ titolo: mov.id ? `Aumento giacenza #${mov.id}` : "Nuovo aumento", ritorno: location.pathname.split("/").pop() + location.search, righe: lista }));
+    location.href = "etichette.html?da=sessione";
+  };
+
+  // ---------- Modifica / salva ----------
+  const pulsantiLettura = ["btnEtichette", "btnExcel", "btnChiudi", "btnModifica"];
+  let valoriPrima = [], righePrima = [], motivoPrima = motivo;
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    document.querySelectorAll(".mod").forEach(el => el.disabled = !modifica);
+    pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
+    ["btnAnnulla", "btnSalva", "btnSalvaChiudi", "bannerModifica"].forEach(id => $(id).hidden = !modifica);
+    righe.disegna();
+  }
+  function controlla() {
+    if (!motivo) { avviso("Scegli perché entra la merce (Inventario, Da altri centri, Donazione, Altro)"); document.querySelector('.scheda-tab[data-t="dettagli"]').click(); return false; }
+    if (motivo === "Altro" && !$("fCausale").value.trim()) { avviso("Con \"Altro\" scrivi il motivo nella causale"); document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("fCausale").focus(); return false; }
+    if (righe.senzaArticolo()) { avviso("C'è una riga senza articolo: scegli l'articolo o eliminala con il cestino"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    if (!righe.RIGHE.some(r => r.sped > 0)) { avviso("Aggiungi almeno un articolo nella scheda Articoli"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    return true;
+  }
+  $("btnModifica").onclick = () => {
+    valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value);
+    righePrima = righe.fotografia(); motivoPrima = motivo;
+    modalita(true);
+  };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) {
+      if (!righe.RIGHE.length || confirm("Uscire senza salvare l'aumento?")) location.href = ELENCO;
+      return;
+    }
+    document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
+    motivo = motivoPrima;
+    document.querySelectorAll(".motivo").forEach(x => x.classList.toggle("scelto", x.dataset.motivo === motivo));
+    righe.ripristina(righePrima);
+    mostraStato(); mostraAnno(); ricalcola(); modalita(false);
+  };
+  async function salva(chiudi) {
+    if (!controlla()) return;
+    if (mov.esempio) { avviso("Questo è un movimento di esempio: le modifiche non si salvano"); modalita(false); return; }
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const lista = righe.RIGHE.filter(r => r.sped > 0);
+    if (lista.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
+    const testo = id => $(id).value.trim() || null;
+    const dati = {
+      tipo: "aumento_giacenza", stato: $("selStato").value, sede_id: ID_SEDI_DB[sedeLavoro],
+      data_movimento: $("fData").value || oggi, motivo, anno_acquisto: anno(),
+      causale: testo("fCausale"), annotazioni: testo("fAnnot"), spese: 0
+    };
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({
+        articolo_id: r.articolo.id, quantita: r.sped, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: r.sped
+      })), mov.id);
+      avviso(dati.stato === "Definitivo" ? `Aumento salvato: ${righe.pezzi()} pezzi entrati nella giacenza di ${sedeLavoro} (anno ${anno()})`
+        : "Aumento salvato come provvisorio: la giacenza non cambia finché non è definitivo");
+      setTimeout(() => location.replace(chiudi ? ELENCO : `aumento.html?db=${id}`), 900);
+    } catch (err) {
+      // colonne motivo / anno_acquisto mancanti: va eseguito il file SQL 16
+      avviso(err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/16-aumento-giacenza.sql" : "Errore nel salvare: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
+  $("btnChiudi").onclick = () => location.href = ELENCO;
+  $("btnExcel").onclick = () => righe.excel(`aumento-giacenza-${mov.id || "nuovo"}.csv`);
+
+  // Righe già salvate (database) o di esempio
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo })));
+  else if (esempio) righe.carica(righeCarico(esempio).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo })));
+  ricalcola();
+  modalita(nuovo);
+
+  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database, con la giacenza della sede
+  dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]))
+    .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+</script>
+</body>
+</html>

@@ -16,11 +16,16 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/dati-aumenti.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
-  // Rettifica in aumento: nessun cliente né fornitore
-  avviaElenco({
+  // Rettifica in aumento: nessun cliente né fornitore. Merce ritrovata all'inventario, da altri centri o sedi chiuse, donata.
+  const elenco = avviaElenco({
     titolo: "Aumento Giacenza",
     nuovo: "Nuovo aumento",
+    nota: "➕ Per la merce che entra <b>senza un fornitore</b>: ritrovata all'inventario, arrivata da altri centri o da sedi chiuse, donata. Quando è <b>definitivo</b> la merce entra nella giacenza di questa sede, con l'anno di acquisto scelto (si stampa sulle etichette).",
+    dettaglio: "aumento.html",
     csv: "aumento-giacenza",
     stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
     statiBarrati: ["Annullato"],
@@ -34,19 +39,15 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: [
-      { id: 8790, stato: "Definitivo", data: "2026-10-15", causale: "", totArt: 322, tot: 322, nArt: 6, lab: "Laboratori Sede Centrale" },
-      { id: 8787, stato: "Definitivo", data: "2026-10-15", causale: "", totArt: 112, tot: 112, nArt: 4, lab: "Laboratori Sede Centrale" },
-      { id: 8657, stato: "Definitivo", data: "2026-09-25", causale: "Merce ritrovata in inventario", totArt: 2088, tot: 2088, nArt: 5, lab: "Laboratori Sede Centrale" },
-      { id: 8450, stato: "Definitivo", data: "2026-08-20", causale: "", totArt: 1010.1, tot: 1010.1, nArt: 9, lab: "Laboratorio Ceramiche" },
-      { id: 7295, stato: "Definitivo", data: "2026-07-14", causale: "", totArt: 1174.6, tot: 1174.6, nArt: 5, lab: "Laboratori Sede Centrale" },
-      { id: 7262, stato: "Definitivo", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
-      { id: 7261, stato: "Annullato", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
-      { id: 7260, stato: "Annullato", data: "2026-07-09", causale: "", totArt: 58, tot: 58, nArt: 1, lab: "Laboratori Sede Centrale" },
-      { id: 7209, stato: "Definitivo", data: "2026-07-06", causale: "", totArt: 1719, tot: 1719, nArt: 20, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 7195, stato: "Definitivo", data: "2026-07-03", causale: "Natale CRAL", totArt: 870, tot: 870, nArt: 4, lab: "Laboratori Sede Centrale" }
-    ]
+    dati: DATI_AUMENTI
   });
+
+  // Dopo l'accesso: gli aumenti salvati nel database, in cima a quelli di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "aumento_giacenza", ID_SEDI_DB[trovaSede(leggiSede()).nome], "aumento.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

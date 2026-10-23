@@ -21,6 +21,7 @@
 //   giacenzaNeiSuggerimenti  true: accanto agli articoli suggeriti si vede quanti pezzi ha in giacenza la sede di lavoro
 //   giacenzaAltra(art)  facoltativa: { sigla, q } giacenza di un'altra sede (es. il Magazzino Centrale a cui si ordina):
 //                       si vede accanto alla nostra, in azzurro e con il nome della sede, nei suggerimenti e nelle righe
+//   annoGiac()          facoltativa: anno da mostrare in "Anno giac." al posto di quello dell'articolo (es. Aumento giacenza)
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
@@ -169,7 +170,7 @@ function avviaRighe(cfg) {
         <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${cfg.giacenzaAltra && cfg.giacenzaAltra(a) ? `<div class="giac-doppia">${giacSugg(a)}</div>` : a.giac ?? "—"}</td>
-        <td class="num" style="color:var(--muted)">${a.anno}</td>
+        <td class="num" style="color:var(--muted)">${cfg.annoGiac ? cfg.annoGiac() : a.anno}</td>
         <td class="num"><span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span></td>
         <td>${mod
           ? `<select class="sel-iva${r.iva !== "22" ? " diversa" : ""}" data-campo="iva" data-riga="${r.pos}">${ALIQUOTE_RIGA.map(([k, t]) => `<option value="${k}"${k === r.iva ? " selected" : ""}>${t}</option>`).join("")}</select>`
