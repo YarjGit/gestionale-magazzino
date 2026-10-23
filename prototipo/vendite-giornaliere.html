@@ -17,8 +17,10 @@
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-vendite.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Vendite Giornaliere",
     nuovo: "Nuova giornata",
     dettaglio: "vendita.html",
@@ -35,6 +37,13 @@
     ],
     dati: VENDITE
   });
+
+  // Dopo l'accesso: le giornate salvate nel database, in cima a quelle di esempio
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "vendite_giornaliere", ID_SEDI_DB[trovaSede(leggiSede()).nome], "vendita.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

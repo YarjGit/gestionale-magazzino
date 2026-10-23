@@ -44,19 +44,26 @@
 <script src="js/dati-carichi.js"></script>
 <script src="js/dati-vendite.js"></script>
 <script src="js/righe-movimento.js"></script>
-<script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
   // Scheda vendita giornaliera: lo scarico di magazzino del venduto di un giorno.
-  // ?id=20261021 apre una giornata in sola lettura (tasto Modifica), ?nuovo=1 una giornata nuova già in modifica.
+  // ?nuovo=1 giornata nuova già in modifica · ?db=12 giornata salvata nel database · ?id=20261021 esempio (non si salva).
   // Le righe usano i prezzi di vendita (IVA inclusa, come sull'etichetta). Righe in js/righe-movimento.js.
+  // Definitiva = i pezzi escono subito dalla giacenza della sede.
   const $ = id => document.getElementById(id);
   const qs = new URLSearchParams(location.search);
   const nuovo = qs.has("nuovo");
-  const ven = nuovo ? null : VENDITE.find(v => v.id === +qs.get("id"));
+  const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
+  // Giornata salvata: si legge dal database prima di disegnare
+  const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro]))
+    .catch(err => { avviso("Errore nel leggere la giornata: " + err.message); return null; }) : null;
+  const ven = nuovo ? null : movDb ? { id: movDb.id, dbId: movDb.id, stato: movDb.stato, data: movDb.data_movimento, causale: movDb.causale || "", annotazioni: movDb.annotazioni || "", spese: +movDb.spese }
+    : dbId ? null : VENDITE.find(v => v.id === +qs.get("id"));
 
   if (!nuovo && !ven) {
-    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Giornata #${esc(qs.get("id") || "")} non trovata</b>
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Giornata #${esc(dbId || qs.get("id") || "")} non trovata</b>
       <span><a href="vendite-giornaliere.html" style="color:var(--accent)">Torna all'elenco delle vendite</a></span></div></div>`;
     document.querySelectorAll(".top-actions .btn, .top-actions .dd").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
     $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
@@ -113,21 +120,21 @@
                 ${campo("s2", "Giorno", `<input class="mod" type="date" id="giorno" value="${ven ? ven.data : oggi}">`)}
                 ${campo("s2", "Sede", `<input value="${esc(sedeLavoro)}" disabled>`)}
                 ${campo("s1", "Anno", `<input value="${(ven ? ven.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
-                ${campo("s1", "ID", `<input value="${ven ? ven.id : ""}" placeholder="nuovo" disabled style="text-align:right">`)}
+                ${campo("s1", "ID", `<input value="${ven && ven.dbId ? ven.id : ""}" placeholder="${ven ? "esempio" : "nuovo"}" disabled style="text-align:right">`)}
               </div>
             </div>
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
                 ${campo("s3", "Causale", `<textarea class="mod" id="causale">${esc(ven ? ven.causale : `Riepilogo vendite giornaliere del ${giornoIt(oggi)}`)}</textarea>`, "non stampata sul documento")}
-                ${campo("s3", "Annotazioni", `<textarea class="mod"></textarea>`, "stampate sul riepilogo")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" id="annotazioni">${esc(ven ? ven.annotazioni || "" : "")}</textarea>`, "stampate sul riepilogo")}
               </div>
             </div>
           </div>
           <aside class="riepilogo">
             <h3>Riepilogo importi</h3>
             <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="0,00" disabled></div>
-            <div class="voce-imp"><label>+ Spese</label><input class="mod spesa" placeholder="0,00"></div>
+            <div class="voce-imp"><label>+ Spese</label><input class="mod spesa" placeholder="0,00" value="${ven && ven.spese ? numero(ven.spese) : ""}"></div>
             <div class="totale-compl"><span>= Totale complessivo</span><span class="v" id="totCompl">0,00</span></div>
           </aside>
         </div>
@@ -238,16 +245,34 @@
     righe.ripristina(righePrima);
     mostraStato(); ricalcola(); modalita(false);
   };
-  $("btnSalva").onclick = () => {
+  // Salvataggio nel database (giornata nuova o già salvata); poi si riapre la giornata o si torna all'elenco.
+  // Le giornate di esempio non si salvano.
+  async function salva(chiudi) {
     if (!controlla()) return;
-    avviso(nuovo ? "Giornata salvata (solo anteprima: lo scarico vero arriverà con il database)" : "Modifiche salvate (solo anteprima)");
-    if (!nuovo) modalita(false);
-  };
-  $("btnSalvaChiudi").onclick = () => {
-    if (!controlla()) return;
-    avviso("Salvata (solo anteprima)");
-    setTimeout(() => location.href = "vendite-giornaliere.html", 700);
-  };
+    if (ven && !ven.dbId) { avviso("Questa è una giornata di esempio: le modifiche non si salvano"); modalita(false); return; }
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const lista = righe.RIGHE.filter(r => r.sped > 0);
+    if (lista.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
+    const dati = {
+      tipo: "vendite_giornaliere", stato: $("selStato").value, sede_id: ID_SEDI_DB[sedeLavoro],
+      data_movimento: $("giorno").value || oggi, causale: $("causale").value.trim() || null, annotazioni: $("annotazioni").value.trim() || null,
+      spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
+    };
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({ articolo_id: r.articolo.id, quantita: r.sped, prezzo: r.prezzo, sconto: r.sconto || 0 })), ven && ven.dbId);
+      avviso(dati.stato === "Definitivo" ? `Giornata salvata: ${righe.pezzi()} pezzi scaricati dalla giacenza di ${sedeLavoro}`
+        : "Giornata salvata come provvisoria: la giacenza non cambia finché non è definitiva");
+      setTimeout(() => location.replace(chiudi ? "vendite-giornaliere.html" : `vendita.html?db=${id}`), 900);
+    } catch (err) {
+      avviso("Errore nel salvare la giornata: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
   $("btnExcel").onclick = () => righe.excel(`vendite-${ven ? ven.data : oggi}.csv`);
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
@@ -258,8 +283,10 @@
   };
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
-  // Giornata esistente: righe di esempio con articoli veri dell'anagrafica (il totale torna al centesimo)
-  if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot, giaScaricati: ven.stato === "Definitivo" ? r.qta : 0 })));
+  // Giornata salvata: se è definitiva i suoi pezzi sono già usciti dalla giacenza (giaScaricati, per il limite in modifica)
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo, giaScaricati: movDb.stato === "Definitivo" ? +r.quantita : 0 })));
+  // Giornata di esempio: righe con articoli veri dell'anagrafica (il totale torna al centesimo)
+  else if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot, giaScaricati: ven.stato === "Definitivo" ? r.qta : 0 })));
   ricalcola();
   modalita(nuovo);
   if (nuovo) $("addArt").focus();
