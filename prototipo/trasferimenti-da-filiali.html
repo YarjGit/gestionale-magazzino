@@ -13,6 +13,16 @@
   .da-ricevere a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: #fff; color: var(--text); text-decoration: none; font-weight: 500; }
   .da-ricevere a:hover { background: #eef5ff; }
   .da-ricevere a span { margin-left: auto; padding: 4px 12px; border-radius: 7px; background: #0891b2; color: #fff; font-weight: 600; font-size: 0.82rem; }
+  /* Scheda "In attesa": staccata dalle altre e viola, perché mostra prodotti e non trasferimenti */
+  .tab-attesa { margin-left: 10px; padding: 9px 14px; border: 2px solid #c7b4f5; border-radius: 10px; background: #f6f1ff; color: #5b2fc0; box-shadow: 0 2px 8px rgba(20,30,50,0.05); }
+  .tab-attesa .n { background: #e6dbff; color: #5b2fc0; }
+  .tab-attesa.active { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+  .tab-attesa.active .n { background: rgba(255,255,255,0.25); color: #fff; }
+  .titolo-attesa { font-size: 1rem; color: #5b2fc0; margin-bottom: 4px; }
+  .sotto-attesa { color: var(--muted); font-size: 0.86rem; margin-bottom: 12px; }
+  .riepilogo-attesa { margin-top: 12px; color: var(--muted); }
+  .riepilogo-attesa b { color: var(--text); }
+  main.content > section.panel[hidden] { display: none; }
 </style>
 </head>
 <body data-page="trasferimenti-da-filiali" data-top="elenco">
@@ -77,7 +87,43 @@
         <b>📦 Merce in arrivo da confermare: ${arrivi.length}</b>
         ${arrivi.map(a => `<a href="trasferimento.html?db=${a.id}">${esc(a.da)} · trasferimento #${a.id} del ${dataIt(a.data)} · ${a.articoli} articoli, ${a.pezzi} pezzi <span>Apri e conferma →</span></a>`).join("")}
       </div>`);
+    await schedaInAttesa(db, sedeId);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
+
+  // ---------- Scheda "⏳ In attesa": prodotti ordinati ad altre sedi e non ancora partiti (inevasi) ----------
+  // Non è un filtro dei trasferimenti come le altre schede: per questo è staccata e viola, e mostra un'altra tabella.
+  async function schedaInAttesa(db, sedeId) {
+    const lista = await inevasiDb(db, { sede_richiedente: sedeId });
+    for (const r of lista) r.nomeFornitrice = await nomeSedeDb(db, r.sede_fornitrice);
+    const nArticoli = new Set(lista.map(r => r.articolo_id)).size;
+    document.getElementById("tabs").insertAdjacentHTML("afterend",
+      `<button class="tab tab-attesa" id="tabAttesa" title="Prodotti ordinati e non ancora partiti">⏳ In attesa<span class="n">${nArticoli}</span></button>`);
+    document.querySelector("main.content > section.panel").insertAdjacentHTML("beforebegin", `<section class="panel" id="pannelloAttesa" hidden>
+      <h2 class="titolo-attesa">⏳ Prodotti ordinati e non ancora arrivati</h2>
+      <p class="sotto-attesa">Sono gli <b>inevasi</b>: ordinati ad un'altra sede e non ancora spediti. Si aggiornano da soli quando la merce parte e confermi il ricevuto.</p>
+      ${lista.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Articolo</th><th>Da quale sede</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Ancora in attesa</th><th>Stato</th></tr></thead>
+        <tbody>${lista.map(r => `<tr>
+          <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span> ${esc(r.articolo.descr)}</td>
+          <td>${esc(r.nomeFornitrice)}</td>
+          <td><a class="num-mov" href="ordine.html?db=${r.ordine_id}"><span class="id">#${r.ordine_id}</span></a> <small style="color:var(--muted)">${dataIt(r.data_ordine)}</small></td>
+          <td class="num">${r.ordinata}</td><td class="num">${r.trasferita}</td>
+          <td class="num"><b style="color:#7c4dff">${r.residuo}</b></td>
+          <td><small>${r.stato_ordine === "Definitivo" ? "ordine non ancora preparato" : "in attesa della merce"}</small></td>
+        </tr>`).join("")}</tbody></table></div>
+        <div class="riepilogo-attesa">Articoli: <b>${nArticoli}</b> · Pezzi in attesa: <b>${Math.round(lista.reduce((s, r) => s + r.residuo, 0) * 100) / 100}</b></div>`
+      : '<div class="vuoto"><b>Niente in attesa</b><span>Tutto quello che avete ordinato alle altre sedi è già partito.</span></div>'}
+    </section>`);
+    // Apri / chiudi: la scheda nasconde l'elenco dei trasferimenti; le altre schede lo rimettono
+    const mostra = si => {
+      document.getElementById("tabAttesa").classList.toggle("active", si);
+      document.getElementById("pannelloAttesa").hidden = !si;
+      document.querySelectorAll("main.content > section.panel:not(#pannelloAttesa)").forEach(s => s.hidden = si);
+      if (si) document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
+    };
+    document.getElementById("tabAttesa").onclick = () => mostra(true);
+    document.getElementById("tabs").addEventListener("click", () => mostra(false), true);
+  }
 </script>
 </body>
 </html>
