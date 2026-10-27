@@ -228,6 +228,7 @@
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
 <script src="js/dati-articoli.js"></script>
+<script src="js/cerca-fornitore.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -253,6 +254,8 @@
   const selezionati = new Set();
 
   FORNITORI.forEach((f, i) => $("fForn").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(f)}</option>`));
+  // Il fornitore si cerca scrivendo nome o codice (js/cerca-fornitore.js); l'elenco è quello della tendina
+  const campoForn = campoCercaFornitore($("fForn"), () => [...$("fForn").options].filter(o => o.value).map(o => ({ id: o.value, codice: o.dataset.codice || "", nome: o.dataset.nome || o.text })), { vuoto: "Tutti" });
   SEDI.forEach(s => $("fProv").insertAdjacentHTML("beforeend", `<option>${esc(s.nome)}</option>`));
 
   // Schede rapide in base alla giacenza
@@ -350,7 +353,7 @@
   };
   ["cerca", "fCodDa", "fCodA", "fCod", "fAnno", "fPrMin", "fPrMax"].forEach(id => $(id).addEventListener("input", () => { pagina = 1; disegna(); }));
   ["fForn", "fProv", "fImp", "fIva", "fSolo", "perPagina"].forEach(id => $(id).addEventListener("change", () => { pagina = 1; disegna(); }));
-  $("azzera").onclick = () => { CAMPI.forEach(id => $(id).value = ""); $("fSolo").checked = false; disegna(); };
+  $("azzera").onclick = () => { CAMPI.forEach(id => $(id).value = ""); $("fSolo").checked = false; campoForn.aggiorna(); disegna(); };
   $("filtriHead").onclick = () => $("filtri").classList.toggle("chiusi");
   $("prec").onclick = () => { pagina--; disegna(); };
   $("succ").onclick = () => { pagina++; disegna(); };
@@ -436,7 +439,8 @@
     // Menu Fornitore: tutti i fornitori del database al posto dei 9 di esempio
     const { data: forn, error } = await db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale");
     if (error) throw error;
-    $("fForn").innerHTML = `<option value="">Tutti</option>` + forn.map(f => `<option value="${f.id}">${esc(f.ragione_sociale)} (${esc(f.codice)})</option>`).join("");
+    $("fForn").innerHTML = `<option value="">Tutti</option>` + forn.map(f => `<option value="${f.id}" data-codice="${esc(f.codice)}" data-nome="${esc(f.ragione_sociale)}">${esc(f.ragione_sociale)} (${esc(f.codice)})</option>`).join("");
+    campoForn.aggiorna();
     pagina = 1;
     disegna();
     avviso(`${ARTICOLI.length.toLocaleString("it-IT")} articoli caricati dal database`);

@@ -48,6 +48,7 @@
 <script src="js/dati-articoli.js"></script>
 <script src="js/dati-carichi.js"></script>
 <script src="js/movimenti-db.js"></script>
+<script src="js/cerca-fornitore.js"></script>
 <script type="module">
   // "module": permette di aspettare il database (await) prima di disegnare un carico salvato
   const $ = id => document.getElementById(id);
@@ -266,53 +267,9 @@
       </div>
     </section>`;
 
-  // ---------- Fornitore: si sceglie scrivendo nome o codice (come nell'ordine), non da una tendina lunghissima ----------
-  // Le tendine restano nascoste e tengono il fornitore scelto: il campo di ricerca le imposta e fa partire "change".
-  const trovaFornitori = testo => {
-    const parole = normalizza(testo).split(/\s+/).filter(Boolean);
-    return FORN.filter(f => parole.every(p => normalizza(`${f.codice} ${f.nome}`).includes(p))).slice(0, 15);
-  };
-  const testoForn = id => { const f = FORN.find(x => x.id === id); return f ? `${f.codice}: ${f.nome}` : ""; };
-  const CAMPI_FORN = ["selFornitore", "colFornitore"].filter(id => $(id));
-  const aggiornaCampiForn = () => CAMPI_FORN.forEach(id => { $(id + "Cerca").value = testoForn($(id).value); });
-  CAMPI_FORN.forEach(id => {
-    const sel = $(id);
-    sel.hidden = true;
-    sel.insertAdjacentHTML("beforebegin", `<div style="position:relative">
-      <input class="${sel.classList.contains("mod") ? "mod" : ""}" id="${id}Cerca" placeholder="Scrivi nome o codice del fornitore…" autocomplete="off" ${sel.disabled ? "disabled" : ""}>
-      <div class="suggerimenti" id="${id}Sugg"></div></div>`);
-    const inp = $(id + "Cerca"), box = $(id + "Sugg");
-    let attivo = 0;
-    const mostra = () => {
-      const lista = trovaFornitori(inp.value);
-      attivo = Math.min(attivo, Math.max(0, lista.length - 1));
-      box.innerHTML = lista.length
-        ? lista.map((f, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-id="${esc(f.id)}"><span class="codice">${esc(f.codice)}</span>${esc(f.nome)}</div>`).join("")
-        : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun fornitore trovato</div>';
-      box.classList.add("show");
-      return lista;
-    };
-    const scegli = f => {
-      box.classList.remove("show");
-      if (!f) return;
-      sel.value = f.id;
-      sel.dispatchEvent(new Event("change"));
-      aggiornaCampiForn();
-    };
-    inp.onfocus = () => { inp.select(); attivo = 0; mostra(); };
-    inp.oninput = () => { attivo = 0; mostra(); };
-    inp.onkeydown = e => {
-      const lista = trovaFornitori(inp.value);
-      if (e.key === "ArrowDown") { attivo = Math.min(attivo + 1, lista.length - 1); mostra(); e.preventDefault(); }
-      if (e.key === "ArrowUp") { attivo = Math.max(attivo - 1, 0); mostra(); e.preventDefault(); }
-      if (e.key === "Enter") { e.preventDefault(); scegli(lista[attivo]); }
-      if (e.key === "Escape") { box.classList.remove("show"); aggiornaCampiForn(); }
-    };
-    // uscendo senza scegliere torna il fornitore già scelto
-    inp.onblur = () => setTimeout(() => { if (!box.matches(":hover")) { box.classList.remove("show"); aggiornaCampiForn(); } }, 150);
-    box.onclick = e => { const s = e.target.closest(".sugg[data-id]"); if (s) scegli(FORN.find(f => f.id === s.dataset.id)); };
-  });
-  aggiornaCampiForn();
+  // ---------- Fornitore: si sceglie scrivendo nome o codice (js/cerca-fornitore.js), non da una tendina lunghissima ----------
+  const campiForn = ["selFornitore", "colFornitore"].filter(id => $(id)).map(id => campoCercaFornitore($(id), () => FORN));
+  const aggiornaCampiForn = () => campiForn.forEach(c => c.aggiorna());
 
   // ---------- Schede ----------
   $("schede").onclick = e => {

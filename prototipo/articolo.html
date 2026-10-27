@@ -66,6 +66,7 @@
 <script src="js/dati-articoli.js"></script>
 <script src="js/categorie.js"></script>
 <script src="js/barcode.js"></script>
+<script src="js/cerca-fornitore.js"></script>
 <script>
   // Scheda articolo (?cod=A01/P), come nel gestionale attuale: Dettagli con il calcolo del prezzo,
   // Materiali, Giacenza (per anno di acquisto, reale e virtuale), Giacenza altre sedi, Movimenti, Storico modifiche.
@@ -102,7 +103,7 @@
       categoria: (CATEGORIE.find(c => c.cod === a.codice[0]) || CATEGORIE[0]).cod, sottocategoria: "",
       scaffale: "", varianti: false, listinoExcel: false,
       costoLordo: cent(a.costo), sconto: 0, confezione: 0, imballaggio: 0, accessorie: 0, ricarico, iva,
-      arrotondamento: 0, scorta: a.scorta || 0, annoListino: a.anno || "", annoPrezzo: "", giac: a.giac ?? 0, id: a.id
+      arrotondamento: 0, scorta: a.scorta || 0, annoListino: a.anno || "", annoPrezzo: "", giac: a.giac ?? 0, id: a.id, annotazioni: ""
     };
   }
 
@@ -173,8 +174,8 @@
                 ${campo("s2", "Categoria", `<select class="mod" id="categoria">${opz(CATEGORIE.map(c => [c.cod, `${c.cod} · ${c.descr}`]), art.categoria)}</select>`)}
                 ${campo("s2", "Sottocategoria", `<select class="mod" id="sottocategoria"></select>`)}
                 ${campo("s2", "Tipologia", `<select class="mod" id="tipologia">${opz(["Da magazzino", "Da laboratorio", "Servizio"], art.tipologia)}</select>`)}
-                ${campo("s2", "Scaffale", `<input class="mod" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
-                ${campo("s2", "Scorta minima", `<input class="mod" type="number" min="0" value="${art.scorta}" style="text-align:right">`, "sotto questa quantità va riordinato")}
+                ${campo("s2", "Scaffale", `<input class="mod" id="fScaffale" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
+                ${campo("s2", "Scorta minima", `<input class="mod" id="fScorta" type="number" min="0" value="${art.scorta}" style="text-align:right">`, "sotto questa quantità va riordinato")}
                 ${campo("s2", "Varianti", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.varianti ? "checked" : ""}><span></span></span> taglie / colori</label>`)}
               </div>
             </div>
@@ -183,9 +184,15 @@
               <div class="campi">
                 ${campo("s3", `Fornitore principale${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select>`)}
                 ${campo("s3", "Secondo fornitore", `<select class="mod" id="forn2">${opzFornitori(art.forn2)}</select>`, "facoltativo")}
-                ${campo("s2", "Anno listino", `<input class="mod" value="${esc(art.annoListino)}" style="text-align:right">`)}
+                ${campo("s2", "Anno listino", `<input class="mod" id="fAnnoListino" value="${esc(art.annoListino)}" style="text-align:right">`)}
                 ${campo("s2", "Anno prezzo unitario", `<input class="mod" value="${esc(art.annoPrezzo)}" style="text-align:right">`)}
                 ${campo("s2", "Listino Excel", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.listinoExcel ? "checked" : ""}><span></span></span> nel listino</label>`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Annotazioni</h3>
+              <div class="campi">
+                ${campo("s6", "Annotazioni", `<textarea class="mod" id="fAnnotazioni" placeholder="es. sconto del fornitore sulla spedizione di ottobre">${esc(art.annotazioni)}</textarea>`)}
               </div>
             </div>
           </div>
@@ -195,6 +202,7 @@
             ${passoPrezzo("", "costoLordo", "Costo d'acquisto", "prezzo del fornitore, senza IVA")}
             ${passoPrezzo("−", "sconto", "Sconto fornitore %")}
             ${passoPrezzo("=", "costoNetto", "Costo netto", "è anche il valore d'inventario", "")}
+            ${passoPrezzo("", "prezzoInv", "Prezzo inventario", "costo netto + IVA", "")}
             ${passoPrezzo("+", "confezione", "Costo confezione")}
             ${passoPrezzo("+", "imballaggio", "Costo imballaggio")}
             ${passoPrezzo("+", "accessorie", "Spese accessorie")}
@@ -254,6 +262,8 @@
   // Disegna la scheda e la fa funzionare: si richiama quando arriva l'articolo vero dal database
   function avvia() {
   disegnaPagina();
+  // Fornitori: si cercano scrivendo nome o codice (js/cerca-fornitore.js)
+  const campiForn = ["forn1", "forn2"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
 
   // ---------- Schede ----------
   $("schede").onclick = e => {
@@ -272,6 +282,7 @@
   function aggiornaCalcolo() {
     const c = calcola(art);
     $("costoNetto").value = numero(c.costoNetto);
+    $("prezzoInv").value = numero(c.costoIva);
     $("prezzoVendita").value = numero(c.prezzoVendita);
     $("conIva").value = numero(c.conIva);
     $("etichetta").textContent = euro(c.etichetta);
@@ -362,6 +373,7 @@
     if (nuovo) { location.href = "articoli.html"; return; }
     Object.assign(art, primaArt);
     document.querySelectorAll(".mod").forEach((el, i) => el.type === "checkbox" || el.type === "radio" ? el.checked = primaCampi[i] : el.value = primaCampi[i]);
+    campiForn.forEach(c => c.aggiorna());
     sottocategorie(); disegnaBarcode(); scriviPrezzi(); modalita(false);
   };
   const controlla = () => {
@@ -369,8 +381,47 @@
     if (!$("descr").value.trim()) { avviso("La descrizione è obbligatoria"); $("descr").focus(); return false; }
     return true;
   };
-  $("btnSalva").onclick = () => { if (!controlla()) return; avviso("Articolo salvato (solo anteprima: il salvataggio vero arriverà con il database)"); if (!nuovo) modalita(false); };
-  $("btnSalvaChiudi").onclick = () => { if (!controlla()) return; avviso("Salvato (solo anteprima)"); setTimeout(() => location.href = "articoli.html", 700); };
+  // Salvataggio nel database: articolo esistente (si aggiorna) o nuovo. I campi in più della scheda
+  // (secondo fornitore, spese, ricarico, scaffale…) richiedono database/18-anagrafica-articoli.sql.
+  async function salva(chiudi) {
+    if (!controlla()) return;
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    if (!nuovo && !art.id) { avviso("Questo è un articolo di esempio: le modifiche non si salvano"); modalita(false); return; }
+    const uuid = v => /^[0-9a-f-]{36}$/i.test(v) ? v : null;
+    const scelto = nome => (document.querySelector(`input[name="${nome}"]:checked`) || {}).value || null;
+    const testo = id => $(id).value.trim() || null;
+    const c = calcola(art);
+    const dati = {
+      codice: $("codice").value.trim(), descrizione: $("descr").value.trim(), barcode: testo("barcode"),
+      attivo: !$("disattivato").checked, aliquota_iva: art.iva,
+      fornitore_id: uuid($("forn1").value), fornitore2_id: uuid($("forn2").value),
+      costo_lordo: art.costoLordo, sconto: art.sconto, costo_netto: c.costoNetto,
+      prezzo_vendita: c.prezzoVendita, prezzo_vendita_ivato: c.etichetta,
+      scorta_minima: Math.max(0, Math.round(+$("fScorta").value || 0)), anno_listino: +$("fAnnoListino").value || null,
+      provenienza: scelto("provenienza"), unita_misura: scelto("unita"), tipologia: $("tipologia").value,
+      categoria: $("categoria").value || null, sottocategoria: $("sottocategoria").value || null,
+      scaffale: testo("fScaffale"), annotazioni: testo("fAnnotazioni"), ricarico: art.ricarico,
+      spese_confezione: art.confezione, spese_imballaggio: art.imballaggio, spese_accessorie: art.accessorie, arrotondamento: art.arrotondamento
+    };
+    // il fornitore scritto a mano non è più "dedotto"
+    if (dati.fornitore_id !== (primaArt && primaArt.forn1)) dati.fornitore_dedotto = false;
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const q = nuovo ? db.from("articoli").insert(dati) : db.from("articoli").update({ ...dati, modificato_il: new Date().toISOString() }).eq("id", art.id);
+      const { error } = await q;
+      if (error) throw error;
+      avviso(`Articolo ${dati.codice} salvato: prezzo in etichetta ${euro(c.etichetta)}`);
+      setTimeout(() => location.replace(chiudi ? "articoli.html" : `articolo.html?cod=${encodeURIComponent(dati.codice)}`), 900);
+    } catch (err) {
+      avviso(err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/18-anagrafica-articoli.sql"
+        : err.code === "23505" ? `Esiste già un articolo con il codice ${dati.codice}` : "Errore nel salvare l'articolo: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "articoli.html";
   $("btnEtichetta").onclick = () => location.href = `etichette.html?cod=${encodeURIComponent(art.codice)}`;
   modalita(nuovo);
@@ -382,7 +433,8 @@
   dbPronto.then(async db => {
     if (!db || nuovo) return;
     const [{ data: a, error }, { data: forn, error: e2 }] = await Promise.all([
-      db.from("articoli").select("id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_lordo, sconto, costo_netto, prezzo_vendita_ivato, scorta_minima, anno_listino, attivo, aliquota_iva, aliquote_iva(aliquota)").eq("codice", qs.get("cod")).maybeSingle(),
+      // "*": prende anche i campi di 18-anagrafica-articoli.sql, se il file è stato eseguito
+      db.from("articoli").select("*, aliquote_iva(aliquota)").eq("codice", qs.get("cod")).maybeSingle(),
       db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale")
     ]);
     if (error || e2) throw error || e2;
@@ -398,6 +450,19 @@
     nuovoArt.costoLordo = cent(+a.costo_lordo || +a.costo_netto);
     nuovoArt.sconto = +a.sconto || 0;
     nuovoArt.disattivato = a.attivo === false;
+    // campi salvati dalla scheda (se ci sono): spese e ricarico rifanno lo stesso calcolo del prezzo
+    nuovoArt.forn2 = a.fornitore2_id || null;
+    if (a.provenienza) nuovoArt.provenienza = a.provenienza;
+    if (a.unita_misura) nuovoArt.unita = a.unita_misura;
+    if (a.tipologia) nuovoArt.tipologia = a.tipologia;
+    if (a.categoria) nuovoArt.categoria = a.categoria;
+    nuovoArt.sottocategoria = a.sottocategoria || "";
+    nuovoArt.scaffale = a.scaffale || "";
+    nuovoArt.annotazioni = a.annotazioni || "";
+    nuovoArt.confezione = +a.spese_confezione || 0;
+    nuovoArt.imballaggio = +a.spese_imballaggio || 0;
+    nuovoArt.accessorie = +a.spese_accessorie || 0;
+    if (a.ricarico != null) nuovoArt.ricarico = +a.ricarico;
     Object.assign(art, nuovoArt);
     art.arrotondamento = cent(+a.prezzo_vendita_ivato - calcola(art).conIva);
     avvia();

@@ -340,3 +340,10 @@ mark.trovato { padding: 0 1px; border-radius: 3px; background: #fff09a; color: i
 
 /* Riquadro di spiegazione sotto il titolo (cfg.nota) */
 .nota-elenco { margin: -4px 0 14px; padding: 10px 14px; border: 1px solid #b9d9f5; border-radius: 10px; background: #f0f7ff; color: #1f4f80; font-size: 0.86rem; }
+
+/* Suggerimenti del campo "Fornitore" da cercare scrivendo (js/cerca-fornitore.js), come in scheda.css */
+.cerca-forn-campo .suggerimenti { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20,30,50,0.15); z-index: 20; }
+.cerca-forn-campo .suggerimenti.show { display: block; }
+.cerca-forn-campo .sugg { display: flex; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; }
+.cerca-forn-campo .sugg:hover, .cerca-forn-campo .sugg.attivo { background: #eef5ff; }
+.cerca-forn-campo .sugg .codice { min-width: 70px; font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--accent); }
