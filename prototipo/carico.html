@@ -331,7 +331,7 @@
         <td class="chk"><input type="checkbox" data-pos="${r.pos}" ${selezionati.has(r.pos) ? "checked" : ""}></td>
         <td style="color:var(--muted)">${r.pos}</td>
         <td class="art-cella" title="Barcode ${r.barcode}"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b>${r.articolo.sconto > 0
-          ? `<div style="color:var(--ko);font-size:0.78rem;font-weight:600;margin-top:2px">⚠ Sconto fornitore ${numero(r.articolo.sconto)}% nell'anagrafica: toglilo negli ordini successivi</div>` : ""}</td>
+          ? `<div style="color:var(--ko);font-size:0.78rem;font-weight:600;margin-top:2px">⚠ Sconto fornitore ${(+r.articolo.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 })}% nell'anagrafica: toglilo negli ordini successivi</div>` : ""}</td>
         <td class="num">${r.ordinata ?? '<span style="color:var(--muted)">—</span>'}</td>
         <td class="num">${mod ? campoNum(r, "qta", r.qta) : `<span class="arrivo ${classeArrivo(r)}">${r.qta}</span>`}</td>
         <td class="num">${r.articolo.giac ?? "—"}</td>

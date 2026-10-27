@@ -296,8 +296,11 @@
   // Si scrivono costo, sconto, ricarico e prezzo finale; il resto si calcola. Le spese (confezione, imballaggio…)
   // non sono nella scheda ma restano nel calcolo se l'articolo le ha.
   const CAMPI_PREZZO = ["costoLordo", "sconto", "ricarico"];
+  // Lo sconto si scrive e si vede come numero semplice (10, 12,5), senza ",00"; gli importi sempre con due decimali
+  const percento = v => (+v || 0).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+  const mostra = (k, v) => k === "sconto" ? percento(v) : numero(v);
   function scriviPrezzi() {
-    CAMPI_PREZZO.forEach(k => $(k).value = numero(art[k]));
+    CAMPI_PREZZO.forEach(k => $(k).value = mostra(k, art[k]));
     aggiornaCalcolo();
   }
   function aggiornaCalcolo() {
@@ -316,9 +319,10 @@
   CAMPI_PREZZO.forEach(k => $(k).addEventListener("change", () => {
     const prima = calcola(art);
     // I prezzi hanno sempre due decimali
-    art[k] = cent(num($(k).value));
+    // sconto: "10", "10%", "12,5" o "12.5" vanno tutti bene
+    art[k] = k === "sconto" ? cent(+$(k).value.replace("%", "").replace(",", ".").trim() || 0) : cent(num($(k).value));
     if (k === "sconto") art.sconto = Math.min(100, Math.max(0, art.sconto));
-    $(k).value = numero(art[k]);
+    $(k).value = mostra(k, art[k]);
     if (CAMPI_COSTO.includes(k)) {
       const c = calcola(art), base = c.costoNetto + c.spese;
       if (base > 0) art.ricarico = Math.round((prima.prezzoVendita / base - 1) * 10000) / 100;
