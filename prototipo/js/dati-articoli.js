@@ -73,10 +73,10 @@ async function caricaArticoliDalDb(db, sedeId) {
   return ARTICOLI.length;
 }
 // Campi da leggere per un articolo, e come diventa un articolo del prototipo (stessa forma di ARTICOLI)
-const CAMPI_ARTICOLO = "id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)";
+const CAMPI_ARTICOLO = "id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, sconto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)";
 const articoloDalDb = (a, giac) => ({
   id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
-  costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato, giac,
+  costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato, giac, sconto: +a.sconto || 0,
   forn: a.fornitore_id, fornDedotto: a.fornitore_dedotto, prov: "", iva: a.aliquote_iva ? +a.aliquote_iva.aliquota : 22,
   importato: false, anno: a.anno_listino || "", scorta: a.scorta_minima
 });

@@ -330,7 +330,8 @@
     $("righeArt").innerHTML = lista.length ? lista.map(r => `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">
         <td class="chk"><input type="checkbox" data-pos="${r.pos}" ${selezionati.has(r.pos) ? "checked" : ""}></td>
         <td style="color:var(--muted)">${r.pos}</td>
-        <td class="art-cella" title="Barcode ${r.barcode}"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td>
+        <td class="art-cella" title="Barcode ${r.barcode}"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b>${r.articolo.sconto > 0
+          ? `<div style="color:var(--ko);font-size:0.78rem;font-weight:600;margin-top:2px">⚠ Sconto fornitore ${numero(r.articolo.sconto)}% nell'anagrafica: toglilo negli ordini successivi</div>` : ""}</td>
         <td class="num">${r.ordinata ?? '<span style="color:var(--muted)">—</span>'}</td>
         <td class="num">${mod ? campoNum(r, "qta", r.qta) : `<span class="arrivo ${classeArrivo(r)}">${r.qta}</span>`}</td>
         <td class="num">${r.articolo.giac ?? "—"}</td>
@@ -451,9 +452,9 @@
       let costo = r.articolo.costo;
       const db = r.articolo.id ? await dbPronto : null;
       if (db) {
-        const { data, error } = await db.from("articoli").select("costo_netto").eq("id", r.articolo.id).maybeSingle();
+        const { data, error } = await db.from("articoli").select("costo_netto, sconto").eq("id", r.articolo.id).maybeSingle();
         if (error) { avviso("Errore nel leggere l'articolo: " + error.message); return; }
-        if (data) costo = Math.round(+data.costo_netto * 100) / 100;
+        if (data) { costo = Math.round(+data.costo_netto * 100) / 100; r.articolo.sconto = +data.sconto || 0; }
       }
       const prima = r.prezzo;
       r.prezzo = costo; r.articolo.costo = costo;
