@@ -290,11 +290,23 @@
     $("notaCalcolo").innerHTML = `(${numero(c.costoNetto)} + ${numero(c.spese)} di spese) × ${numero(1 + art.ricarico / 100)} = ${numero(c.prezzoVendita)} · con IVA ${numero(c.conIva)}` +
       (art.arrotondamento ? ` · arrotondato di ${numero(art.arrotondamento)}` : "");
   }
+  // Costo e spese (es. sconto del fornitore su una spedizione) cambiano solo il costo e il prezzo inventario:
+  // il prezzo in etichetta resta quello (si adattano ricarico e arrotondamento). Ricarico, IVA e arrotondamento cambiano il prezzo.
+  const CAMPI_COSTO = ["costoLordo", "sconto", "confezione", "imballaggio", "accessorie"];
   CAMPI_PREZZO.forEach(k => $(k).addEventListener("change", () => {
+    const prima = calcola(art);
     // I prezzi hanno sempre due decimali
     art[k] = cent(num($(k).value));
     if (k === "sconto") art.sconto = Math.min(100, Math.max(0, art.sconto));
     $(k).value = numero(art[k]);
+    if (CAMPI_COSTO.includes(k)) {
+      const c = calcola(art), base = c.costoNetto + c.spese;
+      if (base > 0) art.ricarico = Math.round((prima.prezzoVendita / base - 1) * 10000) / 100;
+      art.arrotondamento = cent(prima.etichetta - calcola(art).conIva);
+      ["ricarico", "arrotondamento"].forEach(x => $(x).value = numero(art[x]));
+      const giu = cent(prima.costoIva - calcola(art).costoIva);
+      if (giu) avviso(`Prezzo in etichetta invariato (${euro(prima.etichetta)}) · prezzo inventario ${giu > 0 ? "più basso" : "più alto"} di ${euro(Math.abs(giu))}`);
+    }
     aggiornaCalcolo();
   }));
   $("iva").onchange = () => { art.iva = $("iva").value; aggiornaCalcolo(); };
