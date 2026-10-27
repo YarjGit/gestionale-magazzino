@@ -336,7 +336,7 @@
         <td class="num">${r.articolo.giac ?? "—"}</td>
         <td class="num" style="color:var(--muted)">${r.articolo.anno}</td>
         <td class="num">${campoNum(r, "etichette", r.etichette)}</td>
-        <td class="num">${campoNum(r, "prezzo", numero(r.prezzo), "largo")}</td>
+        <td class="num" style="white-space:nowrap">${campoNum(r, "prezzo", numero(r.prezzo), "largo")}${mod ? ` <button class="icon-btn" data-riprezzo="${r.pos}" title="Aggiorna il costo dall'anagrafica dell'articolo (es. dopo uno sconto del fornitore)">↻</button>` : ""}</td>
         <td class="num" style="color:var(--muted)">${r.articolo.iva}%</td>
         <td class="num">${campoNum(r, "sconto", r.sconto || 0)}</td>
         <td class="num"><b>${numero(r.tot)}</b></td>
@@ -443,7 +443,24 @@
       <div style="margin-top:12px;text-align:right"><button class="btn btn-primary" onclick="avviso('Ordine INEVASI: verrà creato un ordine a fornitore Provvisorio con gli articoli mancanti (quando gli ordini si salveranno nel database)')">🧩 Crea ordine INEVASI</button></div>`
       : '<div class="vuoto"><b>Nessun riordino</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa riordinare.</span></div>';
   }
-  $("righeArt").onclick = e => {
+  $("righeArt").onclick = async e => {
+    // ↻ accanto al costo: riprende il costo netto attuale dall'anagrafica dell'articolo (anche se cambiato da poco in un'altra scheda)
+    const rp = e.target.closest("[data-riprezzo]");
+    if (rp) {
+      const r = RIGHE.find(x => x.pos === +rp.dataset.riprezzo);
+      let costo = r.articolo.costo;
+      const db = r.articolo.id ? await dbPronto : null;
+      if (db) {
+        const { data, error } = await db.from("articoli").select("costo_netto").eq("id", r.articolo.id).maybeSingle();
+        if (error) { avviso("Errore nel leggere l'articolo: " + error.message); return; }
+        if (data) costo = Math.round(+data.costo_netto * 100) / 100;
+      }
+      const prima = r.prezzo;
+      r.prezzo = costo; r.articolo.costo = costo;
+      aggiornaRiga(r); ricalcola(); disegnaArticoli();
+      avviso(prima === costo ? `${r.cod}: il costo è già quello dell'anagrafica (${numero(costo)})` : `${r.cod}: costo aggiornato dall'anagrafica, ${numero(prima)} → ${numero(costo)}`);
+      return;
+    }
     const b = e.target.closest("[data-togli]");
     if (!b) return;
     RIGHE.splice(RIGHE.findIndex(x => x.pos === +b.dataset.togli), 1);
