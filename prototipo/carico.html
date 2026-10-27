@@ -207,7 +207,9 @@
           <button class="btn btn-primary" id="btnCollega" disabled>🔗 Collega ordine</button>
           <button class="btn btn-light" id="btnSalta">Salta ›</button>
         </div>
-        <div id="ordiniCollegati"></div>` : car.dbId ? '<div class="vuoto"><b>Nessun ordine collegato</b><span>Il collegamento agli ordini arriverà quando salveremo anche gli ordini nel database.</span></div>' : `<div class="collegato">
+        <div id="ordiniCollegati"></div>` : car.dbId ? (movDb.righe.some(r => r.ordine_riga_id)
+          ? `<div class="collegato"><div class="ico">📋</div><div class="testo"><b>Carico collegato a un ordine a fornitore</b><span>${movDb.righe.filter(r => r.ordine_riga_id).length} righe arrivate da un ordine (colonna Ordinata)</span></div><a class="btn btn-light" href="ordini-fornitori.html">Ordini</a></div>`
+          : '<div class="vuoto"><b>Nessun ordine collegato</b><span>Questo carico è stato fatto senza collegare un ordine.</span></div>') : `<div class="collegato">
           <div class="ico">📋</div>
           <div class="testo"><b>Ordine a fornitore 2026-000170</b><span>${esc(fornitore)} · da cui è nato questo carico (esempio)</span></div>
           <a class="btn btn-light" href="ordini-fornitori.html">Apri</a>
@@ -263,6 +265,54 @@
         </div>
       </div>
     </section>`;
+
+  // ---------- Fornitore: si sceglie scrivendo nome o codice (come nell'ordine), non da una tendina lunghissima ----------
+  // Le tendine restano nascoste e tengono il fornitore scelto: il campo di ricerca le imposta e fa partire "change".
+  const trovaFornitori = testo => {
+    const parole = normalizza(testo).split(/\s+/).filter(Boolean);
+    return FORN.filter(f => parole.every(p => normalizza(`${f.codice} ${f.nome}`).includes(p))).slice(0, 15);
+  };
+  const testoForn = id => { const f = FORN.find(x => x.id === id); return f ? `${f.codice}: ${f.nome}` : ""; };
+  const CAMPI_FORN = ["selFornitore", "colFornitore"].filter(id => $(id));
+  const aggiornaCampiForn = () => CAMPI_FORN.forEach(id => { $(id + "Cerca").value = testoForn($(id).value); });
+  CAMPI_FORN.forEach(id => {
+    const sel = $(id);
+    sel.hidden = true;
+    sel.insertAdjacentHTML("beforebegin", `<div style="position:relative">
+      <input class="${sel.classList.contains("mod") ? "mod" : ""}" id="${id}Cerca" placeholder="Scrivi nome o codice del fornitore…" autocomplete="off" ${sel.disabled ? "disabled" : ""}>
+      <div class="suggerimenti" id="${id}Sugg"></div></div>`);
+    const inp = $(id + "Cerca"), box = $(id + "Sugg");
+    let attivo = 0;
+    const mostra = () => {
+      const lista = trovaFornitori(inp.value);
+      attivo = Math.min(attivo, Math.max(0, lista.length - 1));
+      box.innerHTML = lista.length
+        ? lista.map((f, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-id="${esc(f.id)}"><span class="codice">${esc(f.codice)}</span>${esc(f.nome)}</div>`).join("")
+        : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun fornitore trovato</div>';
+      box.classList.add("show");
+      return lista;
+    };
+    const scegli = f => {
+      box.classList.remove("show");
+      if (!f) return;
+      sel.value = f.id;
+      sel.dispatchEvent(new Event("change"));
+      aggiornaCampiForn();
+    };
+    inp.onfocus = () => { inp.select(); attivo = 0; mostra(); };
+    inp.oninput = () => { attivo = 0; mostra(); };
+    inp.onkeydown = e => {
+      const lista = trovaFornitori(inp.value);
+      if (e.key === "ArrowDown") { attivo = Math.min(attivo + 1, lista.length - 1); mostra(); e.preventDefault(); }
+      if (e.key === "ArrowUp") { attivo = Math.max(attivo - 1, 0); mostra(); e.preventDefault(); }
+      if (e.key === "Enter") { e.preventDefault(); scegli(lista[attivo]); }
+      if (e.key === "Escape") { box.classList.remove("show"); aggiornaCampiForn(); }
+    };
+    // uscendo senza scegliere torna il fornitore già scelto
+    inp.onblur = () => setTimeout(() => { if (!box.matches(":hover")) { box.classList.remove("show"); aggiornaCampiForn(); } }, 150);
+    box.onclick = e => { const s = e.target.closest(".sugg[data-id]"); if (s) scegli(FORN.find(f => f.id === s.dataset.id)); };
+  });
+  aggiornaCampiForn();
 
   // ---------- Schede ----------
   $("schede").onclick = e => {
@@ -367,41 +417,54 @@
 
   // ---------- Collegamento a un ordine (solo carico nuovo) ----------
   let ordineCollegato = null;
+  const ordiniCollegati = [];   // ordini veri (database) collegati a questo carico
   if (nuovo) {
+    // Ordini aperti del fornitore scelto: quelli veri dal database (con quello che manca ancora da arrivare),
+    // oppure quelli di esempio finché i fornitori veri non sono arrivati
+    let ordiniFornitore = [];
     // Le due tendine (Dettagli e Movimenti collegati) mostrano sempre lo stesso fornitore
-    const sincronizzaFornitore = i => {
+    const sincronizzaFornitore = async i => {
       $("colFornitore").value = i;
       $("selFornitore").value = i;
-      const ordini = ORDINI_APERTI.filter(o => String(o.cp) === String(i));
-      $("colOrdine").innerHTML = i === ""
-        ? '<option value="">— prima scegli il fornitore —</option>'
-        : ordini.length
-          ? '<option value="">— scegli l\'ordine —</option>' + ordini.map(o => `<option value="${o.prot}">${o.prot} del ${dataIt(o.data)} · ${o.righe.reduce((s, r) => s + r[1], 0)} pezzi</option>`).join("")
-          : '<option value="">Nessun ordine aperto per questo fornitore</option>';
-      $("colOrdine").disabled = !ordini.length;
+      aggiornaCampiForn();
       $("btnCollega").disabled = true;
+      if (i === "") { $("colOrdine").innerHTML = '<option value="">— prima scegli il fornitore —</option>'; $("colOrdine").disabled = true; return; }
+      $("colOrdine").innerHTML = '<option value="">Cerco gli ordini aperti…</option>';
+      const db = /^[0-9a-f-]{36}$/i.test(i) ? await dbPronto : null;
+      const ordini = db
+        ? await ordiniDaCaricareDb(db, i, ID_SEDI_DB[sedeLavoro]).catch(err => { avviso("Errore nel leggere gli ordini: " + err.message); return []; })
+        : ORDINI_APERTI.filter(o => String(o.cp) === String(i)).map(o => ({ prot: o.prot, data: o.data,
+            righe: o.righe.map(([codice, qta]) => ({ articolo: ARTICOLI.find(a => a.codice === codice), ordinata: qta, residuo: qta })).filter(r => r.articolo) }));
+      if ($("colFornitore").value !== i) return;   // nel frattempo è stato scelto un altro fornitore
+      ordiniFornitore = ordini;
+      const pezzi = o => o.righe.reduce((s, r) => s + r.residuo, 0);
+      $("colOrdine").innerHTML = ordini.length
+        ? '<option value="">— scegli l\'ordine —</option>' + ordini.map((o, k) => `<option value="${k}">${esc(o.prot)} del ${dataIt(o.data)} · ${pezzi(o)} pezzi da arrivare${o.stato === "Provvisorio" ? " (provvisorio)" : ""}</option>`).join("")
+        : '<option value="">Nessun ordine aperto per questo fornitore</option>';
+      $("colOrdine").disabled = !ordini.length;
     };
     $("colFornitore").onchange = () => sincronizzaFornitore($("colFornitore").value);
     $("selFornitore").addEventListener("change", () => sincronizzaFornitore($("selFornitore").value));
-    $("colOrdine").onchange = () => $("btnCollega").disabled = !$("colOrdine").value;
+    $("colOrdine").onchange = () => $("btnCollega").disabled = $("colOrdine").value === "";
     $("btnCollega").onclick = () => {
-      const o = ORDINI_APERTI.find(x => x.prot === $("colOrdine").value);
-      if (!o) return;
+      const o = ordiniFornitore[+$("colOrdine").value];
+      if (!o || $("colOrdine").value === "") return;
+      if (ordiniCollegati.includes(o) || ordineCollegato === o) { avviso(`L'ordine ${o.prot} è già collegato`); return; }
       ordineCollegato = o;
-      // Le righe dell'ordine entrano con Spedita = 0: si riempiono sparando la merce che arriva
-      o.righe.forEach(([codice, qta]) => {
-        const art = ARTICOLI.find(a => a.codice === codice);
-        if (!art) return;  // ordine di esempio con un codice che non c'è tra gli articoli caricati
-        let r = RIGHE.find(x => x.articolo === art);
-        if (r) { r.ordinata = (r.ordinata || 0) + qta; return; }
-        r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: qta, qta: 0, prezzo: art.costo, sconto: 0, barcode: art.barcode, articolo: art };
+      if (o.id) ordiniCollegati.push(o);
+      // Le righe dell'ordine entrano con Spedita = 0 e Ordinata = quanto manca ancora: si riempiono sparando la merce che arriva
+      o.righe.forEach(rr => {
+        // l'articolo della ricerca ha anche la giacenza della sede
+        const art = ARTICOLI.find(a => a.codice === rr.articolo.codice) || rr.articolo;
+        const r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: rr.residuo, qta: 0,
+          prezzo: rr.prezzo ?? art.costo, sconto: 0, barcode: art.barcode, articolo: art, ordineRigaId: rr.rigaId ?? null };
         aggiornaRiga(r);
         RIGHE.push(r); selezionati.add(r.pos);
       });
-      $("ordiniCollegati").innerHTML = `<div class="collegato"><div class="ico">📋</div>
-        <div class="testo"><b>Ordine a fornitore ${o.prot}</b><span>${esc(FORNITORI[o.cp])} · ${o.righe.length} articoli ordinati, ora nella scheda Articoli</span></div>
-        <span class="pill" style="background:#ddf5e8;color:var(--ok)">✔ Collegato</span></div>`;
-      document.querySelector('.scheda-tab[data-t="collegati"] .n').textContent = 1;
+      $("ordiniCollegati").insertAdjacentHTML("beforeend", `<div class="collegato"><div class="ico">📋</div>
+        <div class="testo"><b>Ordine a fornitore ${esc(o.prot)} del ${dataIt(o.data)}</b><span>${esc($("selFornitore").selectedOptions[0].textContent)} · ${o.righe.length} articoli da arrivare, ora nella scheda Articoli</span></div>
+        <span class="pill" style="background:#ddf5e8;color:var(--ok)">✔ Collegato</span></div>`);
+      document.querySelector('.scheda-tab[data-t="collegati"] .n').textContent = $("ordiniCollegati").children.length;
       ricalcola(); disegnaArticoli();
       avviso(`Ordine ${o.prot} collegato: spara la merce arrivata nella scheda Articoli`);
       document.querySelector('.scheda-tab[data-t="articoli"]').click();
@@ -438,7 +501,7 @@
   const serveFornitore = () => {
     if ($("selFornitore").value) return true;
     avviso("Scegli prima il fornitore: si cercano solo i suoi articoli");
-    document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("selFornitore").focus();
+    document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("selFornitoreCerca").focus();
     return false;
   };
   // Niente trovato: se il codice è di un altro fornitore lo si dice, così si capisce perché
@@ -461,8 +524,10 @@
     if (!serveFornitore()) return;
     const n = Math.max(1, +$("addQta").value || 1);
     const prezzo = $("addPrezzo").value ? Math.round(num($("addPrezzo").value) * 100) / 100 : null;
-    // Stesso articolo già in elenco (anche dall'ordine collegato): aumenta la quantità arrivata
-    let r = RIGHE.find(x => x.articolo === art && (prezzo == null || x.prezzo === prezzo));
+    // Stesso articolo già in elenco (anche dall'ordine collegato): aumenta la quantità arrivata,
+    // prima sulla riga d'ordine che aspetta ancora pezzi
+    const stesso = x => x.articolo.codice === art.codice && (prezzo == null || x.prezzo === prezzo);
+    let r = RIGHE.find(x => stesso(x) && x.ordinata != null && x.qta < x.ordinata) || RIGHE.find(stesso);
     if (r) r.qta += n;
     else {
       r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, qta: n, prezzo: prezzo ?? art.costo, sconto: 0, barcode: art.barcode, articolo: art };
@@ -554,7 +619,7 @@
     disegnaArticoli();
   }
   function controlla() {
-    if (!$("selFornitore").value) { avviso("Scegli il fornitore"); $("selFornitore").focus(); return false; }
+    if (!$("selFornitore").value) { avviso("Scegli il fornitore"); $("selFornitoreCerca").focus(); return false; }
     if (!RIGHE.some(r => r.qta > 0)) { avviso("Aggiungi almeno un articolo arrivato nella scheda Articoli"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
     return true;
   }
@@ -601,9 +666,12 @@
     pulsanti.forEach(b => b.disabled = true);
     try {
       const nuovoId = await salvaMovimentoDb(db, mov, righe.map(r => ({
-        articolo_id: r.articolo.id, quantita: r.qta, quantita_ordinata: r.ordinata ?? null,
+        articolo_id: r.articolo.id, quantita: r.qta, quantita_ordinata: r.ordinata ?? null, ordine_riga_id: r.ordineRigaId ?? null,
         prezzo: r.prezzo, sconto: r.sconto || 0, etichette: r.etichette
       })), car.dbId);
+      // Ordini collegati arrivati per intero: diventano Evasi (non compaiono più tra gli ordini aperti)
+      if (mov.stato === "Definitivo") await evadiOrdiniArrivatiDb(db, ordiniCollegati.map(o => o.id), fornitoreId, mov.sede_id)
+        .catch(err => avviso("Carico salvato, ma non sono riuscito ad aggiornare l'ordine: " + err.message));
       avviso(mov.stato === "Definitivo" ? `Carico salvato: ${righe.reduce((s, r) => s + r.qta, 0)} pezzi caricati in giacenza`
         : `Carico salvato come ${mov.stato.toLowerCase()}: la giacenza non cambia finché non è definitivo`);
       setTimeout(() => location.replace(chiudi ? "carichi-fornitori.html" : `carico.html?db=${nuovoId}`), 900);
@@ -632,6 +700,7 @@
       const scelto = $("selFornitore").value;
       // la tendina di "Movimenti collegati" c'è solo nel carico nuovo
       ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
+      aggiornaCampiForn();
     }
   }).catch(err => avviso("Errore nel leggere articoli e fornitori: " + err.message));
 </script>

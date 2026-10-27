@@ -98,6 +98,44 @@ async function inevasiDb(db, filtro, { soloResiduo = true } = {}) {
   return righe;
 }
 
+// ---------- Ordini a un fornitore esterno e carichi (la merce arriva con un "Carico da fornitore") ----------
+// Ordini aperti (Provvisori o Definitivi) della sede verso il fornitore, con quello che deve ancora arrivare.
+// Le righe dei carichi Definitivi collegate con ordine_riga_id contano come arrivate.
+// [{ id, prot, data, stato, righe: [{ rigaId, articolo, prezzo, ordinata, arrivata, residuo }] }] (solo ordini con qualcosa da arrivare)
+async function ordiniDaCaricareDb(db, fornitoreId, sedeId) {
+  const { data, error } = await db.from("movimenti")
+    .select(`id, protocollo, data_movimento, stato, movimenti_righe(id, quantita, prezzo, articoli(${CAMPI_ARTICOLO}))`)
+    .eq("tipo", "ordine_fornitore").eq("fornitore_id", fornitoreId).eq("sede_id", sedeId).in("stato", ["Provvisorio", "Definitivo"])
+    .order("data_movimento", { ascending: true });
+  if (error) throw error;
+  const ids = data.flatMap(m => m.movimenti_righe.map(r => r.id));
+  const arrivate = new Map();
+  if (ids.length) {
+    const { data: car, error: e2 } = await db.from("movimenti_righe").select("ordine_riga_id, quantita, movimenti(tipo, stato)").in("ordine_riga_id", ids);
+    if (e2) throw e2;
+    car.filter(r => r.movimenti && r.movimenti.tipo === "carico_fornitore" && ["Definitivo", "Evaso"].includes(r.movimenti.stato))
+      .forEach(r => arrivate.set(r.ordine_riga_id, (arrivate.get(r.ordine_riga_id) || 0) + +r.quantita));
+  }
+  return data.map(m => ({
+    id: m.id, prot: m.protocollo || "#" + m.id, data: m.data_movimento, stato: m.stato,
+    righe: m.movimenti_righe.sort((a, b) => a.id - b.id).map(r => {
+      const arrivata = arrivate.get(r.id) || 0;
+      return { rigaId: r.id, articolo: articoloDalDb(r.articoli, null), prezzo: +r.prezzo, ordinata: +r.quantita, arrivata, residuo: Math.max(0, +r.quantita - arrivata) };
+    }).filter(r => r.residuo > 0)
+  })).filter(o => o.righe.length);
+}
+
+// Dopo un carico Definitivo: gli ordini collegati in cui è arrivato tutto diventano Evasi (escono dagli ordini aperti)
+async function evadiOrdiniArrivatiDb(db, ordineIds, fornitoreId, sedeId) {
+  if (!ordineIds.length) return;
+  const aperti = new Set((await ordiniDaCaricareDb(db, fornitoreId, sedeId)).map(o => o.id));
+  const completi = ordineIds.filter(id => !aperti.has(id));
+  if (completi.length) {
+    const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).in("id", completi);
+    if (error) throw error;
+  }
+}
+
 // Cancella (in tutto o in parte) un inevaso: resta registrato chi, quando, quanto e perché
 async function annullaInevasoDb(db, ordineRigaId, quantita, motivo) {
   const { data: { session } } = await db.auth.getSession();
