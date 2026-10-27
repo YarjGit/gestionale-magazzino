@@ -37,6 +37,27 @@
   .etichetta-prezzo b { font: 700 1.5rem "JetBrains Mono", monospace; }
   .nota-calcolo { padding: 8px 14px 12px; color: var(--muted); font-size: 0.75rem; background: #fffbe6; }
 
+  /* Dettagli come nel gestionale attuale: due righe di testata, poi prezzi a sinistra e fornitori a destra */
+  .det-riga { display: grid; grid-template-columns: 90px minmax(140px, 1fr) minmax(220px, 2.2fr) minmax(260px, 2fr); gap: 14px; align-items: end; margin-bottom: 12px; }
+  .det-riga .det-scorta { grid-column: 3; max-width: 200px; }
+  .det-interr .interr { margin: 6px 0 0; }
+  .det-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 10px; }
+  .prezzi { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .riga-prezzo { display: grid; grid-template-columns: 1fr 150px 38px; align-items: center; gap: 8px; padding: 6px 12px; }
+  .riga-prezzo + .riga-prezzo { border-top: 1px solid #edf0f5; }
+  .riga-prezzo label { font-size: 0.86rem; }
+  .riga-prezzo label small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .riga-prezzo input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: #f4f6f9; text-align: right; font: 500 0.9rem "JetBrains Mono", monospace; }
+  .in-modifica .riga-prezzo input.mod:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+  .riga-prezzo.calcolato input { background: #eef2f7; color: var(--muted); }
+  .riga-prezzo.finale { background: #fffbe6; }
+  .riga-prezzo.finale input { font-weight: 700; font-size: 1rem; }
+  .btn-riga-prezzo { padding: 5px 0; border: none; border-radius: 6px; background: #e8f1ff; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+  .det-destra { display: flex; flex-direction: column; gap: 12px; }
+  .det-due { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .det-sotto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 18px; }
+  @media (max-width: 1000px) { .det-riga, .det-corpo, .det-sotto, .det-due { grid-template-columns: 1fr; } .det-riga .det-scorta { grid-column: auto; } }
+
   /* Movimenti dell'articolo */
   .piu { color: var(--ok); font-weight: 700; } .meno { color: var(--ko); font-weight: 700; }
   .freccia-giac { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
@@ -82,6 +103,7 @@
   const ALIQ = [["22", "22%", 22], ["04", "4% (ostie)", 4], ["0", "0% (libri)", 0]];
   const UNITA = ["Numero", "Metri", "Litri", "Chili", "Paia", "Conf.", "Dozz."];
   const PROVENIENZE = ["Magazzino Centrale", "Fornitori", "Laboratorio"];
+  const TIPOLOGIE = ["Da fornitore", "Da magazzino", "Da laboratorio", "Servizio"];
   let FORN = FORNITORI.map((nome, i) => ({ id: i, codice: String(600 + i * 9), nome }));
 
   // Articolo da mostrare: dai dati caricati (esempio o file locale); quello vero arriva dal database
@@ -99,7 +121,7 @@
     return {
       codice: a.codice, descr: a.descr, barcode: a.barcode || "", disattivato: false,
       provenienza: a.forn == null || a.forn === -1 ? "Magazzino Centrale" : "Fornitori", unita: "Numero",
-      forn1: a.forn, forn2: null, fornDedotto: !!a.fornDedotto, tipologia: "Da magazzino",
+      forn1: a.forn, forn2: null, fornDedotto: !!a.fornDedotto, tipologia: a.forn == null || a.forn === -1 ? "Da magazzino" : "Da fornitore",
       categoria: (CATEGORIE.find(c => c.cod === a.codice[0]) || CATEGORIE[0]).cod, sottocategoria: "",
       scaffale: "", varianti: false, listinoExcel: false,
       costoLordo: cent(a.costo), sconto: 0, confezione: 0, imballaggio: 0, accessorie: 0, ricarico, iva,
@@ -127,6 +149,8 @@
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   const scelte = (nome, lista, scelto) => `<div class="scelte">${lista.map(x => `<label><input class="mod" type="radio" name="${nome}" value="${esc(x)}" ${x === scelto ? "checked" : ""}>${esc(x)}</label>`).join("")}</div>`;
   const passoPrezzo = (op, id, label, aiuto, cls = "mod", extra = "") => `<div class="passo-prezzo${cls ? "" : " risultato"}"><span class="op">${op}</span><label for="${id}">${label}${aiuto ? `<small>${aiuto}</small>` : ""}</label>${extra}<input id="${id}" class="${cls}" ${cls ? "" : "disabled"}></div>`;
+  // Riga dei prezzi: etichetta a sinistra, valore a destra (cls "mod" = si scrive, "" = calcolato), bottone facoltativo
+  const rigaPrezzo = (label, id, cls, aiuto, bottone = "", extra = "") => `<div class="riga-prezzo ${cls ? "" : "calcolato"} ${extra}"><label for="${id}">${label}${aiuto ? `<small>${aiuto}</small>` : ""}</label><input id="${id}" class="${cls}" ${cls ? "" : "disabled"}><span>${bottone}</span></div>`;
   const opzFornitori = scelto => `<option value="">— nessuno —</option>` + FORN.map(f => `<option value="${esc(String(f.id))}"${String(f.id) === String(scelto) ? " selected" : ""}>${esc(f.codice)}: ${esc(f.nome)}</option>`).join("");
 
   function disegnaPagina() {
@@ -158,62 +182,57 @@
         <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
       </div>
 
-      <!-- DETTAGLI -->
+      <!-- DETTAGLI: disposizione come nel gestionale attuale (prezzi a sinistra, fornitori e barcode a destra) -->
       <div class="pannello-tab" id="tab-dettagli">
-        <div class="dettagli">
+        <div class="det-riga">
+          <div class="f det-interr">
+            <label>Disattivato</label><label class="interr"><span class="switch"><input class="mod" type="checkbox" id="disattivato" ${art.disattivato ? "checked" : ""}><span></span></span></label>
+          </div>
+          ${campo("det-cod", "Codice", `<input class="mod" id="codice" value="${esc(art.codice)}" ${nuovo ? "" : "data-fisso"}>`)}
+          ${campo("det-descr", "Descrizione", `<input class="mod" id="descr" value="${esc(art.descr)}">`)}
+          ${campo("det-scelte", "Provenienza", scelte("provenienza", PROVENIENZE, art.provenienza))}
+        </div>
+        <div class="det-riga">
+          <div class="f det-interr">
+            <label>Excel</label><label class="interr" title="Nel listino Excel"><span class="switch"><input class="mod" type="checkbox" id="fExcel" ${art.listinoExcel ? "checked" : ""}><span></span></span></label>
+          </div>
+          ${campo("det-cod", "IVA", `<select class="mod" id="iva">${opz(ALIQ.map(a => [a[0], a[1]]), art.iva)}</select>`)}
+          ${campo("det-scorta", "Scorta minima", `<input class="mod" id="fScorta" type="number" min="0" value="${art.scorta}" style="text-align:right">`)}
+          ${campo("det-scelte", "Unità di misura", scelte("unita", UNITA, art.unita))}
+        </div>
+
+        <div class="det-corpo">
           <div>
-            <div class="gruppo">
-              <h3>🏷️ Articolo</h3>
-              <div class="campi">
-                ${campo("s2", "Codice", `<input class="mod" id="codice" value="${esc(art.codice)}" ${nuovo ? "" : "data-fisso"}>`, nuovo ? "" : "il codice non si cambia")}
-                ${campo("s4", "Descrizione", `<input class="mod" id="descr" value="${esc(art.descr)}">`)}
-                ${campo("s4", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}" style="max-width:200px"><span id="barcodeSvg"></span></div>`, "si può sparare con la pistola")}
-                ${campo("s2", "Disattivato", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" id="disattivato" ${art.disattivato ? "checked" : ""}><span></span></span> non più in vendita</label>`)}
-                ${campo("s6", "Provenienza", scelte("provenienza", PROVENIENZE, art.provenienza))}
-                ${campo("s6", "Unità di misura", scelte("unita", UNITA, art.unita))}
-                ${campo("s2", "Categoria", `<select class="mod" id="categoria">${opz(CATEGORIE.map(c => [c.cod, `${c.cod} · ${c.descr}`]), art.categoria)}</select>`)}
-                ${campo("s2", "Sottocategoria", `<select class="mod" id="sottocategoria"></select>`)}
-                ${campo("s2", "Tipologia", `<select class="mod" id="tipologia">${opz(["Da magazzino", "Da laboratorio", "Servizio"], art.tipologia)}</select>`)}
-                ${campo("s2", "Scaffale", `<input class="mod" id="fScaffale" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
-                ${campo("s2", "Scorta minima", `<input class="mod" id="fScorta" type="number" min="0" value="${art.scorta}" style="text-align:right">`, "sotto questa quantità va riordinato")}
-                ${campo("s2", "Varianti", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.varianti ? "checked" : ""}><span></span></span> taglie / colori</label>`)}
-              </div>
+            <div class="prezzi">
+              ${rigaPrezzo("Costo", "costoLordo", "mod", "prezzo del fornitore, senza IVA")}
+              ${rigaPrezzo("Sconto %", "sconto", "mod", "sconto del fornitore: cambia il costo, non il prezzo di vendita")}
+              ${rigaPrezzo("Prezzo inv.", "prezzoInv", "", "costo netto + IVA: il valore d'inventario")}
+              ${rigaPrezzo("Ricarico %", "ricarico", "mod", "100% = prezzo doppio del costo", '<button class="btn-riga-prezzo solo-mod" id="btnRicarico" title="Ricalcola il ricarico dal prezzo finale">🧮</button>')}
+              ${rigaPrezzo("Prezzo di vendita", "prezzoVendita", "", "senza IVA")}
+              ${rigaPrezzo("Prezzo di vendita + IVA", "conIva", "")}
+              ${rigaPrezzo("Prezzo di vendita + IVA finale", "finale", "mod", "il prezzo in etichetta", '<button class="btn-riga-prezzo solo-mod" id="btnArrot" title="Arrotonda all\'euro superiore">↑ €</button>', "finale")}
             </div>
-            <div class="gruppo">
-              <h3>🏭 Fornitori</h3>
-              <div class="campi">
-                ${campo("s3", `Fornitore principale${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select>`)}
-                ${campo("s3", "Secondo fornitore", `<select class="mod" id="forn2">${opzFornitori(art.forn2)}</select>`, "facoltativo")}
-                ${campo("s2", "Anno listino", `<input class="mod" id="fAnnoListino" value="${esc(art.annoListino)}" style="text-align:right">`)}
-                ${campo("s2", "Anno prezzo unitario", `<input class="mod" value="${esc(art.annoPrezzo)}" style="text-align:right">`)}
-                ${campo("s2", "Listino Excel", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" ${art.listinoExcel ? "checked" : ""}><span></span></span> nel listino</label>`)}
-              </div>
+            <div class="nota-calcolo" id="notaCalcolo"></div>
+          </div>
+          <div class="det-destra">
+            ${campo("", `Fornitori${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select><div style="height:8px"></div><select class="mod" id="forn2">${opzFornitori(art.forn2)}</select>`)}
+            <div class="det-due">
+              ${campo("", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}"><span id="barcodeSvg"></span></div>`, "si può sparare con la pistola")}
+              ${campo("", "Tipologia articolo", `<select class="mod" id="tipologia">${opz(TIPOLOGIE, art.tipologia)}</select>`)}
             </div>
-            <div class="gruppo">
-              <h3>📝 Annotazioni</h3>
-              <div class="campi">
-                ${campo("s6", "Annotazioni", `<textarea class="mod" id="fAnnotazioni" placeholder="es. sconto del fornitore sulla spedizione di ottobre">${esc(art.annotazioni)}</textarea>`)}
-              </div>
+            <div class="det-due">
+              ${campo("", "Anno listino", `<input class="mod" id="fAnnoListino" value="${esc(art.annoListino)}" style="text-align:right">`)}
+              ${campo("", "Scaffale", `<input class="mod" id="fScaffale" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
             </div>
           </div>
+        </div>
 
-          <aside class="calcolo riepilogo">
-            <h3>💶 Calcolo del prezzo</h3>
-            ${passoPrezzo("", "costoLordo", "Costo d'acquisto", "prezzo del fornitore, senza IVA")}
-            ${passoPrezzo("−", "sconto", "Sconto fornitore %")}
-            ${passoPrezzo("=", "costoNetto", "Costo netto", "è anche il valore d'inventario", "")}
-            ${passoPrezzo("", "prezzoInv", "Prezzo inventario", "costo netto + IVA", "")}
-            ${passoPrezzo("+", "confezione", "Costo confezione")}
-            ${passoPrezzo("+", "imballaggio", "Costo imballaggio")}
-            ${passoPrezzo("+", "accessorie", "Spese accessorie")}
-            ${passoPrezzo("×", "ricarico", "Ricarico %", "100% = il prezzo è il doppio del costo")}
-            ${passoPrezzo("=", "prezzoVendita", "Prezzo di vendita", "senza IVA", "")}
-            <div class="passo-prezzo"><span class="op">+</span><label for="iva">IVA</label><select id="iva" class="mod">${opz(ALIQ.map(a => [a[0], a[1]]), art.iva)}</select></div>
-            ${passoPrezzo("=", "conIva", "Prezzo con IVA", "", "")}
-            ${passoPrezzo("+", "arrotondamento", "Arrotondamento", "per avere un prezzo tondo", "mod", '<button class="btn-arrot solo-mod" id="btnArrot" title="Arrotonda all\'euro superiore">↑ €</button>')}
-            <div class="etichetta-prezzo"><span>= Prezzo in etichetta</span><b id="etichetta"></b></div>
-            <div class="nota-calcolo" id="notaCalcolo"></div>
-          </aside>
+        <div class="det-sotto">
+          <div class="f"><label>Altri barcode</label>
+            <div class="table-wrap"><table><thead><tr><th style="width:90px">Anno</th><th>Barcode</th></tr></thead>
+              <tbody><tr><td colspan="2" style="color:var(--muted)">Nessun altro barcode</td></tr></tbody></table></div>
+          </div>
+          ${campo("", "Annotazioni", `<textarea class="mod" id="fAnnotazioni" placeholder="es. sconto del fornitore sulla spedizione di ottobre">${esc(art.annotazioni)}</textarea>`)}
         </div>
       </div>
 
@@ -274,25 +293,26 @@
   };
 
   // ---------- Campi prezzo ----------
-  const CAMPI_PREZZO = ["costoLordo", "sconto", "confezione", "imballaggio", "accessorie", "ricarico", "arrotondamento"];
+  // Si scrivono costo, sconto, ricarico e prezzo finale; il resto si calcola. Le spese (confezione, imballaggio…)
+  // non sono nella scheda ma restano nel calcolo se l'articolo le ha.
+  const CAMPI_PREZZO = ["costoLordo", "sconto", "ricarico"];
   function scriviPrezzi() {
     CAMPI_PREZZO.forEach(k => $(k).value = numero(art[k]));
     aggiornaCalcolo();
   }
   function aggiornaCalcolo() {
     const c = calcola(art);
-    $("costoNetto").value = numero(c.costoNetto);
     $("prezzoInv").value = numero(c.costoIva);
     $("prezzoVendita").value = numero(c.prezzoVendita);
     $("conIva").value = numero(c.conIva);
-    $("etichetta").textContent = euro(c.etichetta);
+    $("finale").value = numero(c.etichetta);
     $("topPrezzo").textContent = euro(c.etichetta);
-    $("notaCalcolo").innerHTML = `(${numero(c.costoNetto)} + ${numero(c.spese)} di spese) × ${numero(1 + art.ricarico / 100)} = ${numero(c.prezzoVendita)} · con IVA ${numero(c.conIva)}` +
+    $("notaCalcolo").innerHTML = `Costo netto ${numero(c.costoNetto)}${c.spese ? ` + ${numero(c.spese)} di spese` : ""} × ${numero(1 + art.ricarico / 100)} = ${numero(c.prezzoVendita)} · con IVA ${numero(c.conIva)}` +
       (art.arrotondamento ? ` · arrotondato di ${numero(art.arrotondamento)}` : "");
   }
-  // Costo e spese (es. sconto del fornitore su una spedizione) cambiano solo il costo e il prezzo inventario:
-  // il prezzo in etichetta resta quello (si adattano ricarico e arrotondamento). Ricarico, IVA e arrotondamento cambiano il prezzo.
-  const CAMPI_COSTO = ["costoLordo", "sconto", "confezione", "imballaggio", "accessorie"];
+  // Costo e sconto (es. sconto del fornitore su una spedizione) cambiano solo il costo e il prezzo inventario:
+  // il prezzo finale resta quello (si adattano ricarico e arrotondamento). Il ricarico invece cambia il prezzo.
+  const CAMPI_COSTO = ["costoLordo", "sconto"];
   CAMPI_PREZZO.forEach(k => $(k).addEventListener("change", () => {
     const prima = calcola(art);
     // I prezzi hanno sempre due decimali
@@ -303,24 +323,33 @@
       const c = calcola(art), base = c.costoNetto + c.spese;
       if (base > 0) art.ricarico = Math.round((prima.prezzoVendita / base - 1) * 10000) / 100;
       art.arrotondamento = cent(prima.etichetta - calcola(art).conIva);
-      ["ricarico", "arrotondamento"].forEach(x => $(x).value = numero(art[x]));
+      $("ricarico").value = numero(art.ricarico);
       const giu = cent(prima.costoIva - calcola(art).costoIva);
-      if (giu) avviso(`Prezzo in etichetta invariato (${euro(prima.etichetta)}) · prezzo inventario ${giu > 0 ? "più basso" : "più alto"} di ${euro(Math.abs(giu))}`);
+      if (giu) avviso(`Prezzo finale invariato (${euro(prima.etichetta)}) · prezzo inventario ${giu > 0 ? "più basso" : "più alto"} di ${euro(Math.abs(giu))}`);
     }
     aggiornaCalcolo();
   }));
+  // Prezzo finale scritto a mano: la differenza dal prezzo con IVA è l'arrotondamento
+  $("finale").addEventListener("change", () => {
+    art.arrotondamento = cent(cent(num($("finale").value)) - calcola(art).conIva);
+    aggiornaCalcolo();
+  });
+  // 🧮 ricalcola il ricarico in modo che il prezzo finale venga senza arrotondamento
+  $("btnRicarico").onclick = () => {
+    const c = calcola(art), base = c.costoNetto + c.spese, perc = ALIQ.find(x => x[0] === art.iva)[2];
+    if (base <= 0) { avviso("Serve il costo per calcolare il ricarico"); return; }
+    art.ricarico = Math.round((c.etichetta / (1 + perc / 100) / base - 1) * 10000) / 100;
+    art.arrotondamento = cent(c.etichetta - calcola(art).conIva);
+    $("ricarico").value = numero(art.ricarico);
+    aggiornaCalcolo();
+  };
   $("iva").onchange = () => { art.iva = $("iva").value; aggiornaCalcolo(); };
-  $("btnArrot").onclick = () => { art.arrotondamento = arrotondaEuro(calcola(art).conIva); $("arrotondamento").value = numero(art.arrotondamento); aggiornaCalcolo(); };
+  $("btnArrot").onclick = () => { art.arrotondamento = cent(art.arrotondamento + arrotondaEuro(calcola(art).etichetta)); aggiornaCalcolo(); };
 
-  // Sottocategorie della categoria scelta; barcode vero (EAN-13 o Code 128) sotto il campo
-  function sottocategorie() {
-    const lista = SOTTOCATEGORIE.filter(s => s.cat === $("categoria").value);
-    $("sottocategoria").innerHTML = `<option value="">—</option>` + lista.map(s => `<option${s.descr === art.sottocategoria ? " selected" : ""}>${esc(s.descr)}</option>`).join("");
-  }
-  $("categoria").onchange = sottocategorie;
+  // Barcode vero (EAN-13 o Code 128) accanto al campo
   const disegnaBarcode = () => { $("barcodeSvg").innerHTML = $("barcode").value.trim() ? barcodeSvg($("barcode").value.trim(), 38) : ""; };
   $("barcode").oninput = disegnaBarcode;
-  sottocategorie(); disegnaBarcode(); scriviPrezzi();
+  disegnaBarcode(); scriviPrezzi();
 
   // ---------- Giacenza, altre sedi, movimenti, storico (esempi coerenti con la giacenza dell'articolo) ----------
   let seme = [...art.codice].reduce((s, c) => s * 31 + c.charCodeAt(0), 7) % 233280;
@@ -386,7 +415,7 @@
     Object.assign(art, primaArt);
     document.querySelectorAll(".mod").forEach((el, i) => el.type === "checkbox" || el.type === "radio" ? el.checked = primaCampi[i] : el.value = primaCampi[i]);
     campiForn.forEach(c => c.aggiorna());
-    sottocategorie(); disegnaBarcode(); scriviPrezzi(); modalita(false);
+    disegnaBarcode(); scriviPrezzi(); modalita(false);
   };
   const controlla = () => {
     if (!$("codice").value.trim()) { avviso("Il codice è obbligatorio"); $("codice").focus(); return false; }
@@ -412,7 +441,7 @@
       prezzo_vendita: c.prezzoVendita, prezzo_vendita_ivato: c.etichetta,
       scorta_minima: Math.max(0, Math.round(+$("fScorta").value || 0)), anno_listino: +$("fAnnoListino").value || null,
       provenienza: scelto("provenienza"), unita_misura: scelto("unita"), tipologia: $("tipologia").value,
-      categoria: $("categoria").value || null, sottocategoria: $("sottocategoria").value || null,
+      categoria: art.categoria || null, sottocategoria: art.sottocategoria || null,
       scaffale: testo("fScaffale"), annotazioni: testo("fAnnotazioni"), ricarico: art.ricarico,
       spese_confezione: art.confezione, spese_imballaggio: art.imballaggio, spese_accessorie: art.accessorie, arrotondamento: art.arrotondamento
     };
