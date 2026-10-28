@@ -18,7 +18,9 @@
   .foglio { position: relative; width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 14mm 34mm; background: #fff; box-shadow: 0 4px 24px rgba(20,30,50,0.18); }
   .testa { display: flex; justify-content: space-between; gap: 20px; }
   .mittente div:nth-child(2) { font-weight: 700; }
-  .logo { display: flex; align-items: center; gap: 8px; color: #2f6fd6; font-size: 15pt; letter-spacing: 0.01em; }
+  .logo { display: flex; align-items: center; gap: 10px; color: #3a4ea6; font-size: 15pt; letter-spacing: 0.01em; }
+  /* lo sfondo grigio chiarissimo dell'immagine sparisce sul bianco della carta */
+  .logo img { height: 17mm; width: auto; mix-blend-mode: multiply; filter: brightness(1.04); }
   .seconda { display: flex; justify-content: space-between; gap: 20px; margin-top: 8mm; }
   .doc div:first-child { font-size: 11pt; font-weight: 700; margin-bottom: 2px; }
   .destinatario { text-align: right; }
@@ -54,9 +56,8 @@
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const dati = (() => { try { return JSON.parse(sessionStorage.getItem("stampa") || "null"); } catch { return null; } })();
   const $ = id => document.getElementById(id);
-  // Logo: tre archi colorati e la scritta (la carta intestata vera si potrà mettere come immagine)
-  const LOGO = `<div class="logo"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke-width="2.4" stroke-linecap="round">
-      <path d="M4 22 C12 6, 30 2, 42 8" stroke="#e4572e"/><path d="M6 26 C16 14, 30 12, 40 16" stroke="#2f6fd6"/><path d="M10 28 C18 22, 28 21, 36 23" stroke="#4caf50"/></svg>apostolato liturgico</div>`;
+  // Logo originale pddm e la scritta, come nella stampa del gestionale attuale
+  const LOGO = `<div class="logo"><img src="img/logo-pddm.jpg" alt="pddm">apostolato liturgico</div>`;
 
   if (!dati) {
     $("fogli").innerHTML = '<div class="foglio"><div class="vuoto">Niente da stampare: apri la stampa dalla scheda del movimento.</div></div>';
