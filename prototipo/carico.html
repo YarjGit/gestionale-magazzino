@@ -60,6 +60,8 @@
   const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
+  // Sede che prepara la merce chiesta dalle sedi estere: nella causale si scrive il paese di spedizione
+  const PER_ESTERO = sedeLavoro === "CAL Roma per Estero";
   // Carico salvato: si legge dal database prima di disegnare la pagina
   const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro])).catch(err => { avviso("Errore nel leggere il carico: " + err.message); return null; }) : null;
   const car = nuovo
@@ -182,7 +184,7 @@
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
-                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale" disabled>${esc(car.causale)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale" disabled${PER_ESTERO ? ' placeholder="es. FILIPPINE"' : ""}>${esc(car.causale)}</textarea>`, PER_ESTERO ? "paese di spedizione (sede estera che ha chiesto la merce)" : "non stampata sul documento")}
                 ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot" disabled>${esc(car.annotazioni || "")}</textarea>`, "stampate sul documento")}
               </div>
             </div>
@@ -616,6 +618,8 @@
       righe: righe.map((r, i) => ({ n: i + 1, cod: r.cod, descr: r.descr, qta: quantita(r), prezzo: numero(r.prezzo),
         sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: r.articolo.iva + "%", importo: numero(importo(r)) })),
       totali: [["Totale Articoli", numero(totArt)]].concat(spese ? [["+ Spese", numero(spese)]] : [], [["= Totale Complessivo", numero(totArt + spese)]]),
+      // Note in fondo: per Roma per Estero il paese di spedizione (causale), come nella stampa del gestionale attuale; poi le annotazioni
+      note: [PER_ESTERO ? $("fCausale").value.trim() : "", $("fAnnot").value.trim()].filter(Boolean).join("\n"),
       ritorno: location.pathname.split("/").pop() + location.search
     };
     sessionStorage.setItem("stampa", JSON.stringify(dati));

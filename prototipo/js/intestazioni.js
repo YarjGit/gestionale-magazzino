@@ -2,7 +2,8 @@
 // Come nella stampa del gestionale attuale. Una sede che non è qui stampa solo il suo nome.
 const ENTE = "Provincia Italiana Pie Discepole del Divin Maestro";
 const INTESTAZIONI = {
-  "CAL SMM Roma": [ENTE, "APOSTOLATO LITURGICO SMM ROMA", "Largo Brancaccio, 57", "00184 Roma (RM)", "Telefono: 06.48.14.794"]
+  "CAL SMM Roma": [ENTE, "APOSTOLATO LITURGICO SMM ROMA", "Largo Brancaccio, 57", "00184 Roma (RM)", "Telefono: 06.48.14.794"],
+  "CAL Roma per Estero": [ENTE, "APOSTOLATO LITURGICO ROMA PER ESTERO", "Largo Brancaccio, 57", "00184 Roma (RM)", "Telefono: 06.656.86.355"]
 };
 const PIE_DI_PAGINA = [
   "Provincia Italiana della Congregazione delle Pie Discepole del Divin Maestro",

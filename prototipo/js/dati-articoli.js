@@ -82,7 +82,7 @@ const articoloDalDb = (a, giac) => ({
 });
 
 // Id della sede di lavoro scelta in alto, come scritto nel database
-const ID_SEDI_DB = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale" };
+const ID_SEDI_DB = { "CAL SMM Roma": "cal-smm-roma", "Magazzino Centrale": "magazzino-centrale", "CAL Roma per Estero": "cal-roma-estero" };
 
 // Articoli: usati da Articoli, scheda carico e stampa etichette.
 // Se c'è js/dati-articoli-reali.js (creato da strumenti/importa-articoli.ps1, solo su questo PC)

@@ -70,6 +70,8 @@
   const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
+  // Sede che prepara la merce chiesta dalle sedi estere: nella causale si scrive il paese di spedizione
+  const PER_ESTERO = sedeLavoro === "CAL Roma per Estero";
   const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro])).catch(err => { avviso("Errore nel leggere l'ordine: " + err.message); return null; }) : null;
   const ord = nuovo ? null : dbId ? movDb && {
       id: movDb.id, dbId: movDb.id, stato: movDb.stato, data: movDb.data_movimento, prot: movDb.protocollo || "",
@@ -173,7 +175,7 @@
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
-                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale">${esc(ord ? ord.causale : "")}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale"${PER_ESTERO ? ' placeholder="es. FILIPPINE"' : ""}>${esc(ord ? ord.causale : "")}</textarea>`, PER_ESTERO ? "paese di spedizione (sede estera che ha chiesto la merce)" : "non stampata sul documento")}
                 ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot">${esc(ord && ord.annotazioni || "")}</textarea>`, "stampate sull'ordine inviato al fornitore")}
               </div>
             </div>
@@ -523,6 +525,8 @@
       righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: pezzi(r), prezzo: numero(r.prezzo),
         sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: percIva(r.iva) + "%", importo: numero(importo(r)) })),
       totali: [["Totale Articoli", numero(totArt)]].concat(spese ? [["+ Spese", numero(spese)]] : [], [["= Totale Complessivo", numero(totArt + spese)]]),
+      // Note in fondo: per Roma per Estero il paese di spedizione (causale), come nella stampa del gestionale attuale; poi le annotazioni
+      note: [PER_ESTERO ? $("fCausale").value.trim() : "", $("fAnnot").value.trim()].filter(Boolean).join("\n"),
       ritorno: location.pathname.split("/").pop() + location.search
     };
     sessionStorage.setItem("stampa", JSON.stringify(dati));
