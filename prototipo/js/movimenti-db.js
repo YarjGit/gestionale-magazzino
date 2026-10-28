@@ -49,6 +49,21 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
   return righe;
 }
 
+// Tutti i movimenti della sede (pagina Tutti i Movimenti): ogni tipo con il suo nome e la sua scheda,
+// più i trasferimenti arrivati da altre sedi. I tipi senza scheda (es. giacenza iniziale) si vedono ma non si aprono.
+const TIPI_DB = [
+  ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
+  ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["esistenza", "Giacenza iniziale", null]
+];
+async function elencoTuttiMovimentiDb(db, sedeId) {
+  const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>
+    elencoMovimentiDb(db, tipo, sedeId, pagina || "").then(righe => righe.map(r => ({ ...r, tipo: nome, url: pagina ? r.url : null })))));
+  const arrivi = (await elencoMovimentiDb(db, "trasferimento_a_filiale", sedeId, "trasferimento.html", { inArrivo: true }))
+    .map(r => ({ ...r, tipo: "Trasferimento da Filiale", chiave: "arr-" + r.id }));
+  return gruppi.flat().concat(arrivi).sort((a, b) => (b.data || "").localeCompare(a.data || "") || b.id - a.id);
+}
+
 // Trasferimento arrivato ma non ancora confermato da chi riceve (ricevuto_il manca solo se la colonna esiste)
 const daRicevere = m => "ricevuto_il" in m && !m.ricevuto_il;
 

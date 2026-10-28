@@ -37,7 +37,7 @@ const TIPI_MOVIMENTO = {
   "Reso da Cliente": "E", "Aumento Giacenza": "E", "Altro Carico": "E",
   "Vendite Giornaliere": "U", "Scarico a Cliente": "U", "Ordine da Cliente": "U",
   "Reso a Fornitore": "U", "Trasferimento a Filiale": "U", "Preventivo": "U",
-  "Diminuzione Giacenza": "U", "Altro Scarico": "U", "Riallineamento": "R"
+  "Diminuzione Giacenza": "U", "Altro Scarico": "U", "Riallineamento": "R", "Giacenza iniziale": "E"
 };
 
 const dataIt = iso => iso ? iso.split("-").reverse().join("/") : "";
@@ -305,7 +305,7 @@ function avviaElenco(cfg) {
 
     $("righe").innerHTML = righe.length ? righe.slice((pagina - 1) * per, pagina * per).map(r => {
       const st = statoDi(r.stato);
-      return `<tr class="${cfg.statiBarrati.includes(r.stato) ? "barrato" : ""}${cfg.dettaglio ? " cliccabile" : ""}" data-id="${r.chiave || r.id}">
+      return `<tr class="${cfg.statiBarrati.includes(r.stato) ? "barrato" : ""}${cfg.dettaglio || r.url ? " cliccabile" : ""}" data-id="${r.chiave || r.id}">
         <td class="stato-bar"><span style="background:${st.colore}"></span></td>
         <td><div class="azioni">
           ${cfg.senzaModifica ? "" : `<button class="icon-btn" title="Modifica" data-az="Modifica"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>`}
@@ -389,7 +389,8 @@ function avviaElenco(cfg) {
   $("righe").onclick = e => {
     const btn = e.target.closest(".icon-btn");
     const tr = e.target.closest("tr[data-id]");
-    if (!btn) { if (tr && cfg.dettaglio) apri(tr.dataset.id); return; }
+    // senza pagina di dettaglio comune (es. Tutti i Movimenti) si apre la riga che ha il suo indirizzo (movimenti del database)
+    if (!btn) { if (tr && (cfg.dettaglio || (cfg.dati.find(x => String(x.chiave || x.id) === tr.dataset.id) || {}).url)) apri(tr.dataset.id); return; }
     e.stopPropagation();
     const id = btn.closest("tr").dataset.id;
     if (btn.dataset.az) { apri(id); return; }
