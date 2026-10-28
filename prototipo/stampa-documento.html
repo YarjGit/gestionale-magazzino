@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stampa – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Documento A4 su carta intestata (carico da fornitore e, più avanti, gli altri movimenti), come la stampa del gestionale attuale */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e6e9ef; font: 9.5pt/1.35 Inter, Arial, sans-serif; color: #1b2230; }
+  .barra { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #1f2a3d; color: #fff; }
+  .barra b { margin-right: auto; font-weight: 600; }
+  .barra button { padding: 7px 14px; border: none; border-radius: 8px; font: 600 0.9rem Inter, sans-serif; cursor: pointer; }
+  .barra .stampa { background: #2f8bff; color: #fff; }
+  .foglio { position: relative; width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 14mm 34mm; background: #fff; box-shadow: 0 4px 24px rgba(20,30,50,0.18); }
+  .testa { display: flex; justify-content: space-between; gap: 20px; }
+  .mittente div:nth-child(2) { font-weight: 700; }
+  .logo { display: flex; align-items: center; gap: 8px; color: #2f6fd6; font-size: 15pt; letter-spacing: 0.01em; }
+  .seconda { display: flex; justify-content: space-between; gap: 20px; margin-top: 8mm; }
+  .doc div:first-child { font-size: 11pt; font-weight: 700; margin-bottom: 2px; }
+  .destinatario { text-align: right; }
+  .destinatario div:first-child { font-weight: 700; }
+  table { width: 100%; margin-top: 9mm; border-collapse: collapse; }
+  th { padding: 5px 6px; border-bottom: 1.5px solid #1b2230; font-size: 8.5pt; font-weight: 700; text-align: left; }
+  td { padding: 5px 6px; border-bottom: 1px solid #dde2ea; vertical-align: top; }
+  tbody tr:nth-child(even) td { background: #f6f8fb; }
+  .num { text-align: right; white-space: nowrap; }
+  .cod { font-family: "Courier New", monospace; font-size: 8.5pt; white-space: nowrap; }
+  .totali { width: 46%; margin: 8mm 0 0 auto; }
+  .totali div { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid #dde2ea; }
+  .totali div:last-child { border-bottom: none; border-top: 1.5px solid #1b2230; font-weight: 700; font-size: 10.5pt; }
+  .piede { position: absolute; left: 14mm; right: 14mm; bottom: 10mm; padding-top: 3mm; border-top: 1px solid #c9d1dd; text-align: center; font-size: 7.5pt; color: #4a5568; }
+  .piede div:first-child { color: #2f6fd6; font-weight: 600; }
+  .vuoto { padding: 40px; text-align: center; color: #6b7280; }
+  @media print {
+    body { background: #fff; }
+    .barra { display: none; }
+    .foglio { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="barra"><b id="titoloBarra">Stampa</b><button class="stampa" id="btnStampa">🖨️ Stampa</button><button id="btnChiudi">✕ Chiudi</button></div>
+<div id="fogli"></div>
+
+<script src="js/intestazioni.js"></script>
+<script>
+  // I dati arrivano dalla scheda del movimento (sessionStorage "stampa"):
+  // { titolo, sede, info: [[etichetta, valore]], destinatario: [righe], colonne: [{ k, t, num?, cod? }], righe: [{…}], totali: [[etichetta, valore]], ritorno }
+  // ?auto=1 apre subito la finestra di stampa, come il gestionale attuale.
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const dati = (() => { try { return JSON.parse(sessionStorage.getItem("stampa") || "null"); } catch { return null; } })();
+  const $ = id => document.getElementById(id);
+  // Logo: tre archi colorati e la scritta (la carta intestata vera si potrà mettere come immagine)
+  const LOGO = `<div class="logo"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke-width="2.4" stroke-linecap="round">
+      <path d="M4 22 C12 6, 30 2, 42 8" stroke="#e4572e"/><path d="M6 26 C16 14, 30 12, 40 16" stroke="#2f6fd6"/><path d="M10 28 C18 22, 28 21, 36 23" stroke="#4caf50"/></svg>apostolato liturgico</div>`;
+
+  if (!dati) {
+    $("fogli").innerHTML = '<div class="foglio"><div class="vuoto">Niente da stampare: apri la stampa dalla scheda del movimento.</div></div>';
+  } else {
+    document.title = `${dati.titolo} – Stampa`;
+    $("titoloBarra").textContent = dati.titolo;
+    $("fogli").innerHTML = `<div class="foglio">
+      <div class="testa">
+        <div class="mittente">${intestazioneSede(dati.sede).map(r => `<div>${esc(r)}</div>`).join("")}</div>
+        ${LOGO}
+      </div>
+      <div class="seconda">
+        <div class="doc"><div>${esc(dati.titolo)}</div>${dati.info.map(([e, v]) => `<div>${esc(e)}: ${esc(v)}</div>`).join("")}</div>
+        <div class="destinatario">${(dati.destinatario || []).map(r => `<div>${esc(r)}</div>`).join("")}</div>
+      </div>
+      <table>
+        <thead><tr>${dati.colonne.map(c => `<th class="${c.num ? "num" : ""}">${esc(c.t)}</th>`).join("")}</tr></thead>
+        <tbody>${dati.righe.map(r => `<tr>${dati.colonne.map(c => `<td class="${c.num ? "num" : ""} ${c.cod ? "cod" : ""}">${esc(r[c.k])}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>
+      <div class="totali">${dati.totali.map(([e, v]) => `<div><span>${esc(e)}</span><span>${esc(v)}</span></div>`).join("")}</div>
+      <div class="piede">${PIE_DI_PAGINA.map(r => `<div>${esc(r)}</div>`).join("")}</div>
+    </div>`;
+  }
+  $("btnStampa").onclick = () => window.print();
+  $("btnChiudi").onclick = () => dati && dati.ritorno ? location.href = dati.ritorno : history.back();
+  if (dati && new URLSearchParams(location.search).has("auto")) setTimeout(() => window.print(), 400);
+</script>
+</body>
+</html>

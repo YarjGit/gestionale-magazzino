@@ -21,8 +21,8 @@
   <div class="dd" id="ddStampa" style="position:relative">
     <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
     <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
+      <button data-az="Carico">Carico da fornitore (carta intestata)</button>
       <button data-az="Proforma su carta intestata">Proforma su carta intestata</button>
-      <button data-az="Documento di carico">Documento di carico</button>
       <button data-az="Elenco articoli">Elenco articoli</button>
     </div>
   </div>
@@ -575,9 +575,51 @@
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
     const b = e.target.closest("button");
-    if (b) avviso(`${b.dataset.az}: da definire insieme`);
+    if (b) b.dataset.az === "Carico" ? stampaCarico() : avviso(`${b.dataset.az}: da definire insieme`);
     $("menuStampa").classList.remove("show");
   };
+
+  // ---------- Stampa del carico su carta intestata (stampa-documento.html), come quella del gestionale attuale ----------
+  // Importo di riga IVA inclusa; in alto a destra il fornitore con indirizzo e telefono (database/19-indirizzi-fornitori.sql)
+  async function stampaCarico() {
+    const righe = RIGHE.filter(r => r.qta > 0);
+    if (!righe.length) { avviso("Non ci sono articoli arrivati da stampare"); return; }
+    const db = await dbPronto;
+    const fornId = $("selFornitore").value;
+    let forn = null, unita = new Map();
+    if (db) {
+      if (/^[0-9a-f-]{36}$/i.test(fornId)) forn = (await db.from("fornitori").select("*").eq("id", fornId).maybeSingle()).data;
+      const ids = righe.map(r => r.articolo.id).filter(Boolean);
+      if (ids.length) {
+        const { data } = await db.from("articoli").select("id, unita_misura").in("id", ids);
+        (data || []).forEach(a => unita.set(a.id, a.unita_misura));
+      }
+    }
+    const nomeForn = forn ? forn.ragione_sociale : (FORN.find(f => String(f.id) === fornId) || {}).nome || fornitore;
+    const quantita = r => {
+      const q = (+r.qta).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+      return unita.get(r.articolo.id) === "Metri" ? q + " mt" : q;
+    };
+    const importo = r => Math.round(r.qta * r.prezzo * (1 - (r.sconto || 0) / 100) * (1 + r.articolo.iva / 100) * 100) / 100;
+    const totArt = Math.round(righe.reduce((s, r) => s + importo(r), 0) * 100) / 100;
+    const spese = Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100;
+    const dataDoc = $("fDataDoc").value || $("fDataCarico").value;
+    const dati = {
+      titolo: "Carico da Fornitore", sede: sedeLavoro,
+      info: [["Data", dataIt(dataDoc)], ["Anno", ($("fDataCarico").value || car.data).slice(0, 4)]]
+        .concat($("fNumBolla").value ? [["N. Bolla", $("fNumBolla").value]] : [], $("fDataBolla").value ? [["Data Bolla", dataIt($("fDataBolla").value)]] : []),
+      destinatario: [nomeForn].concat(forn ? [forn.indirizzo, [forn.cap, forn.citta, forn.provincia ? `(${forn.provincia})` : ""].filter(Boolean).join(" "),
+        forn.telefono ? "Telefono: " + forn.telefono : ""].filter(Boolean) : []),
+      colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
+        { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
+      righe: righe.map((r, i) => ({ n: i + 1, cod: r.cod, descr: r.descr, qta: quantita(r), prezzo: numero(r.prezzo),
+        sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: r.articolo.iva + "%", importo: numero(importo(r)) })),
+      totali: [["Totale Articoli", numero(totArt)]].concat(spese ? [["+ Spese", numero(spese)]] : [], [["= Totale Complessivo", numero(totArt + spese)]]),
+      ritorno: location.pathname.split("/").pop() + location.search
+    };
+    sessionStorage.setItem("stampa", JSON.stringify(dati));
+    location.href = "stampa-documento.html?auto=1";
+  }
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // ---------- Modifica / nuovo: sblocca i campi; Salva e Annulla tornano in sola lettura ----------
