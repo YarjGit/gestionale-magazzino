@@ -47,7 +47,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   chi riceve lo trova "Da ricevere" in Trasferimenti da Filiali e in Dashboard, lo apre (`trasferimento.html?db=N`), stampa le etichette e preme
   "Conferma ricevuto" (`ricevuto_il`, `ricevuto_da`): solo allora la merce entra nella sua giacenza. Dopo la ricezione chi manda non può più annullare.
 - `inevasi.html`: elenco degli ordini con inevasi (tasto INEVASI in Trasferimenti a Filiali e in Dashboard) → `?filiale=…&ordine=N` inevasi della filiale divisi per data dell'ordine, da spuntare per preparare il trasferimento.
-- Sede **CAL Roma per Estero** (nel vecchio "Apostolato Liturgico Roma per Estero", `database/20-sede-roma-per-estero.sql`): carichi e ordini per le sedi estere, nella causale il paese di spedizione (stampato nelle Note). Carichi con IVA 22% come le altre: non è in `SEDI_ESTERE`.
+- Sede **CAL Roma per Estero** (nel vecchio "Apostolato Liturgico Roma per Estero", `database/20-sede-roma-per-estero.sql`): carichi e ordini per le sedi estere, nella causale il paese di spedizione (stampato nelle Note). Carichi con IVA 22% come le altre: non è in `SEDI_ESTERE`. Alle sedi estere si passa la merce al costo + IVA, senza ricarico; il compenso per il servizio non è in bolla.
 - `aumento.html` (elenco `aumento-giacenza.html`): merce che entra senza fornitore. Motivo a riquadri (Inventario, Da altri centri o sedi chiuse,
   Donazione, Altro), **anno di acquisto scelto a mano** (anche passato: si stampa sulle etichette), prezzi di acquisto, quantità in "Arrivata".
   Colonne `motivo` e `anno_acquisto` in `database/16-aumento-giacenza.sql`.

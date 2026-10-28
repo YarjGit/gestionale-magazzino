@@ -68,6 +68,7 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
   (il prezzo in etichetta non cambia). Il "Vangelo medio piatto argento/pelle Prima Comunione" (Q11785/44) va cancellato: `database/11-cancella-vangelo-argento.sql`.
   "Vestire è servire" (Q11/05) è un libro: va a 0% con `database/10-libro-vestire-e-servire.sql`. Da decidere: Q08 Calendario liturgico (oggi 0%).
 - Le **sedi estere** sono a **0%** (IVA non applicata). Da sapere: quali sono le sedi estere? (nel prototipo l'elenco `SEDI_ESTERE` in `js/sedi.js` è vuoto).
+- **Roma per Estero** (deciso il 28/10/2026): alle sedi estere la merce si passa **al prezzo a cui la paghiamo noi** (costo + IVA 22%, come nella bolla di carico), **senza ricarico**. Il piccolo compenso per il servizio non è in bolla: resta fuori dal gestionale.
 
 **Carico da fornitore** (salvataggio vero dal 22/10/2026)
 - Scelto il fornitore, nella scheda Articoli si cercano **solo i suoi articoli** (interruttore "anche di altri fornitori" per le eccezioni). Lo stesso nell'ordine a fornitore.
