@@ -32,6 +32,7 @@
   <div class="dd" id="ddStampa" style="position:relative">
     <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
     <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
+      <button data-az="Ordine">Ordine a fornitore (carta intestata)</button>
       <button data-az="Ordine da inviare al fornitore">Ordine da inviare al fornitore</button>
       <button data-az="Ordine su carta intestata">Ordine su carta intestata</button>
       <button data-az="Elenco articoli">Elenco articoli</button>
@@ -73,6 +74,7 @@
   const ord = nuovo ? null : dbId ? movDb && {
       id: movDb.id, dbId: movDb.id, stato: movDb.stato, data: movDb.data_movimento, prot: movDb.protocollo || "",
       causale: movDb.causale || "", annotazioni: movDb.annotazioni || "", porto: movDb.porto, condPag: movDb.condizione_pagamento,
+      numBolla: movDb.numero_documento || "", dataBolla: movDb.data_bolla || "",
       spese: +movDb.spese, creatoDa: movDb.creato_da, creatoIl: movDb.creato_il
     }
     : ORDINI.find(o => o.id === +qs.get("id"));
@@ -141,8 +143,8 @@
                 ${campo("s2", "Aliquota IVA", `<select class="mod">${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
                 ${campo("s2", "Data ordine", `<input class="mod" id="fData" type="date" value="${ord ? ord.data : oggi}">`)}
                 ${campo("s2", "Progressivo", `<input disabled value="${ord && ord.prot ? ord.prot : ""}" placeholder="assegnato al salvataggio">`)}
-                ${campo("s2", "Data bolla", `<input class="mod" type="date">`)}
-                ${campo("s2", "Numero bolla", `<input class="mod">`)}
+                ${campo("s2", "Data bolla", `<input class="mod" id="fDataBolla" type="date" value="${ord && ord.dataBolla || ""}">`)}
+                ${campo("s2", "Numero bolla", `<input class="mod" id="fNumBolla" value="${esc(ord && ord.numBolla || "")}">`)}
                 ${campo("s1", "Porto", `<select class="mod" id="fPorto">${opz(["Franco", "Assegnato"], (ord && ord.porto) || "Franco")}</select>`)}
                 ${campo("s1", "Anno", `<input value="${(ord ? ord.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
                 ${campo("s4", "Riferimento fattura", `<input class="mod">`)}
@@ -459,6 +461,7 @@
       tipo: "ordine_fornitore", stato: $("selStato").value, sede_id: ID_SEDI_DB[sedeLavoro], fornitore_id: fornitore.id,
       data_movimento: $("fData").value || oggi, data_documento: $("fData").value || oggi,
       causale: testo("fCausale"), annotazioni: testo("fAnnot"), porto: $("fPorto").value, condizione_pagamento: $("fCondPag").value || null,
+      numero_documento: testo("fNumBolla"), data_bolla: $("fDataBolla").value || null,
       spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
     };
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
@@ -483,9 +486,46 @@
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
     const b = e.target.closest("button");
-    if (b) avviso(`${b.dataset.az}: da definire insieme`);
+    if (b) b.dataset.az === "Ordine" ? stampaOrdine() : avviso(`${b.dataset.az}: da definire insieme`);
     $("menuStampa").classList.remove("show");
   };
+
+  // ---------- Stampa dell'ordine su carta intestata (stampa-documento.html), come quella del gestionale attuale ----------
+  // Importo di riga IVA inclusa; in alto a destra il fornitore con indirizzo e telefono (database/19-indirizzi-fornitori.sql)
+  async function stampaOrdine() {
+    const lista = righe.RIGHE.filter(r => r.articolo && r.qta > 0);
+    if (!lista.length) { avviso("Non ci sono articoli da stampare"); return; }
+    if (!fornitore) { avviso("Scegli prima il fornitore"); return; }
+    const db = await dbPronto;
+    let forn = null;
+    const unita = new Map();
+    if (db) {
+      if (/^[0-9a-f-]{36}$/i.test(fornitore.id)) forn = (await db.from("fornitori").select("*").eq("id", fornitore.id).maybeSingle()).data;
+      const ids = lista.map(r => r.articolo.id).filter(Boolean);
+      if (ids.length) ((await db.from("articoli").select("id, unita_misura").in("id", ids)).data || []).forEach(a => unita.set(a.id, a.unita_misura));
+    }
+    const data = $("fData").value || oggi, anno = data.slice(0, 4);
+    const pezzi = r => (+r.qta).toLocaleString("it-IT", { maximumFractionDigits: 2 }) + (unita.get(r.articolo.id) === "Metri" ? " mt" : "");
+    const totArt = Math.round(lista.reduce((s, r) => s + r.tot, 0) * 100) / 100;
+    const spese = Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100;
+    // Numero come nel gestionale attuale: progressivo/anno (senza progressivo, l'id dell'ordine)
+    const numeroOrd = ord && ord.prot ? (/^\d{4}-0*(\d+)$/.test(ord.prot) ? ord.prot.replace(/^(\d{4})-0*(\d+)$/, "$2/$1") : ord.prot) : ord ? `${ord.id}/${anno}` : "";
+    const dati = {
+      titolo: "Ordine a Fornitore", sede: sedeLavoro,
+      info: [["Data", dataIt(data)]].concat(numeroOrd ? [["Numero", numeroOrd]] : [], $("fNumBolla").value ? [["N. Bolla", $("fNumBolla").value]] : [],
+        $("fDataBolla").value ? [["Data Bolla", dataIt($("fDataBolla").value)]] : []),
+      destinatario: [forn ? forn.ragione_sociale : fornitore.nome].concat(forn ? [forn.indirizzo, [forn.cap, forn.citta, forn.provincia ? `(${forn.provincia})` : ""].filter(Boolean).join(" "),
+        forn.telefono ? "Telefono: " + forn.telefono : ""].filter(Boolean) : []),
+      colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
+        { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
+      righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: pezzi(r), prezzo: numero(r.prezzo),
+        sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: percIva(r.iva) + "%", importo: numero(r.tot) })),
+      totali: [["Totale Articoli", numero(totArt)]].concat(spese ? [["+ Spese", numero(spese)]] : [], [["= Totale Complessivo", numero(totArt + spese)]]),
+      ritorno: location.pathname.split("/").pop() + location.search
+    };
+    sessionStorage.setItem("stampa", JSON.stringify(dati));
+    location.href = "stampa-documento.html?auto=1";
+  }
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // Ordine esistente: fornitore e righe di esempio (articoli veri dell'anagrafica, totale che torna al centesimo).
