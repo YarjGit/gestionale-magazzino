@@ -600,7 +600,8 @@
       const q = (+r.qta).toLocaleString("it-IT", { maximumFractionDigits: 2 });
       return unita.get(r.articolo.id) === "Metri" ? q + " mt" : q;
     };
-    const importo = r => Math.round(r.qta * r.prezzo * (1 - (r.sconto || 0) / 100) * (1 + r.articolo.iva / 100) * 100) / 100;
+    // Importo di riga arrotondato ai 5 centesimi (es. 165,01 → 165,00), come deciso con l'utente; i totali sommano gli importi arrotondati
+    const importo = r => Math.round(r.qta * r.prezzo * (1 - (r.sconto || 0) / 100) * (1 + r.articolo.iva / 100) * 20 + 1e-6) / 20;
     const totArt = Math.round(righe.reduce((s, r) => s + importo(r), 0) * 100) / 100;
     const spese = Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100;
     const dataDoc = $("fDataDoc").value || $("fDataCarico").value;

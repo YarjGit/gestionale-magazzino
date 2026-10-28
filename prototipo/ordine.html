@@ -506,7 +506,9 @@
     }
     const data = $("fData").value || oggi, anno = data.slice(0, 4);
     const pezzi = r => (+r.qta).toLocaleString("it-IT", { maximumFractionDigits: 2 }) + (unita.get(r.articolo.id) === "Metri" ? " mt" : "");
-    const totArt = Math.round(lista.reduce((s, r) => s + r.tot, 0) * 100) / 100;
+    // Importo di riga arrotondato ai 5 centesimi (es. 165,01 → 165,00); i totali sommano gli importi arrotondati
+    const importo = r => Math.round(r.tot * 20 + 1e-6) / 20;
+    const totArt = Math.round(lista.reduce((s, r) => s + importo(r), 0) * 100) / 100;
     const spese = Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100;
     // Numero come nel gestionale attuale: progressivo/anno (senza progressivo, l'id dell'ordine)
     const numeroOrd = ord && ord.prot ? (/^\d{4}-0*(\d+)$/.test(ord.prot) ? ord.prot.replace(/^(\d{4})-0*(\d+)$/, "$2/$1") : ord.prot) : ord ? `${ord.id}/${anno}` : "";
@@ -519,7 +521,7 @@
       colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
         { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
       righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: pezzi(r), prezzo: numero(r.prezzo),
-        sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: percIva(r.iva) + "%", importo: numero(r.tot) })),
+        sconto: r.sconto ? (+r.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 }) : "", iva: percIva(r.iva) + "%", importo: numero(importo(r)) })),
       totali: [["Totale Articoli", numero(totArt)]].concat(spese ? [["+ Spese", numero(spese)]] : [], [["= Totale Complessivo", numero(totArt + spese)]]),
       ritorno: location.pathname.split("/").pop() + location.search
     };
