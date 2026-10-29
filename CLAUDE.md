@@ -37,6 +37,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 ## Schede movimento
 - Righe articolo comuni a tutte le schede (＋, cestino, frecce, − / +, IVA per riga, pistola): `js/righe-movimento.js`.
   Schede: `carico.html`, `ordine.html` (fornitore obbligatorio, articoli del fornitore), `vendita.html` (quantità solo in Spedita, prezzi IVA inclusa).
+- **Ordini → carichi**: in Carichi da Fornitori il riquadro "Ordini a fornitori da caricare" (ordini aperti, esclusi quelli a una sede) apre `carico.html?nuovo=1&ordine=N`:
+  fornitore e ordine già collegati, Spedita = quanto manca, poi − / +, sconto per riga e ✕. "Nuovo carico" resta per i carichi senza ordine.
 - `trasferimento.html?nuovo=1&ordine=N` (dalla Dashboard del Magazzino Centrale o dal riquadro in Trasferimenti a Filiali): sopra gli articoli disponibili dell'ordine,
   sotto, separati, i nuovi inevasi e quelli accumulati dagli ordini precedenti della stessa filiale (si spuntano per mandarli); tasto "Stampa nota" (nota di preparazione).
   Prezzo tra filiali = **prezzo d'acquisto** (costo); un eventuale ricarico si deciderà più avanti.

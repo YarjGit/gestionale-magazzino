@@ -58,6 +58,8 @@
   const nuovo = qs.has("nuovo");
   const id = +qs.get("id");
   const dbId = +qs.get("db");
+  // ?nuovo=1&ordine=N: carico nuovo già riempito con gli articoli dell'ordine N (dal riquadro in Carichi da Fornitori)
+  const daOrdine = nuovo ? +qs.get("ordine") : 0;
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
   // Sede che prepara la merce chiesta dalle sedi estere: nella causale si scrive il paese di spedizione
@@ -335,7 +337,7 @@
         <td class="art-cella" title="Barcode ${r.barcode}"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b>${r.articolo.sconto > 0
           ? `<div style="color:var(--ko);font-size:0.78rem;font-weight:600;margin-top:2px">⚠ Sconto fornitore ${(+r.articolo.sconto).toLocaleString("it-IT", { maximumFractionDigits: 2 })}% nell'anagrafica: toglilo negli ordini successivi</div>` : ""}</td>
         <td class="num">${r.ordinata ?? '<span style="color:var(--muted)">—</span>'}</td>
-        <td class="num">${mod ? campoNum(r, "qta", r.qta) : `<span class="arrivo ${classeArrivo(r)}">${r.qta}</span>`}</td>
+        <td class="num">${mod ? `<span class="piu-meno"><button class="icon-btn" data-meno="${r.pos}" title="Un pezzo in meno">−</button>${campoNum(r, "qta", r.qta)}<button class="icon-btn" data-piu="${r.pos}" title="Un pezzo in più">+</button></span>` : `<span class="arrivo ${classeArrivo(r)}">${r.qta}</span>`}</td>
         <td class="num">${r.articolo.giac ?? "—"}</td>
         <td class="num" style="color:var(--muted)">${r.articolo.anno}</td>
         <td class="num">${campoNum(r, "etichette", r.etichette)}</td>
@@ -378,6 +380,7 @@
   // ---------- Collegamento a un ordine (solo carico nuovo) ----------
   let ordineCollegato = null;
   const ordiniCollegati = [];   // ordini veri (database) collegati a questo carico
+  let apriOrdine = null;        // per ?ordine=N: sceglie il fornitore e collega l'ordine con le quantità già riempite
   if (nuovo) {
     // Ordini aperti del fornitore scelto: quelli veri dal database (con quello che manca ancora da arrivare),
     // oppure quelli di esempio finché i fornitori veri non sono arrivati
@@ -409,14 +412,18 @@
     $("btnCollega").onclick = () => {
       const o = ordiniFornitore[+$("colOrdine").value];
       if (!o || $("colOrdine").value === "") return;
+      collegaOrdine(o, false);
+    };
+    // Collegato dalla scheda "Movimenti collegati": Spedita = 0, si riempie sparando la merce che arriva.
+    // Aperto dal riquadro dell'elenco (precompila): Spedita = quanto manca ancora, poi si corregge con − / +, sconto o ✕.
+    function collegaOrdine(o, precompila) {
       if (ordiniCollegati.includes(o) || ordineCollegato === o) { avviso(`L'ordine ${o.prot} è già collegato`); return; }
       ordineCollegato = o;
       if (o.id) ordiniCollegati.push(o);
-      // Le righe dell'ordine entrano con Spedita = 0 e Ordinata = quanto manca ancora: si riempiono sparando la merce che arriva
       o.righe.forEach(rr => {
         // l'articolo della ricerca ha anche la giacenza della sede
         const art = ARTICOLI.find(a => a.codice === rr.articolo.codice) || rr.articolo;
-        const r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: rr.residuo, qta: 0,
+        const r = { pos: RIGHE.reduce((m, x) => Math.max(m, x.pos), 0) + 1, cod: art.codice, descr: art.descr, ordinata: rr.residuo, qta: precompila ? rr.residuo : 0,
           prezzo: rr.prezzo ?? art.costo, sconto: 0, barcode: art.barcode, articolo: art, ordineRigaId: rr.rigaId ?? null };
         aggiornaRiga(r);
         RIGHE.push(r); selezionati.add(r.pos);
@@ -426,9 +433,21 @@
         <span class="pill" style="background:#ddf5e8;color:var(--ok)">✔ Collegato</span></div>`);
       document.querySelector('.scheda-tab[data-t="collegati"] .n').textContent = $("ordiniCollegati").children.length;
       ricalcola(); disegnaArticoli();
-      avviso(`Ordine ${o.prot} collegato: spara la merce arrivata nella scheda Articoli`);
+      avviso(precompila ? `Carico riempito con l'ordine ${o.prot}: correggi quantità e sconti, togli quello che non è arrivato`
+        : `Ordine ${o.prot} collegato: spara la merce arrivata nella scheda Articoli`);
       document.querySelector('.scheda-tab[data-t="articoli"]').click();
       $("addArt").focus();
+    }
+    apriOrdine = async ordineId => {
+      const db = await dbPronto;
+      const { data, error } = await db.from("movimenti").select("fornitore_id").eq("id", ordineId).maybeSingle();
+      if (error || !data) { avviso(`Ordine #${ordineId} non trovato`); return; }
+      await sincronizzaFornitore(data.fornitore_id);
+      const o = ordiniFornitore.find(x => x.id === ordineId);
+      if (!o) { avviso(`L'ordine #${ordineId} è già arrivato tutto: non c'è più niente da caricare`); return; }
+      $("colOrdine").value = ordiniFornitore.indexOf(o);
+      collegaOrdine(o, true);
+      $("bannerModifica").textContent = `✎ Carico dall'ordine ${o.prot} del ${dataIt(o.data)}: le quantità sono quelle ancora da arrivare. Correggile con − / +, metti lo sconto riga per riga o togli con ✕ quello che non è arrivato, poi salva.`;
     };
     $("btnSalta").onclick = () => { document.querySelector('.scheda-tab[data-t="articoli"]').click(); $("addArt").focus(); };
   }
@@ -462,6 +481,14 @@
       r.prezzo = costo; r.articolo.costo = costo;
       aggiornaRiga(r); ricalcola(); disegnaArticoli();
       avviso(prima === costo ? `${r.cod}: il costo è già quello dell'anagrafica (${numero(costo)})` : `${r.cod}: costo aggiornato dall'anagrafica, ${numero(prima)} → ${numero(costo)}`);
+      return;
+    }
+    // − / + accanto alla quantità arrivata
+    const pm = e.target.closest("[data-piu], [data-meno]");
+    if (pm) {
+      const r = RIGHE.find(x => x.pos === +(pm.dataset.piu || pm.dataset.meno));
+      r.qta = Math.max(0, r.qta + (pm.dataset.piu ? 1 : -1));
+      aggiornaRiga(r); ricalcola(); disegnaArticoli();
       return;
     }
     const b = e.target.closest("[data-togli]");
@@ -724,6 +751,7 @@
       ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
       aggiornaCampiForn();
     }
+    if (daOrdine && apriOrdine) await apriOrdine(daOrdine);
   }).catch(err => avviso("Errore nel leggere articoli e fornitori: " + err.message));
 </script>
 </body>

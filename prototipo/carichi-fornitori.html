@@ -8,6 +8,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/elenco.css">
+<style>
+  /* Ordini a fornitori ancora aperti: arrivano qui da soli, si aprono per fare il carico già riempito */
+  .ordini-da-caricare { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #b9d3ff; border-left: 5px solid var(--accent); border-radius: 12px; background: #f3f8ff; }
+  .ordini-da-caricare summary { cursor: pointer; font-weight: 700; list-style: none; }
+  .ordini-da-caricare summary::-webkit-details-marker { display: none; }
+  .ordini-da-caricare summary small { margin-left: 8px; color: var(--muted); font-weight: 500; }
+  .ordini-da-caricare .lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; margin-top: 10px; }
+  .ordini-da-caricare a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #dfe8f5; border-radius: 9px; background: #fff; color: var(--text); text-decoration: none; }
+  .ordini-da-caricare a:hover { border-color: var(--accent); }
+  .ordini-da-caricare a .t { display: flex; flex-direction: column; min-width: 0; }
+  .ordini-da-caricare a .t b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .ordini-da-caricare a .t small { color: var(--muted); }
+  .ordini-da-caricare a .vai { margin-left: auto; padding: 4px 10px; border-radius: 7px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+</style>
 </head>
 <body data-page="carichi-fornitori" data-top="elenco">
 <main class="content"></main>
@@ -51,6 +65,19 @@
     const righe = await elencoMovimentiDb(db, "carico_fornitore", sede, "carico.html");
     righe.forEach(r => r.lab = trovaSede(leggiSede()).nome);
     if (righe.length) elenco.aggiungi(righe);
+    // Ordini a fornitori aperti (con merce ancora da arrivare): si apre il carico già riempito con gli articoli dell'ordine.
+    // "Nuovo carico" resta per i carichi senza ordine.
+    const ordini = await ordiniDaCaricareDb(db, null, sede);
+    if (ordini.length) document.querySelector(".page-head").insertAdjacentHTML("afterend", `
+      <details class="ordini-da-caricare" open>
+        <summary>🚚 Ordini a fornitori da caricare: ${ordini.length}<small>apri l'ordine quando arriva la merce</small></summary>
+        <div class="lista">${ordini.slice().reverse().map(o => {
+          const pezzi = o.righe.reduce((s, r) => s + r.residuo, 0);
+          return `<a href="carico.html?nuovo=1&ordine=${o.id}" title="Crea il carico con gli articoli di questo ordine">
+            <div class="t"><b>${esc(o.fornitore)}</b><small>Ordine ${esc(o.prot)} del ${dataIt(o.data)} · ${o.righe.length} articoli, ${pezzi.toLocaleString("it-IT")} pezzi${o.stato === "Provvisorio" ? " · provvisorio" : ""}</small></div>
+            <span class="vai">Crea carico →</span></a>`;
+        }).join("")}</div>
+      </details>`);
   }).catch(err => avviso("Errore nel leggere i carichi: " + err.message));
 </script>
 </body>

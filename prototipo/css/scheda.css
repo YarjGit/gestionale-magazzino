@@ -136,6 +136,10 @@ tfoot td { padding: 9px 7px; background: #f6f8fb; font-weight: 700; border-top: 
 .in-modifica .solo-modifica { display: table-cell; }
 .num-mod { width: 64px; padding: 3px 6px; border: 1px solid #b9cdf0; border-radius: 6px; text-align: right; font-weight: 600; }
 .num-mod.largo { width: 80px; }
+/* − quantità + nella stessa riga (carico) */
+.piu-meno { display: inline-flex; align-items: center; gap: 3px; }
+.piu-meno .icon-btn { width: 24px; height: 24px; padding: 0; font-weight: 700; }
+.piu-meno .num-mod { width: 52px; }
 tr.lampeggia { animation: lampeggia 1.2s ease-out; }
 @keyframes lampeggia { from { background: #d7f5e3; } to { background: transparent; } }
 /* Confronto arrivato / ordinato */

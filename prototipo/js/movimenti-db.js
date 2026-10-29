@@ -117,12 +117,16 @@ async function inevasiDb(db, filtro, { soloResiduo = true } = {}) {
 // Ordini aperti (Provvisori o Definitivi) della sede verso il fornitore, con quello che deve ancora arrivare.
 // Le righe dei carichi Definitivi collegate con ordine_riga_id contano come arrivate.
 // [{ id, prot, data, stato, righe: [{ rigaId, articolo, prezzo, ordinata, arrivata, residuo }] }] (solo ordini con qualcosa da arrivare)
+// fornitoreId null = ordini di tutti i fornitori (riquadro in Carichi da Fornitori), tranne quelli a una sede (arrivano come trasferimento)
 async function ordiniDaCaricareDb(db, fornitoreId, sedeId) {
-  const { data, error } = await db.from("movimenti")
-    .select(`id, protocollo, data_movimento, stato, movimenti_righe(id, quantita, prezzo, articoli(${CAMPI_ARTICOLO}))`)
-    .eq("tipo", "ordine_fornitore").eq("fornitore_id", fornitoreId).eq("sede_id", sedeId).in("stato", ["Provvisorio", "Definitivo"])
+  let q = db.from("movimenti")
+    .select(`id, protocollo, data_movimento, stato, fornitore_id, fornitori(ragione_sociale, sede_collegata), movimenti_righe(id, quantita, prezzo, articoli(${CAMPI_ARTICOLO}))`)
+    .eq("tipo", "ordine_fornitore").eq("sede_id", sedeId).in("stato", ["Provvisorio", "Definitivo"])
     .order("data_movimento", { ascending: true });
+  if (fornitoreId) q = q.eq("fornitore_id", fornitoreId);
+  let { data, error } = await q;
   if (error) throw error;
+  if (!fornitoreId) data = data.filter(m => !(m.fornitori && m.fornitori.sede_collegata));
   const ids = data.flatMap(m => m.movimenti_righe.map(r => r.id));
   const arrivate = new Map();
   if (ids.length) {
@@ -133,6 +137,7 @@ async function ordiniDaCaricareDb(db, fornitoreId, sedeId) {
   }
   return data.map(m => ({
     id: m.id, prot: m.protocollo || "#" + m.id, data: m.data_movimento, stato: m.stato,
+    fornitoreId: m.fornitore_id, fornitore: m.fornitori ? m.fornitori.ragione_sociale : "",
     righe: m.movimenti_righe.sort((a, b) => a.id - b.id).map(r => {
       const arrivata = arrivate.get(r.id) || 0;
       return { rigaId: r.id, articolo: articoloDalDb(r.articoli, null), prezzo: +r.prezzo, ordinata: +r.quantita, arrivata, residuo: Math.max(0, +r.quantita - arrivata) };
