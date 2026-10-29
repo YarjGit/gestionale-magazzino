@@ -87,8 +87,41 @@
         <b>📦 Merce in arrivo da confermare: ${arrivi.length}</b>
         ${arrivi.map(a => `<a href="trasferimento.html?db=${a.id}">${esc(a.da)} · trasferimento #${a.id} del ${dataIt(a.data)} · ${a.articoli} articoli, ${a.pezzi} pezzi <span>Apri e conferma →</span></a>`).join("")}
       </div>`);
+    await ordiniAlleSedi(db, sedeId);
     await schedaInAttesa(db, sedeId);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
+
+  // ---------- Riquadro "Ordini al Magazzino": gli ordini fatti da questa sede a un'altra sede (es. SMM → Magazzino Centrale) ----------
+  // Compaiono da soli appena l'ordine è inviato (Definitivo), come gli ordini a fornitori in Carichi da Fornitori.
+  // La merce la manda l'altra sede con un trasferimento: quando è partito, il tasto diventa "Ricevi" e apre quel trasferimento.
+  async function ordiniAlleSedi(db, sedeId) {
+    const righe = await inevasiDb(db, { sede_richiedente: sedeId });
+    if (!righe.length) return;
+    const ordini = new Map();
+    righe.forEach(r => {
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo, data: r.data_ordine, stato: r.stato_ordine, sede: r.sede_fornitrice, righe: [], pezzi: 0 };
+      o.righe.push(r.ordine_riga_id); o.pezzi += r.residuo;
+      ordini.set(r.ordine_id, o);
+    });
+    // Trasferimenti già partiti per questi ordini e non ancora confermati: si riconoscono dalle righe collegate all'ordine
+    const { data: partiti } = await db.from("movimenti_righe").select("ordine_riga_id, movimenti(id, tipo, stato, ricevuto_il)")
+      .in("ordine_riga_id", righe.map(r => r.ordine_riga_id));
+    const daRicevere = new Map();
+    (partiti || []).filter(p => p.movimenti && p.movimenti.tipo === "trasferimento_a_filiale" && ["Definitivo", "Evaso"].includes(p.movimenti.stato) && !p.movimenti.ricevuto_il)
+      .forEach(p => ordini.forEach(o => { if (o.righe.includes(p.ordine_riga_id)) daRicevere.set(o.id, p.movimenti.id); }));
+    for (const o of ordini.values()) o.nomeSede = await nomeSedeDb(db, o.sede);
+    document.querySelector(".page-head").insertAdjacentHTML("afterend", `
+      <details class="ordini-da-caricare" open>
+        <summary>📦 Ordini alle sedi in attesa: ${ordini.size}<small>quando la merce parte, premi Ricevi</small></summary>
+        <div class="lista">${[...ordini.values()].reverse().map(o => {
+          const tr = daRicevere.get(o.id);
+          const nota = tr ? "merce partita, da ricevere" : o.stato === "Evaso" ? "mandato in parte, il resto è in attesa" : "ordine inviato, da preparare";
+          return `<a href="${tr ? `trasferimento.html?db=${tr}` : `ordine.html?db=${o.id}`}" title="${tr ? "Apri il trasferimento e conferma il ricevuto" : "Vedi l'ordine"}">
+            <div class="t"><b>${esc(o.nomeSede)}</b><small>Ordine ${esc(o.prot || "#" + o.id)} del ${dataIt(o.data)} · ${o.righe.length} articoli, ${(Math.round(o.pezzi * 100) / 100).toLocaleString("it-IT")} pezzi · ${nota}</small></div>
+            <span class="vai"${tr ? "" : ' style="background:#eef1f6;color:var(--text)"'}>${tr ? "Ricevi →" : "Vedi ordine →"}</span></a>`;
+        }).join("")}</div>
+      </details>`);
+  }
 
   // ---------- Scheda "⏳ In attesa": prodotti ordinati ad altre sedi e non ancora partiti (inevasi) ----------
   // Non è un filtro dei trasferimenti come le altre schede: per questo è staccata e viola, e mostra un'altra tabella.
