@@ -37,6 +37,8 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -274,7 +276,8 @@
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
-  $("btnExcel").onclick = () => righe.excel(`vendite-${ven ? ven.data : oggi}.csv`);
+  $("btnExcel").onclick = () => righe.excel({ sede: sedeLavoro, tipo: "Vendite Giornaliere", numero: ven ? ven.id : null,
+    riepilogo: [["Giorno", dataIt($("giorno").value || oggi)]], spese: [] });
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
     const b = e.target.closest("button");

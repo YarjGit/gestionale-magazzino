@@ -45,6 +45,8 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -325,7 +327,8 @@
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = ELENCO;
-  $("btnExcel").onclick = () => righe.excel(`aumento-giacenza-${mov.id || "nuovo"}.csv`);
+  $("btnExcel").onclick = () => righe.excel({ sede: sedeLavoro, tipo: "Aumento Giacenza", numero: mov.id || null,
+    riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Motivo", motivo], ["Anno di acquisto", anno()], ["Causale", $("fCausale").value]], spese: [] });
 
   // Righe già salvate (database) o di esempio
   if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo })));

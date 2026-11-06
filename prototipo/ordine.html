@@ -50,6 +50,8 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -484,7 +486,10 @@
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "ordini-fornitori.html";
   $("btnEtichette").onclick = () => avviso("Etichette dell'ordine: le definiamo insieme (di solito si stampano al carico della merce)");
-  $("btnExcel").onclick = () => righe.excel(`ordine-${ord ? ord.id : "nuovo"}.csv`);
+  // Excel come quello del gestionale attuale: Riepilogo (documento, fornitore, spese) e Dettaglio (articoli)
+  $("btnExcel").onclick = async () => righe.excel({ sede: sedeLavoro, tipo: "Ordine a Fornitore", numero: ord ? ord.id : null,
+    riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero Bolla", $("fNumBolla").value], ["Data Bolla", $("fDataBolla").value ? dataIt($("fDataBolla").value) : ""],
+      ...riepilogoFornitore(fornitore && await fornitoreDb(fornitore.id), fornitore && fornitore.nome)], spese: speseDallaPagina() });
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
     const b = e.target.closest("button");

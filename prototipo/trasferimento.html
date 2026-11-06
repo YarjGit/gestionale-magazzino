@@ -61,6 +61,7 @@
 <template id="top-actions">
   <span class="spacer"></span>
   <button class="btn btn-light" id="btnStampa" title="Stampa la nota con gli articoli da preparare, quantità e prezzi">🖨️ Stampa nota</button>
+  <button class="btn btn-light" id="btnExcel" title="Scarica gli articoli di questo trasferimento in un file Excel">📤 Excel</button>
   <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
   <button class="btn btn-light" id="btnAnnullaTr" hidden>⛔ Annulla trasferimento</button>
   <button class="btn btn-light" id="btnEtichetteTr" hidden title="Etichette degli articoli arrivati (una per pezzo)">🏷️ Stampa etichette</button>
@@ -75,6 +76,8 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -396,6 +399,17 @@
     if (error) { avviso("Errore: " + error.message); return; }
     avviso("Trasferimento annullato");
     setTimeout(() => location.reload(), 700);
+  };
+
+  // ---------- Excel del trasferimento (js/excel.js), come quello del gestionale attuale: da quale sede a quale, poi gli articoli mandati ----------
+  // Tra filiali si passa al costo, senza IVA aggiunta: il totale è quello della scheda (quantità × costo)
+  $("btnExcel").onclick = () => {
+    const righe = RIGHE.filter(r => r.manda > 0);
+    if (!righe.length) { avviso("Non ci sono articoli da mettere nel file Excel"); return; }
+    excelMovimento({ sede: sedeLavoro, tipo: ricevente ? "Trasferimento da Filiale" : "Trasferimento a Filiale", numero: salvato ? mov.id : null, ivaInclusa: true,
+      riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Stato", st.nome],
+        ["Da sede", ricevente ? nomeDest(mov.sede_id) : sedeLavoro], ["A sede", ricevente ? sedeLavoro : $("fDest").value ? nomeDest($("fDest").value) : ""], ["Causale", $("fCausale").value]],
+      righe: righe.map(r => ({ codice: r.articolo.codice, descr: r.articolo.descr, anno: r.articolo.anno, prezzo: r.prezzo, sconto: 0, qta: r.manda, iva: r.articolo.iva })) });
   };
 
   // ---------- Sede che riceve: etichette e conferma dell'arrivo ----------

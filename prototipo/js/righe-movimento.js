@@ -341,14 +341,12 @@ function avviaRighe(cfg) {
     // copia per Annulla
     fotografia: () => RIGHE.map(r => ({ ...r })),
     ripristina: copia => { RIGHE.splice(0, RIGHE.length, ...copia); totali(); disegna(); },
-    excel: nome => {
-      const csv = [["#", "Codice", "Descrizione", "Ordinata"].concat(cfg.spedita ? ["Spedita"] : [], [cfg.etichettaPrezzo, "IVA", "Sconto %", "Totale"])]
-        .concat(RIGHE.filter(r => r.articolo).map(r => [r.pos, r.articolo.codice, r.articolo.descr, r.qta].concat(cfg.spedita ? [r.sped] : [], [numero(r.prezzo), nomeIva(r.iva), r.sconto, numero(r.tot)])))
-        .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-      a.download = nome;
-      a.click();
+    // File Excel come quello del gestionale attuale (js/excel.js): d = { sede, tipo, numero, riepilogo, spese }
+    excel: d => {
+      const conArt = RIGHE.filter(r => r.articolo && pezziDi(r) > 0);
+      if (!conArt.length) { avviso("Non ci sono articoli da mettere nel file Excel"); return; }
+      excelMovimento({ ...d, ivaInclusa: !!cfg.ivaInclusa, righe: conArt.map(r => ({ codice: r.articolo.codice, descr: r.articolo.descr,
+        anno: cfg.annoGiac ? cfg.annoGiac() : r.articolo.anno, prezzo: r.prezzo, sconto: r.sconto, qta: pezziDi(r), iva: percIva(r.iva) })) });
     }
   };
 }

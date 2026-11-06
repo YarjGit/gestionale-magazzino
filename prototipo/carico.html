@@ -42,6 +42,8 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -592,14 +594,21 @@
 
   // ---------- Pulsanti in alto ----------
   $("btnChiudi").onclick = () => location.href = "carichi-fornitori.html";
-  $("btnExcel").onclick = () => {
-    const csv = [["#", "Codice", "Descrizione", "Quantità", "Prezzo", "Totale", "Barcode"]]
-      .concat(RIGHE.map(a => [a.pos, a.cod, a.descr, a.qta, numero(a.prezzo), numero(a.tot), a.barcode]))
-      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = `carico-${car.id}.csv`;
-    a.click();
+  // Excel come quello del gestionale attuale (js/excel.js): Riepilogo (documento, fornitore, spese) e Dettaglio (articoli arrivati)
+  $("btnExcel").onclick = async () => {
+    const righe = RIGHE.filter(r => r.qta > 0);
+    if (!righe.length) { avviso("Non ci sono articoli arrivati da mettere nel file Excel"); return; }
+    const fornId = $("selFornitore").value;
+    const db = await dbPronto, unita = new Map();
+    const ids = righe.map(r => r.articolo.id).filter(Boolean);
+    if (db && ids.length) ((await db.from("articoli").select("id, unita_misura").in("id", ids)).data || []).forEach(a => unita.set(a.id, a.unita_misura));
+    excelMovimento({ sede: sedeLavoro, tipo: "Carico da Fornitore", numero: car.id,
+      riepilogo: [["Data Documento", dataIt($("fDataDoc").value || $("fDataCarico").value)], ["Numero Bolla", $("fNumBolla").value],
+        ["Data Bolla", $("fDataBolla").value ? dataIt($("fDataBolla").value) : ""],
+        ...riepilogoFornitore(await fornitoreDb(fornId), (FORN.find(f => String(f.id) === fornId) || {}).nome || fornitore)],
+      spese: speseDallaPagina(),
+      righe: righe.map(r => ({ codice: r.cod, descr: r.descr, anno: ($("fDataCarico").value || car.data).slice(0, 4), prezzo: r.prezzo, sconto: r.sconto,
+        qta: r.qta, unita: unita.get(r.articolo.id) || "Numero", iva: r.articolo.iva })) });
   };
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
