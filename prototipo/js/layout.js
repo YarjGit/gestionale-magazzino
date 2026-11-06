@@ -433,3 +433,8 @@ async function apriDb() {
 // Formato euro con punto delle migliaia anche sotto i 10.000
 const euro = n => n.toLocaleString("it-IT", { style: "currency", currency: "EUR", useGrouping: "always" });
 const numero = n => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" });
+// Tasto Excel degli elenchi: carica js/excel.js solo quando serve e scarica un vero file .xlsx (righe[0] = intestazioni)
+async function esportaExcel(nome, foglio, righe) {
+  if (typeof tabellaExcel !== "function") await caricaScript("js/excel.js");
+  tabellaExcel(nome, foglio, righe);
+}

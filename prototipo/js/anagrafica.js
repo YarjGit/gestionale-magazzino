@@ -36,7 +36,7 @@ function avviaAnagrafica(cfg) {
       <div class="toolbar">
         <div class="tool-group">
           <button title="Aggiorna" id="aggiorna"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
-          <button title="Esporta in Excel (CSV)" id="esporta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 6M15 13l-6 6"/></svg></button>
+          <button title="Esporta in Excel" id="esporta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 6M15 13l-6 6"/></svg></button>
         </div>
         ${cfg.filtroDate ? `<div class="filtro-ana"><label for="fDal">Dal</label><input type="date" id="fDal"><label for="fAl">Al</label><input type="date" id="fAl"></div>` : ""}
         ${filtri.map(f => `<div class="filtro-ana"><label for="${f.id}">${f.label}</label><select id="${f.id}"><option value="">Tutti</option>${f.opzioni.map(o => `<option>${esc(o)}</option>`).join("")}</select></div>`).join("")}
@@ -165,14 +165,7 @@ function avviaAnagrafica(cfg) {
   $("btnCrea").onclick = () => avviso(`${cfg.nuovo}: scheda da costruire`);
   ["recordAttuali", "soloValidare"].forEach(id => { if ($(id)) $(id).onchange = () => avviso("Funzione da definire insieme"); });
 
-  $("esporta").onclick = () => {
-    const csv = [cfg.colonne.map(c => c.t)].concat(filtra().map(r => cfg.colonne.map(c => r[c.k] ?? "")))
-      .map(riga => riga.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = `${cfg.csv}.csv`;
-    a.click();
-  };
+  $("esporta").onclick = () => esportaExcel(cfg.csv, cfg.titolo, [cfg.colonne.map(c => c.t)].concat(filtra().map(r => cfg.colonne.map(c => r[c.k] ?? ""))));
 
   let rigaMenu = null;
   $("righe").onclick = e => {

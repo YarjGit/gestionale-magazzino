@@ -41,10 +41,10 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: CARICHI
+    dati: []
   });
 
-  // Dopo l'accesso: i carichi salvati nel database della sede di lavoro, in cima a quelli di esempio
+  // Dopo l'accesso: i carichi salvati nel database della sede di lavoro
   dbPronto.then(async db => {
     if (!db) return;
     const sede = ID_SEDI_DB[trovaSede(leggiSede()).nome];

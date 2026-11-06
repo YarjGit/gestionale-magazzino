@@ -40,10 +40,10 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: ORDINI
+    dati: []
   });
 
-  // Dopo l'accesso: gli ordini salvati nel database della sede di lavoro, in cima a quelli di esempio
+  // Dopo l'accesso: gli ordini salvati nel database della sede di lavoro
   dbPronto.then(async db => {
     if (!db) return;
     const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];

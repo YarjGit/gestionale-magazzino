@@ -39,10 +39,10 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: DATI_AUMENTI
+    dati: []
   });
 
-  // Dopo l'accesso: gli aumenti salvati nel database, in cima a quelli di esempio
+  // Dopo l'accesso: gli aumenti salvati nel database
   dbPronto.then(async db => {
     if (!db) return;
     const righe = await elencoMovimentiDb(db, "aumento_giacenza", ID_SEDI_DB[trovaSede(leggiSede()).nome], "aumento.html");

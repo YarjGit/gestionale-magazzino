@@ -41,7 +41,7 @@ function cartellaExcel(fogli) {
       const rif = lettera(ci) + (ri + 1);
       const grigia = (f.intestazione === "riga" && ri === 0) || (f.intestazione === "colonna" && ci === 0);
       if (grigia) return `<c r="${rif}" s="2" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
-      if (typeof v === "number" && isFinite(v)) return `<c r="${rif}" s="${(f.formati || [])[ci] === "intero" ? 3 : 1}"><v>${v}</v></c>`;
+      if (typeof v === "number" && isFinite(v)) return `<c r="${rif}" s="${(f.formati || [])[ci] === "intero" || (!f.formati && Number.isInteger(v)) ? 3 : 1}"><v>${v}</v></c>`;
       return `<c r="${rif}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
     }).join("")}</row>`).join("");
     const blocca = f.intestazione === "riga" ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' : "";
@@ -110,4 +110,13 @@ const speseDallaPagina = () => [...document.querySelectorAll(".spesa")].map(i =>
 async function fornitoreDb(id) {
   const db = /^[0-9a-f-]{36}$/i.test(id || "") ? await dbPronto : null;
   return db ? (await db.from("fornitori").select("*").eq("id", id).maybeSingle()).data : null;
+}
+
+// Elenchi (Carichi da Fornitori, Articoli, Giacenze…): una tabella in un foglio, prima riga = intestazioni.
+// I numeri scritti all'italiana ("1.234,56") diventano numeri veri; codici e barcode restano testo.
+function tabellaExcel(nome, foglio, righe) {
+  const numIt = v => typeof v === "string" && /^-?\d{1,3}(\.\d{3})*,\d+$/.test(v.trim()) ? +v.trim().replace(/\./g, "").replace(",", ".") : v;
+  const dati = righe.map((r, i) => i ? r.map(numIt) : r);
+  const larghezze = dati[0].map((_, c) => Math.min(60, Math.max(8, ...dati.slice(0, 200).map(r => String(r[c] ?? "").length + 2))));
+  scaricaFile(nome.replace(/\.(csv|xlsx)$/i, "") + ".xlsx", cartellaExcel([{ nome: foglio, intestazione: "riga", larghezze, righe: dati }]));
 }

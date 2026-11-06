@@ -165,7 +165,7 @@ function avviaElenco(cfg) {
       <div class="toolbar">
         <div class="tool-group">
           <button title="Aggiorna" id="aggiorna"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
-          <button title="Esporta in Excel (CSV)" id="esporta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 6M15 13l-6 6"/></svg></button>
+          <button title="Esporta in Excel" id="esporta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 6M15 13l-6 6"/></svg></button>
         </div>
         <div class="colonne-wrap" id="colonneWrap">
           <button class="btn btn-light" id="colonneBtn">
@@ -316,7 +316,7 @@ function avviaElenco(cfg) {
     }).join("") : `<tr><td colspan="${2 + visibili.size}"><div class="vuoto">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5v11H3z"/><path d="M9 20v-6h6v6"/></svg>
         <b>${cfg.dati.length ? "Nessun movimento con questi filtri" : `Ancora nessun movimento in ${cfg.titolo}`}</b>
-        <span>${cfg.dati.length ? "Prova a cambiare o azzerare i filtri." : `Usa "${cfg.nuovo}" in alto per registrare il primo.`}</span>
+        <span>${cfg.dati.length ? "Prova a cambiare o azzerare i filtri." : cfg.nuovo ? `Usa "${cfg.nuovo}" in alto per registrare il primo.` : "I movimenti compariranno qui da soli."}</span>
       </div></td></tr>`;
 
     $("righe").querySelectorAll("td:not(:nth-child(-n+2))").forEach(td => evidenzia(td, paroleCerca()));
@@ -357,16 +357,8 @@ function avviaElenco(cfg) {
   $("succ").onclick = () => { pagina++; disegna(); };
   $("aggiorna").onclick = () => { disegna(); avviso("Elenco aggiornato"); };
 
-  // Esporta le righe filtrate in CSV (si apre con Excel)
-  $("esporta").onclick = () => {
-    const testa = COLONNE.flatMap(c => c.csvT);
-    const csv = [testa].concat(filtra().map(r => COLONNE.flatMap(c => c.csv(r))))
-      .map(riga => riga.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = `${cfg.csv}.csv`;
-    a.click();
-  };
+  // Esporta le righe filtrate in un file Excel (.xlsx)
+  $("esporta").onclick = () => esportaExcel(cfg.csv, cfg.titolo, [COLONNE.flatMap(c => c.csvT)].concat(filtra().map(r => COLONNE.flatMap(c => c.csv(r)))));
 
   // Scelta colonne
   $("colonneMenu").innerHTML = COLONNE.map(c => `<label><input type="checkbox" data-k="${c.k}" checked> ${c.t}</label>`).join("");

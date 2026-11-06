@@ -46,16 +46,10 @@
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
-    dati: [
-      { id: 8811, prot: "2026-000245", stato: "Provvisorio", data: "2026-10-20", cp: sede("CAL Bari"), causale: "Riassortimento Natale", tot: 1240.5, nArt: 48, ricevuti: 0, lab: "Laboratori Sede Centrale" },
-      { id: 8805, prot: "2026-000243", stato: "Definitivo", data: "2026-10-16", cp: sede("CAL Milano"), causale: "", tot: 860.2, nArt: 31, ricevuti: 31, lab: "Laboratori Sede Centrale" },
-      { id: 8793, prot: "2026-000240", stato: "Definitivo", data: "2026-10-14", cp: sede("CAL Palermo"), causale: "", tot: 395.89, nArt: 13, ricevuti: 9, lab: "Laboratori Sede Centrale" },
-      { id: 8761, prot: "2026-000236", stato: "Definitivo", data: "2026-10-08", cp: sede("CAL Firenze"), causale: "", tot: 2105, nArt: 72, ricevuti: 72, lab: "Laboratorio Confezione Sede Centrale" },
-      { id: 8740, stato: "Annullato", data: "2026-10-03", cp: sede("CAL Cagliari"), causale: "", tot: 0, nArt: 0, ricevuti: 0, lab: "Laboratori Sede Centrale" }
-    ]
+    dati: []
   });
 
-  // Dopo l'accesso: i trasferimenti salvati nel database fatti da questa sede, in cima a quelli di esempio
+  // Dopo l'accesso: i trasferimenti salvati nel database fatti da questa sede
   dbPronto.then(async db => {
     if (!db) return;
     const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];

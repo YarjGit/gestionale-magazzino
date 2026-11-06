@@ -62,7 +62,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 ## Struttura
 - `prototipo/` – il prototipo HTML/CSS/JS, senza build. Si apre con `Avvia prototipo.bat` (server PowerShell su http://localhost:8080).
   - `js/layout.js` menu laterale, barra in alto, scelta sede; `js/elenco.js` modello comune delle pagine elenco movimenti; `js/anagrafica.js` modello delle tabelle di Configurazione/Setup.
-  - `js/dati-*.js` dati di esempio; `carico.html` scheda carico (vedi `?id=8815`, nuovo `?nuovo=1`); `etichette.html` stampa etichette.
+  - `js/dati-*.js` dati di esempio (anagrafiche finché non arriva il database). **Niente movimenti di esempio** negli elenchi e in Dashboard (chiesto dall’utente il 06/11/2026): solo quelli veri del database.
+  - `carico.html` scheda carico (nuovo `?nuovo=1`, salvato `?db=N`); `etichette.html` stampa etichette. Tutti i tasti Excel scaricano .xlsx (`js/excel.js`, `esportaExcel` in `layout.js`), mai CSV.
 - `riferimenti/` – screenshot del gestionale attuale: contengono dati reali, **non pubblicarli** (esclusi da `.gitignore`, esistono solo sul PC di lavoro).
 - Online (GitHub Pages, pubblico, dalla radice del ramo `main`): https://yarjgit.github.io/gestionale-magazzino/ → `index.html` rimanda a `prototipo/login.html`.
 
