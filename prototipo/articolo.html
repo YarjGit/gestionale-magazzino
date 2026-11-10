@@ -279,10 +279,11 @@
     </section>`;
   }
   // Disegna la scheda e la fa funzionare: si richiama quando arriva l'articolo vero dal database
+  let campiForn = [];
   function avvia() {
   disegnaPagina();
   // Fornitori: si cercano scrivendo nome o codice (js/cerca-fornitore.js)
-  const campiForn = ["forn1", "forn2"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
+  campiForn = ["forn1", "forn2"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
 
   // ---------- Schede ----------
   $("schede").onclick = e => {
@@ -473,6 +474,17 @@
   if (nuovo) $("codice").focus();
   }
   avvia();
+
+  // ---------- Articolo nuovo: i fornitori veri del database (tutti, es. Felisi), al posto di quelli di esempio ----------
+  // Si aggiornano solo le due tendine, così non si perde quello che si sta già scrivendo nella scheda
+  dbPronto.then(async db => {
+    if (!db || !nuovo) return;
+    const { data: forn, error } = await db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale");
+    if (error) throw error;
+    FORN = forn.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+    ["forn1", "forn2"].forEach(id => { const s = $(id); if (s) { const v = s.value; s.innerHTML = opzFornitori(FORN.some(f => String(f.id) === v) ? v : ""); } });
+    campiForn.forEach(c => c.aggiorna());
+  }).catch(err => avviso("Errore nel leggere i fornitori: " + err.message));
 
   // ---------- Articolo vero dal database ----------
   dbPronto.then(async db => {
