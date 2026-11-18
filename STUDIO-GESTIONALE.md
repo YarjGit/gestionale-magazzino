@@ -89,3 +89,16 @@ Totale movimento. 30 tipi (es. 031 Carico da fornitore CAR, 032 Carico da lab. i
 ## Elenco articoli
 Colonne: Codice, Descrizione, Provenienza, Giacenza, Costo/Prezzo, Barcode, Aliquota IVA.
 Filtri: Fornitore, Da codice, A codice, Provenienza, Codice, Giacenza, Importato, Anno listino, Prezzo min/max, Solo giacenza.
+
+## Perché le giacenze si sballano (studio del 18/11/2026, esempio di un calice venduto spesso)
+Visto nello Storico ordini e nella pagina Giacenze, in sola lettura:
+- **Le vendite giornaliere scaricano sempre l'anno in corso** (Anno acquisto 2026), anche quando il pezzo venduto era di un anno
+  precedente: il lotto dell'anno in corso va sotto zero e quello vecchio resta "in più".
+- **La giacenza a inizio anno può partire da 0** anche se il pezzo c'era: la prima vendita dell'anno porta subito a −1.
+- **I riallineamenti lavorano su un solo anno**: sistemano il lotto di quell'anno senza guardare il totale, e il totale torna negativo
+  (es. totale 0 → riallineamento −1 sul lotto vecchio → −1).
+- Con il totale a −1, **ogni carico riporta solo a 0**: il pezzo arrivato non risulta, si vende, si torna a −1, si riordina…
+- La pagina Giacenze mostra i lotti per anno a 0 / 0 anche quando dallo storico risultano +1 e −1: i due conti non coincidono.
+- Nella pagina Giacenze il barcode mostrato può essere diverso da quello della scheda articolo.
+Nel nuovo gestionale: la vendita scarica prima il lotto più vecchio che ha pezzi (FIFO); il riallineamento parte dal totale contato
+e lo divide sui lotti; la giacenza è sempre la somma dei movimenti (nessun numero salvato a parte da "ricalcolare").
