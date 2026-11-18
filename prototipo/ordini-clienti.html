@@ -16,28 +16,39 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
-  avviaElenco({
+  // Ordini da clienti: un clic apre la scheda (ordine-cliente.html), da cui si stampa il DDT intestato al cliente
+  const elenco = avviaElenco({
     titolo: "Ordini da Clienti",
     nuovo: "Nuovo ordine cliente",
+    dettaglio: "ordine-cliente.html",
     csv: "ordini-clienti",
     stati: [STATO.provvisorio, STATO.definitivo, STATO.evaso, STATO.annullato],
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio"],
     controparte: { filtro: "Cliente", elenco: CLIENTI },
-    azioniRiga: ["Modifica", "Prepara scarico", "Stampa proforma", "Duplica"],
+    azioniRiga: ["Apri", "Stampa DDT"],
     colonne: [
       COL.numero(),
       COL.stato(),
       COL.data("data", "Data"),
+      COL.testo("doc", "N. bolla", 90),
       COL.controparte("Cliente", 240),
       COL.testo("causale", "Causale", 160),
-      COL.avanzamento("consegnati", "Consegnato", "nArt"),
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
     dati: []
   });
+
+  // Dopo l'accesso: gli ordini da clienti salvati nel database della sede di lavoro
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "ordine_cliente", ID_SEDI_DB[trovaSede(leggiSede()).nome], "ordine-cliente.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>

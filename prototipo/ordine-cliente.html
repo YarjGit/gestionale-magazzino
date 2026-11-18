@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ordine da cliente – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Cliente scelto: il riquadro mostra come uscirà nel DDT ("DA CONSEGNARE A") */
+  .cliente-ddt { margin-top: 10px; padding: 10px 12px; border: 1px dashed #b9cdf0; border-radius: 10px; background: #f6f9ff; font-size: 0.86rem; line-height: 1.45; }
+  .cliente-ddt b { display: block; margin-bottom: 2px; color: #c62828; font-size: 0.72rem; letter-spacing: 0.06em; }
+  .cliente-ddt.manca { border-color: #f0b4b4; background: #fff6f6; color: #b42318; }
+  /* Finestra "Nuovo cliente" */
+  .finestra-sfondo { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(20,30,50,0.45); }
+  .finestra-sfondo.show { display: flex; }
+  .finestra { width: min(560px, 100%); padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 20px 60px rgba(20,30,50,0.3); }
+  .finestra h3 { margin: 0 0 12px; font-size: 1.05rem; }
+  .finestra .campi { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .finestra .tasti { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body data-page="ordini-clienti">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <div class="dd" id="ddStampa" style="position:relative">
+    <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
+    <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
+      <button data-az="ddt">🚚 DDT (documento di trasporto)</button>
+    </div>
+  </div>
+  <button class="btn btn-light" id="btnExcel">📤 Excel</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<div class="finestra-sfondo" id="finCliente">
+  <div class="finestra">
+    <h3>➕ Nuovo cliente</h3>
+    <div class="campi">
+      <div class="f" style="grid-column:span 6"><label>Nome / ragione sociale <span style="color:var(--ko)">*</span></label><input id="ncNome"></div>
+      <div class="f" style="grid-column:span 6"><label>Indirizzo</label><input id="ncIndirizzo" placeholder="es. Via Roma, 1"></div>
+      <div class="f" style="grid-column:span 2"><label>CAP</label><input id="ncCap"></div>
+      <div class="f" style="grid-column:span 3"><label>Città</label><input id="ncCitta"></div>
+      <div class="f" style="grid-column:span 1"><label>Prov.</label><input id="ncProv" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="f" style="grid-column:span 3"><label>Telefono</label><input id="ncTel"></div>
+      <div class="f" style="grid-column:span 3"><label>Partita IVA / C.F.</label><input id="ncPiva"></div>
+    </div>
+    <div class="tasti"><button class="btn btn-light" id="ncAnnulla">Annulla</button><button class="btn btn-primary" id="ncSalva">💾 Salva cliente</button></div>
+  </div>
+</div>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/righe-movimento.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script src="js/cerca-fornitore.js"></script>
+<script type="module">
+  // Ordine da cliente con stampa del DDT, come nel gestionale attuale ma con UN solo intestatario: il cliente.
+  // (Nel gestionale attuale l'ordine aveva anche un campo "Fornitore" e il DDT usciva intestato a quello.)
+  // L'ordine non toglie la merce dalla giacenza (come "Ordine da Cliente" nel gestionale attuale).
+  // ?nuovo=1 nuovo già in modifica · ?db=12 salvato nel database. Colonne: database/21-ordini-clienti-ddt.sql
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const dbId = +qs.get("db");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const ELENCO = "ordini-clienti.html";
+
+  const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro]))
+    .catch(err => { avviso("Errore nel leggere l'ordine: " + err.message); return null; }) : null;
+  const ord = nuovo ? { stato: "Definitivo", data: oggi, clienteId: "", numBolla: "", dataBolla: oggi, colli: "", contenuto: "ARREDI SACRI", peso: "", porto: "Franco", corriere: "", tracking: "", causale: "", annotazioni: "" }
+    : movDb ? { id: movDb.id, stato: movDb.stato, data: movDb.data_movimento, clienteId: movDb.cliente_id || "", numBolla: movDb.numero_documento || "",
+        dataBolla: movDb.data_bolla || "", colli: movDb.colli ?? "", contenuto: movDb.contenuto || "", peso: movDb.peso != null ? String(movDb.peso).replace(".", ",") : "", porto: movDb.porto || "Franco",
+        corriere: movDb.spedizioniere || "", tracking: movDb.tracking || "", causale: movDb.causale || "", annotazioni: movDb.annotazioni || "",
+        creatoDa: movDb.creato_da, creatoIl: movDb.creato_il }
+    : null;
+
+  if (!ord) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Ordine #${esc(dbId || "")} non trovato</b>
+      <span><a href="${ELENCO}" style="color:var(--accent)">Torna all'elenco</a></span></div></div>`;
+    document.querySelectorAll(".top-actions .btn").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
+    $("btnChiudi").onclick = () => location.href = ELENCO;
+    throw new Error("ordine non trovato");
+  }
+  const annullato = ord.stato === "Annullato";
+  document.title = `${nuovo ? "Nuovo ordine cliente" : `Ordine cliente #${ord.id}`} – Gestionale Magazzino`;
+
+  // Clienti del database (con l'indirizzo per il DDT); quello dell'ordine salvato c'è subito
+  let CLIENTI_DB = movDb && movDb.clienti ? [movDb.clienti] : [];
+  const elencoClienti = () => CLIENTI_DB.map(c => ({ id: c.id, codice: c.codice, nome: c.nome }));
+  const clienteScelto = () => CLIENTI_DB.find(c => c.id === $("fCliente").value) || null;
+  const opzClienti = scelto => '<option value="">— scegli il cliente —</option>' +
+    CLIENTI_DB.map(c => `<option value="${esc(c.id)}"${c.id === scelto ? " selected" : ""}>${esc(c.codice)}: ${esc(c.nome)}</option>`).join("");
+
+  const opz = (lista, scelto) => lista.map(o => `<option${String(o) === String(scelto) ? " selected" : ""}>${esc(o)}</option>`).join("");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const inp = (id, val, extra = "") => `<input class="mod" id="${id}" value="${esc(val)}" ${extra} disabled>`;
+  // Righe: prezzo di vendita IVA inclusa, quantità ordinata (è quella che va sul DDT)
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, nelMovimento: "nell'ordine" };
+
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuovo ordine da cliente" : `Ordine da cliente <span class="num">#${ord.id}</span>`} <span class="pill" id="pillStato"></span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO}">Ordini da Clienti</a><span>-</span><span>${nuovo ? "Nuovo" : "#" + ord.id}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Totale IVA inclusa</div>
+        <div class="v" id="topTotale">${euro(0)}</div>
+        <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
+      </div>
+    </div>
+    ${annullato ? '<div class="banner ann">✕ Questo ordine è annullato e non si può modificare.</div>' : ""}
+    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo ordine: scegli il cliente (o aggiungilo), poi gli articoli. Il DDT sarà intestato al cliente." : "Stai modificando l'ordine. Ricordati di salvare."}</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <span class="spazio"></span>
+        <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
+      </div>
+
+      <!-- DETTAGLI -->
+      <div class="pannello-tab" id="tab-dettagli">
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>👤 Cliente</h3>
+              <div class="campi">
+                ${campo("s4", 'Cliente <span style="color:var(--ko)">*</span>', `<select class="mod" id="fCliente" disabled>${opzClienti(ord.clienteId)}</select>`)}
+                <div class="f s2" style="align-self:end"><button class="btn btn-light solo-mod" id="btnNuovoCliente" type="button">➕ Nuovo cliente</button></div>
+              </div>
+              <div class="cliente-ddt" id="clienteDdt"></div>
+            </div>
+            <div class="gruppo">
+              <h3>📄 Documento</h3>
+              <div class="campi">
+                ${campo("s2", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato" disabled>${opz(["Provvisorio", "Definitivo", "Evaso"].concat(annullato ? ["Annullato"] : []), ord.stato)}</select></div>`)}
+                ${campo("s2", "Data documento", `<input class="mod" type="date" id="fData" value="${ord.data}" disabled>`)}
+                ${campo("s1", "Numero bolla", inp("fNumBolla", ord.numBolla, 'placeholder="automatico"'), "es. 3/2026")}
+                ${campo("s2", "Data bolla", `<input class="mod" type="date" id="fDataBolla" value="${ord.dataBolla}" disabled>`)}
+                ${campo("s1", "ID", `<input value="${ord.id ?? ""}" placeholder="nuovo" disabled style="text-align:right">`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>🚚 Spedizione (stampata sul DDT)</h3>
+              <div class="campi">
+                ${campo("s1", "N. colli", inp("fColli", ord.colli, 'type="number" min="0" style="text-align:right"'))}
+                ${campo("s2", "Colli contenenti", inp("fContenuto", ord.contenuto, 'placeholder="es. ARREDI SACRI"'))}
+                ${campo("s1", "Peso KG.", inp("fPeso", ord.peso, 'style="text-align:right"'))}
+                ${campo("s1", "Porto", `<select class="mod" id="fPorto" disabled>${opz(["Franco", "Assegnato"], ord.porto)}</select>`)}
+                ${campo("s2", "Corriere", inp("fCorriere", ord.corriere, 'placeholder="es. BRT, ritiro a mano…"'))}
+                ${campo("s2", "Tracking number", inp("fTracking", ord.tracking))}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Note</h3>
+              <div class="campi">
+                ${campo("s3", "Causale", `<textarea class="mod" id="fCausale" disabled>${esc(ord.causale)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Annotazioni", `<textarea class="mod" id="fAnnot" disabled>${esc(ord.annotazioni)}</textarea>`, "non stampate sul DDT")}
+              </div>
+            </div>
+          </div>
+          <aside class="riepilogo">
+            <h3>Riepilogo</h3>
+            <div class="voce-imp fissa"><label>Quantità totale articoli</label><input id="impPezzi" value="0" disabled></div>
+            <div class="totale-compl"><span>= Totale IVA inclusa</span><span class="v" id="totCompl">0,00</span></div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ARTICOLI -->
+      <div class="pannello-tab" id="tab-articoli" hidden>
+        ${righeHtmlAggiungi()}
+        <div class="art-toolbar">
+          <div class="nota-viola" style="flex:1;background:#effaf3;border-color:#9fd8b9;color:#13804a">💶 In questa scheda si indicano i <b>prezzi di vendita</b> (IVA inclusa). Sul DDT vanno solo codice, descrizione e quantità.</div>
+          <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
+        </div>
+        ${righeHtmlTabella(CFG_RIGHE)}
+      </div>
+
+      <!-- STORICO -->
+      <div class="pannello-tab" id="tab-storico" hidden>
+        ${movDb ? `<div class="timeline"><div class="evento ok"><div class="quando">${new Date(ord.creatoIl).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · ${esc(ord.creatoDa || "")}</div><div class="cosa">Ordine salvato</div><div class="dett">Stato ${ord.stato}</div></div></div>`
+          : '<div class="vuoto"><b>Ordine non ancora salvato</b><span>Dopo il salvataggio qui comparirà chi lo ha creato.</span></div>'}
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Cliente: si cerca scrivendo; sotto si vede come uscirà nel DDT ----------
+  const campoCliente = campoCercaFornitore($("fCliente"), elencoClienti, { cosa: "cliente" });
+  const righeCliente = c => [c.nome, c.indirizzo, [c.cap, c.citta, c.provincia ? `(${c.provincia})` : ""].filter(Boolean).join(" "), c.telefono ? "Telefono: " + c.telefono : ""].filter(Boolean);
+  function mostraCliente() {
+    const c = clienteScelto();
+    $("clienteDdt").classList.toggle("manca", !c);
+    $("clienteDdt").innerHTML = c ? `<b>DA CONSEGNARE A (sul DDT)</b>${righeCliente(c).map(esc).join("<br>")}${!c.indirizzo ? '<br><span style="color:#b42318">⚠ manca l\'indirizzo del cliente</span>' : ""}`
+      : "Nessun cliente scelto: il DDT si intesta sempre al cliente dell'ordine.";
+  }
+  $("fCliente").addEventListener("change", mostraCliente);
+  mostraCliente();
+
+  // Nuovo cliente al volo (codice = il successivo numerico)
+  const finestra = on => { $("finCliente").classList.toggle("show", on); if (on) $("ncNome").focus(); };
+  $("btnNuovoCliente").onclick = () => { ["ncNome", "ncIndirizzo", "ncCap", "ncCitta", "ncProv", "ncTel", "ncPiva"].forEach(id => $(id).value = ""); finestra(true); };
+  $("ncAnnulla").onclick = () => finestra(false);
+  $("ncSalva").onclick = async () => {
+    const nome = $("ncNome").value.trim().toUpperCase();
+    if (!nome) { avviso("Scrivi il nome del cliente"); $("ncNome").focus(); return; }
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare il cliente serve l'accesso al database"); return; }
+    const { data: codici, error: e1 } = await db.from("clienti").select("codice");
+    if (e1) { avviso("Errore nel leggere i clienti: " + e1.message); return; }
+    const codice = String((codici || []).reduce((m, c) => Math.max(m, /^\d+$/.test(c.codice) ? +c.codice : 0), 0) + 1).padStart(6, "0");
+    const piva = $("ncPiva").value.trim();
+    const nuovoCli = { codice, nome, indirizzo: $("ncIndirizzo").value.trim().toUpperCase() || null, cap: $("ncCap").value.trim() || null,
+      citta: $("ncCitta").value.trim().toUpperCase() || null, provincia: $("ncProv").value.trim().toUpperCase() || null, telefono: $("ncTel").value.trim() || null,
+      partita_iva: /^\d{11}$/.test(piva) ? piva : null, codice_fiscale: piva && !/^\d{11}$/.test(piva) ? piva.toUpperCase() : null };
+    const { data, error } = await db.from("clienti").insert(nuovoCli).select("*").single();
+    if (error) { avviso(error.code === "PGRST204" || error.code === "42703" ? "Prima va eseguito su Supabase il file database/21-ordini-clienti-ddt.sql" : "Errore nel salvare il cliente: " + error.message); return; }
+    CLIENTI_DB.push(data);
+    $("fCliente").innerHTML = opzClienti(data.id);
+    campoCliente.aggiorna(); mostraCliente();
+    finestra(false);
+    avviso(`Cliente ${codice}: ${nome} aggiunto`);
+  };
+
+  // ---------- Stato ----------
+  function mostraStato() {
+    const s = Object.values(STATO).find(x => x.nome === $("selStato").value);
+    $("dotStato").style.background = s.colore;
+    $("pillStato").style.cssText = `background:${s.colore}1f;color:${s.colore}`;
+    $("pillStato").textContent = `${s.icona} ${s.nome}`;
+  }
+  $("selStato").onchange = mostraStato;
+  mostraStato();
+
+  // ---------- Righe ----------
+  const righe = avviaRighe({
+    ...CFG_RIGHE,
+    prezzoDi: art => art.prezzo,
+    sedeEstera: () => trovaSede(leggiSede()).estera,
+    giacenzaNeiSuggerimenti: true,
+    testoVuoto: () => "Spara i barcode con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
+    cambiato: () => ricalcola()
+  });
+  function ricalcola() {
+    $("impPezzi").value = righe.pezzi();
+    $("totCompl").textContent = numero(righe.totale());
+    $("topTotale").textContent = euro(righe.totale());
+    $("topPezzi").textContent = `${righe.pezzi()} pezzi · ${righe.RIGHE.length} righe`;
+    $("nRigheTab").textContent = righe.RIGHE.length;
+  }
+
+  // ---------- Stampa del DDT (stampa-ddt.html), come quella del gestionale attuale ----------
+  // "RITIRARE PRESSO" = la sede di lavoro, "DA CONSEGNARE A" = SEMPRE il cliente dell'ordine
+  function stampaDdt() {
+    const c = clienteScelto();
+    if (!c) { avviso("Scegli il cliente: il DDT si intesta a lui"); document.querySelector('.scheda-tab[data-t="dettagli"]').click(); return; }
+    const lista = righe.RIGHE.filter(r => r.articolo && r.qta > 0);
+    if (!lista.length) { avviso("Non ci sono articoli da mettere nel DDT"); return; }
+    const qta = n => (+n).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+    sessionStorage.setItem("ddt", JSON.stringify({
+      titolo: "Ordine da Cliente", sede: sedeLavoro,
+      numBolla: $("fNumBolla").value.trim(), dataBolla: $("fDataBolla").value ? dataIt($("fDataBolla").value) : "",
+      consegna: righeCliente(c), codiceCliente: c.codice,
+      colli: $("fColli").value, contenuto: $("fContenuto").value.trim(), peso: $("fPeso").value.trim().replace(".", ","), porto: $("fPorto").value,
+      corriere: $("fCorriere").value.trim(), tracking: $("fTracking").value.trim(),
+      quantitaTotale: qta(lista.reduce((s, r) => s + +r.qta, 0)),
+      righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: qta(r.qta) })),
+      ritorno: location.pathname.split("/").pop() + location.search
+    }));
+    location.href = "stampa-ddt.html?auto=1";
+  }
+  $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
+  $("menuStampa").onclick = e => { const b = e.target.closest("button"); if (b && b.dataset.az === "ddt") stampaDdt(); $("menuStampa").classList.remove("show"); };
+  document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
+
+  // ---------- Modifica / salva ----------
+  const pulsantiLettura = ["ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
+  let valoriPrima = [], righePrima = [];
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    document.querySelectorAll(".mod").forEach(el => el.disabled = !modifica);
+    pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
+    ["btnAnnulla", "btnSalva", "btnSalvaChiudi", "bannerModifica"].forEach(id => $(id).hidden = !modifica);
+    righe.disegna();
+  }
+  function controlla() {
+    if (!$("fCliente").value) { avviso("Scegli il cliente (o aggiungilo con ➕ Nuovo cliente)"); document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("fClienteCerca").focus(); return false; }
+    if (righe.senzaArticolo()) { avviso("C'è una riga senza articolo: scegli l'articolo o eliminala con il cestino"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    if (!righe.RIGHE.some(r => r.articolo && r.qta > 0)) { avviso("Aggiungi almeno un articolo nella scheda Articoli"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    return true;
+  }
+  $("btnModifica").onclick = () => { valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value); righePrima = righe.fotografia(); modalita(true); };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) { if (!righe.RIGHE.length || confirm("Uscire senza salvare l'ordine?")) location.href = ELENCO; return; }
+    document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
+    righe.ripristina(righePrima);
+    campoCliente.aggiorna(); mostraCliente(); mostraStato(); ricalcola(); modalita(false);
+  };
+  async function salva(chiudi) {
+    if (!controlla()) return;
+    const db = await dbPronto;
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const lista = righe.RIGHE.filter(r => r.articolo && r.qta > 0);
+    if (lista.some(r => !r.articolo.id)) { avviso("Ci sono articoli di esempio: ricarica la pagina per usare quelli del database"); return; }
+    const testo = id => $(id).value.trim() || null;
+    const sedeId = ID_SEDI_DB[sedeLavoro];
+    const dataBolla = $("fDataBolla").value || $("fData").value || oggi;
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      // numero di bolla progressivo dell'anno, se non è scritto a mano
+      const numBolla = testo("fNumBolla") || await prossimaBollaClienteDb(db, sedeId, dataBolla.slice(0, 4));
+      const dati = {
+        tipo: "ordine_cliente", stato: $("selStato").value, sede_id: sedeId, cliente_id: $("fCliente").value, fornitore_id: null,
+        data_movimento: $("fData").value || oggi, data_documento: $("fData").value || oggi, numero_documento: numBolla, data_bolla: dataBolla,
+        colli: $("fColli").value === "" ? null : +$("fColli").value, contenuto: testo("fContenuto"),
+        peso: $("fPeso").value.trim() ? Math.round(+$("fPeso").value.replace(",", ".") * 100) / 100 || null : null,
+        porto: $("fPorto").value, spedizioniere: testo("fCorriere"), tracking: testo("fTracking"),
+        causale: testo("fCausale"), annotazioni: testo("fAnnot"), spese: 0
+      };
+      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({
+        articolo_id: r.articolo.id, quantita: r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: 0
+      })), ord.id);
+      avviso(`Ordine salvato · bolla ${numBolla}`);
+      setTimeout(() => location.replace(chiudi ? ELENCO : `ordine-cliente.html?db=${id}`), 900);
+    } catch (err) {
+      avviso(err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/21-ordini-clienti-ddt.sql" : "Errore nel salvare: " + err.message);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
+  $("btnChiudi").onclick = () => location.href = ELENCO;
+  $("btnExcel").onclick = () => {
+    const c = clienteScelto();
+    righe.excel({ sede: sedeLavoro, tipo: "Ordine da Cliente", numero: ord.id || null,
+      riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero Bolla", $("fNumBolla").value], ["Data Bolla", $("fDataBolla").value ? dataIt($("fDataBolla").value) : ""],
+        ["Cliente - Codice", c ? c.codice : ""], ["Cliente - Nome", c ? c.nome : ""], ["Cliente - Indirizzo", c ? c.indirizzo || "" : ""],
+        ["Cliente - CAP", c ? c.cap || "" : ""], ["Cliente - Citta", c ? c.citta || "" : ""], ["Cliente - Provincia", c ? c.provincia || "" : ""]], spese: [] });
+  };
+
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo })));
+  ricalcola();
+  modalita(nuovo);
+
+  // Dopo l'accesso: tutti i clienti (ricerca) e gli articoli del database (ricerca e pistola)
+  dbPronto.then(async db => {
+    if (!db) return;
+    const { data, error } = await db.from("clienti").select("*").order("nome");
+    if (error) throw error;
+    CLIENTI_DB = data;
+    const scelto = $("fCliente").value || ord.clienteId;
+    $("fCliente").innerHTML = opzClienti(scelto);
+    campoCliente.aggiorna(); mostraCliente();
+    await caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]);
+  }).catch(err => avviso("Errore nel leggere clienti e articoli: " + err.message));
+</script>
+</body>
+</html>

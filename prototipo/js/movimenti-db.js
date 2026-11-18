@@ -19,7 +19,7 @@ async function nomeSedeDb(db, id) {
 // Per i trasferimenti la controparte è la sede di arrivo, per gli altri il fornitore.
 async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } = {}) {
   const leggi = campi => db.from("movimenti")
-    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, sede_id, sede_altra_id, fornitori(ragione_sociale), movimenti_righe(quantita, totale)" + campi)
+    .select("id, stato, protocollo, numero_documento, data_movimento, data_documento, data_bolla, causale, spese, sede_id, sede_altra_id, fornitori(ragione_sociale), clienti(nome), movimenti_righe(quantita, totale)" + campi)
     .eq("tipo", tipo).eq(inArrivo ? "sede_altra_id" : "sede_id", sedeId)
     .order("data_movimento", { ascending: false }).order("id", { ascending: false });
   let { data, error } = await leggi(", ricevuto_il");
@@ -30,7 +30,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
   for (const m of data) {
     const totArt = Math.round(m.movimenti_righe.reduce((s, r) => s + +r.totale, 0) * 100) / 100;
     const cpNome = inArrivo ? await nomeSedeDb(db, m.sede_id)
-      : m.sede_altra_id ? await nomeSedeDb(db, m.sede_altra_id) : m.fornitori ? m.fornitori.ragione_sociale : "";
+      : m.sede_altra_id ? await nomeSedeDb(db, m.sede_altra_id) : m.clienti ? m.clienti.nome : m.fornitori ? m.fornitori.ragione_sociale : "";
     righe.push({
       id: m.id, chiave: "db-" + m.id, url: `${pagina}?db=${m.id}`,
       prot: m.protocollo || "", doc: m.numero_documento || "", dataDoc: m.data_documento || "",
@@ -54,7 +54,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
 const TIPI_DB = [
   ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
   ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
-  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["esistenza", "Giacenza iniziale", null]
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
 ];
 async function elencoTuttiMovimentiDb(db, sedeId) {
   const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>
@@ -176,7 +176,7 @@ async function inevasiAnnullatiDb(db, ordineRigaIds) {
 // Un movimento con le sue righe; ogni riga ha l'articolo nella forma di ARTICOLI (con la giacenza della sede)
 async function leggiMovimentoDb(db, id, sedeId) {
   const { data: m, error } = await db.from("movimenti")
-    .select(`*, fornitori(id, codice, ragione_sociale), movimenti_righe(id, quantita, quantita_ordinata, ordine_riga_id, prezzo, sconto, etichette, totale, articoli(${CAMPI_ARTICOLO}))`)
+    .select(`*, fornitori(id, codice, ragione_sociale), clienti(*), movimenti_righe(id, quantita, quantita_ordinata, ordine_riga_id, prezzo, sconto, etichette, totale, articoli(${CAMPI_ARTICOLO}))`)
     .eq("id", id).maybeSingle();
   if (error) throw error;
   if (!m) return null;
@@ -212,4 +212,14 @@ async function salvaMovimentoDb(db, mov, righe, id) {
     }
   }
   return id;
+}
+
+// ---------- Ordini da clienti (ordine-cliente.html) ----------
+// Prossimo numero di bolla del DDT della sede nell'anno, come nel gestionale attuale: "3/2026"
+async function prossimaBollaClienteDb(db, sedeId, anno) {
+  const { data, error } = await db.from("movimenti").select("numero_documento")
+    .eq("tipo", "ordine_cliente").eq("sede_id", sedeId).like("numero_documento", `%/${anno}`);
+  if (error) throw error;
+  const max = (data || []).reduce((m, r) => Math.max(m, parseInt(r.numero_documento, 10) || 0), 0);
+  return `${max + 1}/${anno}`;
 }

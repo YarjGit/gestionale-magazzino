@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DDT – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* DDT su A4 identico a quello del gestionale attuale (richiesta dell'utente): intestazione e logo, numero e data bolla,
+     riquadri "RITIRARE PRESSO" / "DA CONSEGNARE A", dati di spedizione, firme, elenco articoli con le sole quantità */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e6e9ef; font: 10.5pt/1.3 Lato, Arial, sans-serif; color: #111; }
+  .barra { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #1f2a3d; color: #fff; font-family: Arial, sans-serif; }
+  .barra b { margin-right: auto; font-weight: 600; }
+  .barra button { padding: 7px 14px; border: none; border-radius: 8px; font: 600 0.9rem Arial, sans-serif; cursor: pointer; }
+  .barra .stampa { background: #2f8bff; color: #fff; }
+  .foglio { position: relative; width: 210mm; min-height: 297mm; margin: 16px auto; padding: 12mm 9mm 34mm; background: #fff; box-shadow: 0 4px 24px rgba(20,30,50,0.18); }
+  .testa { display: flex; justify-content: space-between; gap: 20px; }
+  .mittente { font-size: 9.5pt; font-weight: 700; line-height: 1.35; }
+  .logo { display: flex; align-items: center; gap: 10px; margin-top: -4mm; color: #3a4ea6; font-size: 15pt; letter-spacing: 0.01em; }
+  .logo img { height: 21mm; width: auto; mix-blend-mode: multiply; filter: brightness(1.04); }
+  .doc { margin-top: 7mm; font-size: 12pt; line-height: 1.3; }
+  .riquadri { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14mm; border: 2px solid #000; }
+  .riquadri > div + div { border-left: 2px solid #000; }
+  .riquadri h4 { margin: 0; padding: 3px 6px; border-bottom: 2px solid #000; color: #c62828; font-size: 10.5pt; font-weight: 400; text-align: center; }
+  .riquadri .righe { padding: 3px 5px 2px; font-weight: 700; line-height: 1.3; }
+  .riquadri .dx .righe { text-align: right; }
+  .sped { display: grid; grid-template-columns: 1fr 1fr; margin: 7mm 2.5mm 0 7mm; }
+  .sped > div { display: flex; justify-content: space-between; gap: 8px; min-height: 9mm; padding: 7px 0 5px; border-bottom: 1px solid #ddd; }
+  .sped > div:nth-child(odd) { padding-right: 12px; }
+  .sped .rosso { color: #c62828; font-weight: 700; }
+  .firme { display: grid; grid-template-columns: 1fr 1fr; margin-top: 18mm; text-align: center; font-size: 11pt; }
+  .firme .linea { margin: 9mm auto 0; width: 62mm; border-bottom: 1px dashed #333; }
+  table { width: 100%; margin-top: 15mm; border-collapse: collapse; font-size: 9pt; }
+  th { padding: 4px 6px; border-bottom: 1.5px solid #000; font-size: 9.5pt; text-align: left; }
+  td { padding: 8px 6px 6px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .cod { white-space: nowrap; }
+  .piede { position: absolute; left: 9mm; right: 9mm; bottom: 10mm; padding-top: 3mm; border-top: 1px solid #c9d1dd; text-align: center; font-size: 7.5pt; font-weight: 700; color: #222; }
+  .piede div:first-child { color: #2f8bff; }
+  .vuoto { padding: 40px; text-align: center; color: #6b7280; }
+  @media print {
+    body { background: #fff; }
+    .barra { display: none; }
+    .foglio { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="barra"><b id="titoloBarra">DDT</b><button class="stampa" id="btnStampa">🖨️ Stampa</button><button id="btnChiudi">✕ Chiudi</button></div>
+<div id="fogli"></div>
+
+<script src="js/intestazioni.js"></script>
+<script>
+  // I dati arrivano dalla scheda dell'ordine (sessionStorage "ddt"):
+  // { titolo, sede, numBolla, dataBolla, consegna: [righe del cliente], codiceCliente, colli, contenuto, peso, porto, corriere, tracking,
+  //   quantitaTotale, righe: [{ n, cod, descr, qta }], ritorno }
+  // ?auto=1 apre subito la finestra di stampa, come il gestionale attuale.
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const d = (() => { try { return JSON.parse(sessionStorage.getItem("ddt") || "null"); } catch { return null; } })();
+  const $ = id => document.getElementById(id);
+  const righe = lista => lista.map(r => `<div>${esc(r)}</div>`).join("");
+
+  if (!d) {
+    $("fogli").innerHTML = '<div class="foglio"><div class="vuoto">Niente da stampare: apri il DDT dalla scheda dell\'ordine.</div></div>';
+  } else {
+    const mitt = intestazioneSede(d.sede);
+    document.title = `DDT ${d.numBolla || ""} – Stampa`;
+    $("titoloBarra").textContent = `DDT ${d.numBolla || ""}`;
+    $("fogli").innerHTML = `<div class="foglio">
+      <div class="testa">
+        <div class="mittente">${righe(mitt)}</div>
+        <div class="logo"><img src="img/logo-pddm.jpg" alt="pddm">apostolato liturgico</div>
+      </div>
+      <div class="doc"><div>${esc(d.titolo)}</div><div>N. Bolla: ${esc(d.numBolla)}</div><div>Data Bolla: ${esc(d.dataBolla)}</div></div>
+      <div class="riquadri">
+        <div><h4>RITIRARE PRESSO</h4><div class="righe">${righe(mitt)}</div></div>
+        <div class="dx"><h4>DA CONSEGNARE A</h4><div class="righe">${righe(d.consegna)}</div></div>
+      </div>
+      <div class="sped">
+        <div><span>N. ${esc(d.colli)}&nbsp; colli contenenti ${esc(d.contenuto)}</span></div><div><span>Quantità Totale Articoli</span><span>${esc(d.quantitaTotale)}</span></div>
+        <div></div><div><span>Corriere</span><span>${esc(d.corriere)}</span></div>
+        <div><span>Peso KG. ${esc(d.peso)}</span></div><div><span>Tracking Number</span><span>${esc(d.tracking)}</span></div>
+        <div><span>Porto ${esc(d.porto)}</span></div><div><span class="rosso">Codice Cliente</span><span>${esc(d.codiceCliente)}</span></div>
+      </div>
+      <div class="firme">
+        <div>PROVINCIA ITALIANA<br>PIE DISCEPOLE DEL DIVIN MAESTRO<div class="linea"></div></div>
+        <div>Firma del vettore<br>Accettazione - data - ora<div class="linea"></div></div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Codice</th><th>Descrizione</th><th class="num">Quantitá</th></tr></thead>
+        <tbody>${d.righe.map(r => `<tr><td>${r.n}</td><td class="cod">${esc(r.cod)}</td><td>${esc(r.descr)}</td><td class="num">${esc(r.qta)}</td></tr>`).join("")}</tbody>
+      </table>
+      <div class="piede">${righe(PIE_DI_PAGINA)}</div>
+    </div>`;
+  }
+  $("btnStampa").onclick = () => window.print();
+  $("btnChiudi").onclick = () => d && d.ritorno ? location.href = d.ritorno : history.back();
+  if (d && new URLSearchParams(location.search).has("auto")) setTimeout(() => window.print(), 600);
+</script>
+</body>
+</html>

@@ -4,7 +4,8 @@
 //   campoCercaFornitore(select, () => [{ id, codice, nome }], { vuoto: "Tutti" })  →  { aggiorna() }
 //   vuoto: testo della scelta "nessun fornitore" (es. "Tutti" nei filtri); si ottiene anche cancellando il campo
 //   aggiorna(): da chiamare quando la tendina cambia da codice (nuovo valore o nuovo elenco di fornitori)
-function campoCercaFornitore(sel, elenco, { vuoto = "" } = {}) {
+//   cosa: "fornitore" (predefinito) o "cliente": la stessa ricerca serve anche per i clienti (ordine-cliente.html)
+function campoCercaFornitore(sel, elenco, { vuoto = "", cosa = "fornitore" } = {}) {
   const id = sel.id;
   const trova = testo => {
     const parole = normalizza(testo).split(/\s+/).filter(Boolean);
@@ -13,7 +14,7 @@ function campoCercaFornitore(sel, elenco, { vuoto = "" } = {}) {
   const testo = v => { const f = elenco().find(x => String(x.id) === String(v)); return f ? `${f.codice}: ${f.nome}` : ""; };
   sel.hidden = true;
   sel.insertAdjacentHTML("beforebegin", `<div class="cerca-forn-campo" style="position:relative">
-    <input class="${sel.classList.contains("mod") ? "mod" : ""}" id="${id}Cerca" placeholder="${vuoto ? esc(vuoto) + " · scrivi nome o codice…" : "Scrivi nome o codice del fornitore…"}" autocomplete="off" ${sel.disabled ? "disabled" : ""}>
+    <input class="${sel.classList.contains("mod") ? "mod" : ""}" id="${id}Cerca" placeholder="${vuoto ? esc(vuoto) + " · scrivi nome o codice…" : `Scrivi nome o codice del ${cosa}…`}" autocomplete="off" ${sel.disabled ? "disabled" : ""}>
     <div class="suggerimenti" id="${id}Sugg"></div></div>`);
   const inp = document.getElementById(id + "Cerca"), box = document.getElementById(id + "Sugg");
   let attivo = 0;
@@ -23,7 +24,7 @@ function campoCercaFornitore(sel, elenco, { vuoto = "" } = {}) {
     attivo = Math.min(attivo, Math.max(0, lista.length - 1));
     box.innerHTML = lista.length
       ? lista.map((f, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-id="${esc(String(f.id))}"><span class="codice">${esc(f.codice)}</span>${esc(f.nome)}</div>`).join("")
-      : '<div class="sugg" style="cursor:default;color:var(--muted)">Nessun fornitore trovato</div>';
+      : `<div class="sugg" style="cursor:default;color:var(--muted)">Nessun ${cosa} trovato</div>`;
     box.classList.add("show");
     return lista;
   };
