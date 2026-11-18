@@ -101,5 +101,9 @@ Visto nello Storico ordini e nella pagina Giacenze, in sola lettura:
 - Con il totale a −1, **ogni carico riporta solo a 0**: il pezzo arrivato non risulta, si vende, si torna a −1, si riordina…
 - La pagina Giacenze mostra i lotti per anno a 0 / 0 anche quando dallo storico risultano +1 e −1: i due conti non coincidono.
 - Nella pagina Giacenze il barcode mostrato può essere diverso da quello della scheda articolo.
+- Secondo esempio (una lampada, 18/11/2026): giacenza a inizio 2026 = 4 pezzi del 2025; nello Storico tutte le vendite e i trasferimenti del 2026
+  scaricano l'anno 2026 (che va a −3), mentre la pagina Giacenze mostra il lotto 2025 a 0 e il 2026 a 1: il totale torna (1) ma i lotti no,
+  e il valore d'inventario usa il costo del lotto sbagliato.
+- Il programma lascia vendere o trasferire più pezzi di quelli in giacenza (es. trasferiti 3 pezzi con giacenza 2 → −1), senza avvisare.
 Nel nuovo gestionale: la vendita scarica prima il lotto più vecchio che ha pezzi (FIFO); il riallineamento parte dal totale contato
 e lo divide sui lotti; la giacenza è sempre la somma dei movimenti (nessun numero salvato a parte da "ricalcolare").
