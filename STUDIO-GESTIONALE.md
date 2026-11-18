@@ -94,7 +94,8 @@ Filtri: Fornitore, Da codice, A codice, Provenienza, Codice, Giacenza, Importato
 Visto nello Storico ordini e nella pagina Giacenze, in sola lettura:
 - **Le vendite giornaliere scaricano sempre l'anno in corso** (Anno acquisto 2026), anche quando il pezzo venduto era di un anno
   precedente: il lotto dell'anno in corso va sotto zero e quello vecchio resta "in più".
-- **La giacenza a inizio anno può partire da 0** anche se il pezzo c'era: la prima vendita dell'anno porta subito a −1.
+- **La giacenza a inizio anno può partire da 0**: nella pagina Giacenze del 2025 l'articolo non c'era proprio (0 a fine 2025),
+  ma a gennaio è stato venduto e a maggio è stato aggiunto "a mano" un pezzo con anno 2025: il pezzo c'era ma nel 2025 non era registrato.
 - **I riallineamenti lavorano su un solo anno**: sistemano il lotto di quell'anno senza guardare il totale, e il totale torna negativo
   (es. totale 0 → riallineamento −1 sul lotto vecchio → −1).
 - Con il totale a −1, **ogni carico riporta solo a 0**: il pezzo arrivato non risulta, si vende, si torna a −1, si riordina…
