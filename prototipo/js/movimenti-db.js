@@ -54,7 +54,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
 const TIPI_DB = [
   ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
   ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
-  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", null], ["esistenza", "Giacenza iniziale", null]
 ];
 async function elencoTuttiMovimentiDb(db, sedeId) {
   const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>
@@ -222,4 +222,22 @@ async function prossimaBollaClienteDb(db, sedeId, anno) {
   if (error) throw error;
   const max = (data || []).reduce((m, r) => Math.max(m, parseInt(r.numero_documento, 10) || 0), 0);
   return `${max + 1}/${anno}`;
+}
+
+// Scarico della merce di un ordine da cliente (finestra "Vuoi scalare la merce dalla giacenza?" prima del DDT).
+// Lo scarico è un movimento "scarico_cliente" Definitivo con le stesse righe, collegate all'ordine con ordine_riga_id:
+// così si sa che quell'ordine è già stato scalato e non si scala due volte. Da quale anno di acquisto scalare: da decidere.
+async function scaricoDiOrdineDb(db, ordineRigaIds) {
+  if (!ordineRigaIds.length) return null;
+  const { data, error } = await db.from("movimenti_righe").select("movimento_id, movimenti(id, tipo, stato)").in("ordine_riga_id", ordineRigaIds);
+  if (error) throw error;
+  const s = (data || []).find(r => r.movimenti && r.movimenti.tipo === "scarico_cliente" && r.movimenti.stato !== "Annullato");
+  return s ? s.movimenti.id : null;
+}
+async function scaricaOrdineClienteDb(db, ordine, righe) {
+  return salvaMovimentoDb(db, {
+    tipo: "scarico_cliente", stato: "Definitivo", sede_id: ordine.sede_id, cliente_id: ordine.cliente_id,
+    data_movimento: new Date().toISOString().slice(0, 10), data_documento: ordine.data_bolla || ordine.data_movimento,
+    numero_documento: ordine.numero_documento, data_bolla: ordine.data_bolla, causale: `Scarico dell'ordine da cliente #${ordine.id}`, spese: 0
+  }, righe.map(r => ({ articolo_id: r.articoli.id, quantita: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto || 0, etichette: 0, ordine_riga_id: r.id })));
 }

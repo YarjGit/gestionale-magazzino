@@ -59,6 +59,17 @@
   </div>
 </div>
 
+<div class="finestra-sfondo" id="finScarico">
+  <div class="finestra" style="width:min(480px,100%)">
+    <h3>📦 Vuoi scalare la merce dalla giacenza?</h3>
+    <p style="margin:0;color:var(--muted);line-height:1.45" id="scaricoTesto"></p>
+    <div class="tasti">
+      <button class="btn btn-light" id="scaricoNo">No, non scalare</button>
+      <button class="btn btn-primary" id="scaricoSi">Sì, scala dalla giacenza</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/intestazioni.js"></script>
@@ -131,6 +142,7 @@
       </div>
     </div>
     ${annullato ? '<div class="banner ann">✕ Questo ordine è annullato e non si può modificare.</div>' : ""}
+    <div class="banner" id="bannerScalato" hidden style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Merce già scalata dalla giacenza (<b></b>): stampando di nuovo il DDT non si scala due volte.</span></div>
     <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo ordine: scegli il cliente (o aggiungilo), poi gli articoli. Il DDT sarà intestato al cliente." : "Stai modificando l'ordine. Ricordati di salvare."}</div>
 
     <section class="panel">
@@ -300,8 +312,36 @@
     }));
     location.href = "stampa-ddt.html?auto=1";
   }
+  // Prima del DDT: "Vuoi scalare la merce dalla giacenza?" (decisione dell'utente). Sì = scarico a cliente collegato all'ordine,
+  // No = la giacenza non cambia (la domanda torna alla stampa successiva). Se è già stato scalato non si chiede più.
+  let scaricoId = null;
+  const mostraScarico = () => { $("bannerScalato").hidden = !scaricoId; if (scaricoId) $("bannerScalato").querySelector("b").textContent = `scarico #${scaricoId}`; };
+  async function ddtConScarico() {
+    if (!movDb) { stampaDdt(); return; }   // ordine non salvato: si stampa e basta
+    const db = await dbPronto;
+    if (db) scaricoId = await scaricoDiOrdineDb(db, movDb.righe.map(r => r.id)).catch(() => scaricoId);
+    mostraScarico();
+    if (scaricoId || !db || annullato) { stampaDdt(); return; }
+    const pezzi = movDb.righe.reduce((s, r) => s + +r.quantita, 0);
+    $("scaricoTesto").innerHTML = `Se scegli <b>Sì</b>, i ${pezzi.toLocaleString("it-IT")} pezzi di questo ordine (${movDb.righe.length} articoli) escono dalla giacenza di <b>${esc(sedeLavoro)}</b>.<br>Se scegli <b>No</b>, si stampa solo il DDT e la giacenza non cambia.`;
+    $("finScarico").classList.add("show");
+  }
+  $("scaricoNo").onclick = () => { $("finScarico").classList.remove("show"); avviso("Merce non scalata: la giacenza non cambia"); stampaDdt(); };
+  $("scaricoSi").onclick = async () => {
+    $("scaricoSi").disabled = true;
+    try {
+      const db = await dbPronto;
+      scaricoId = await scaricaOrdineClienteDb(db, movDb, movDb.righe);
+      mostraScarico();
+      avviso(`Merce scalata dalla giacenza (scarico #${scaricoId})`);
+      $("finScarico").classList.remove("show");
+      setTimeout(stampaDdt, 700);
+    } catch (err) {
+      avviso("Errore nello scalare la merce: " + err.message);
+    } finally { $("scaricoSi").disabled = false; }
+  };
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
-  $("menuStampa").onclick = e => { const b = e.target.closest("button"); if (b && b.dataset.az === "ddt") stampaDdt(); $("menuStampa").classList.remove("show"); };
+  $("menuStampa").onclick = e => { const b = e.target.closest("button"); if (b && b.dataset.az === "ddt") ddtConScarico(); $("menuStampa").classList.remove("show"); };
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // ---------- Modifica / salva ----------
@@ -383,6 +423,7 @@
     const scelto = $("fCliente").value || ord.clienteId;
     $("fCliente").innerHTML = opzClienti(scelto);
     campoCliente.aggiorna(); mostraCliente();
+    if (movDb) { scaricoId = await scaricoDiOrdineDb(db, movDb.righe.map(r => r.id)); mostraScarico(); }
     await caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]);
   }).catch(err => avviso("Errore nel leggere clienti e articoli: " + err.message));
 </script>

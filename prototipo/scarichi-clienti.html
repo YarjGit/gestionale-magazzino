@@ -16,12 +16,14 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
   // Il cliente può essere anche una sede interna (es. Magazzino Centrale)
   const CLIENTI_E_SEDI = CLIENTI.concat(SEDI_CP);
   const cli = nome => CLIENTI_E_SEDI.findIndex(c => (c.nome || c) === nome);
 
-  avviaElenco({
+  const elenco = avviaElenco({
     titolo: "Scarichi a Clienti",
     nuovo: "Nuovo scarico",
     csv: "scarichi-clienti",
@@ -43,6 +45,15 @@
     ],
     dati: []
   });
+
+  // Dopo l'accesso: gli scarichi salvati nel database (oggi nascono dagli ordini da clienti, rispondendo Sì a
+  // "Vuoi scalare la merce dalla giacenza?"): un clic apre l'ordine da cui è nato lo scarico
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "scarico_cliente", ID_SEDI_DB[trovaSede(leggiSede()).nome], "");
+    righe.forEach(r => { const n = /ordine da cliente #(\d+)/i.exec(r.causale || ""); r.url = n ? `ordine-cliente.html?db=${n[1]}` : null; });
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>
