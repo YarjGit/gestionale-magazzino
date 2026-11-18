@@ -105,5 +105,8 @@ Visto nello Storico ordini e nella pagina Giacenze, in sola lettura:
   scaricano l'anno 2026 (che va a −3), mentre la pagina Giacenze mostra il lotto 2025 a 0 e il 2026 a 1: il totale torna (1) ma i lotti no,
   e il valore d'inventario usa il costo del lotto sbagliato.
 - Il programma lascia vendere o trasferire più pezzi di quelli in giacenza (es. trasferiti 3 pezzi con giacenza 2 → −1), senza avvisare.
+- **"Anno Giac." nelle righe è un campo da riempire a mano** e nei movimenti visti è sempre vuoto (23 righe su 23 in una vendita, 29 su 29 in un
+  trasferimento): vuoto = il programma usa l'anno in corso. Il nuovo gestionale deve scegliere l'anno da solo (il più vecchio con pezzi).
+- Uno stesso articolo può comparire due volte nello stesso trasferimento (righe 5 e 28, 1 + 2 pezzi): facile da non notare.
 Nel nuovo gestionale: la vendita scarica prima il lotto più vecchio che ha pezzi (FIFO); il riallineamento parte dal totale contato
 e lo divide sui lotti; la giacenza è sempre la somma dei movimenti (nessun numero salvato a parte da "ricalcolare").
