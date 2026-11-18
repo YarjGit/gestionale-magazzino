@@ -86,7 +86,7 @@ function avviaRighe(cfg) {
   const disponibili = art => art.giac + (giaScaricati.get(art.codice) || 0);
   const testoOltre = (art, pezzi) => {
     const d = disponibili(art);
-    return `${art.codice}: non si possono vendere ${pezzi === 1 ? "1 pezzo" : `${pezzi} pezzi`}, in giacenza ${d <= 0 ? "non ce n'è nessuno" : d === 1 ? "ce n'è solo 1" : `ce ne sono solo ${d}`}`;
+    return `${art.codice}: non si possono ${cfg.verboUscita || "vendere"} ${pezzi === 1 ? "1 pezzo" : `${pezzi} pezzi`}, in giacenza ${d <= 0 ? "non ce n'è nessuno" : d === 1 ? "ce n'è solo 1" : `ce ne sono solo ${d}`}`;
   };
   // true (con avviso rosso) se i pezzi superano la giacenza; senza giacenza nota non blocca
   function oltreGiacenza(art, pezzi) {
@@ -109,7 +109,7 @@ function avviaRighe(cfg) {
     if (oltreGiacenza(art, (r ? pezziDi(r) : 0) + n)) return false;
     if (r) { r.qta += n; if (cfg.spedita) r.sped += n; }
     else {
-      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: 0, iva: ivaDiArticolo(art, estera()), articolo: art, oltreAttesa: forza };
+      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: ivaDiArticolo(art, estera()), articolo: art, oltreAttesa: forza };
       RIGHE.push(r);
     }
     r.tot = totRiga(r);
@@ -124,7 +124,7 @@ function avviaRighe(cfg) {
   // Tasto ＋: riga vuota in cui si cerca l'articolo scrivendo il codice (o sparandolo)
   function nuovaRiga() {
     if (!puo()) return;
-    const r = { pos: nuovaPos(), qta: 1, sped: 1, prezzo: 0, sconto: 0, iva: "22", articolo: null, tot: 0 };
+    const r = { pos: nuovaPos(), qta: 1, sped: 1, prezzo: 0, sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: "22", articolo: null, tot: 0 };
     RIGHE.push(r);
     ultimaAggiunta = r.pos;
     cambiato();
@@ -341,6 +341,8 @@ function avviaRighe(cfg) {
     // copia per Annulla
     fotografia: () => RIGHE.map(r => ({ ...r })),
     ripristina: copia => { RIGHE.splice(0, RIGHE.length, ...copia); totali(); disegna(); },
+    // Stesso sconto % su tutte le righe (es. sconto del cliente)
+    scontoATutte: p => { RIGHE.forEach(r => { r.sconto = p; r.tot = totRiga(r); }); cambiato(); },
     // File Excel come quello del gestionale attuale (js/excel.js): d = { sede, tipo, numero, riepilogo, spese }
     excel: d => {
       const conArt = RIGHE.filter(r => r.articolo && pezziDi(r) > 0);

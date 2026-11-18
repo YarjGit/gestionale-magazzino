@@ -394,14 +394,17 @@ function avviaElenco(cfg) {
   };
   rowMenu.onclick = e => {
     const b = e.target.closest("button");
-    if (b) avviso(`${b.dataset.az} #${rigaMenu}: da definire insieme`);
+    const r = cfg.dati.find(x => String(x.chiave || x.id) === String(rigaMenu));
+    // cfg.azione(az, riga): la pagina gestisce la voce (restituisce false se non la gestisce)
+    if (b && !(cfg.azione && r && cfg.azione(b.dataset.az, r) !== false)) avviso(`${b.dataset.az} #${rigaMenu}: da definire insieme`);
     rowMenu.classList.remove("show");
   };
   document.addEventListener("click", () => { rowMenu.classList.remove("show"); $("colonneWrap").classList.remove("open"); });
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   $("btnEtichette").onclick = () => cfg.paginaEtichette ? location.href = cfg.paginaEtichette : avviso("Stampa etichette: la definiamo insieme");
-  $("btnCrea").onclick = () => cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
+  // cfg.nuovoUrl: indirizzo del pulsante "Nuovo …" quando non è dettaglio?nuovo=1
+  $("btnCrea").onclick = () => cfg.nuovoUrl ? location.href = cfg.nuovoUrl : cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
 
   disegna();
 

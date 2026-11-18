@@ -30,6 +30,7 @@
     statiValidazione: ["Provvisorio"],
     controparte: { filtro: "Cliente", elenco: CLIENTI },
     azioniRiga: ["Apri", "Stampa DDT"],
+    azione: (az, r) => { if (!r.url) return false; location.href = az === "Stampa DDT" ? r.url + "&ddt=1" : r.url; },
     colonne: [
       COL.numero(),
       COL.stato(),
@@ -46,8 +47,37 @@
   // Dopo l'accesso: gli ordini da clienti salvati nel database della sede di lavoro
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "ordine_cliente", ID_SEDI_DB[trovaSede(leggiSede()).nome], "ordine-cliente.html");
+    const sede = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const righe = await elencoMovimentiDb(db, "ordine_cliente", sede, "ordine-cliente.html");
     if (righe.length) elenco.aggiungi(righe);
+
+    // Magazzino Centrale (o ogni sede che fa da fornitore alle altre): anche gli ordini ricevuti dalle filiali.
+    // Nel gestionale attuale finiscono mescolati agli ordini dei clienti, con i "Riordino" degli inevasi che si ripetono
+    // (n.inevasi-inevasi-…): qui ogni ordine compare una volta sola, con quello che resta da mandare.
+    const [daPreparare, inevasi] = await Promise.all([
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Definitivo" }, { soloResiduo: false }),
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Evaso" })
+    ]);
+    const ordini = new Map();
+    daPreparare.forEach(r => {
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo || "#" + r.ordine_id, da: r.nomeRichiedente, data: r.data_ordine, righe: 0, pezzi: 0 };
+      o.righe++; o.pezzi += r.ordinata;
+      ordini.set(r.ordine_id, o);
+    });
+    const lista = [...ordini.values()].reverse();
+    const nOrdInev = new Set(inevasi.map(r => r.ordine_id)).size;
+    const pezziInev = inevasi.reduce((s, r) => s + r.residuo, 0);
+    if (!lista.length && !nOrdInev) return;
+    document.querySelector(".page-head").insertAdjacentHTML("afterend", `
+      <details class="ordini-da-caricare" open>
+        <summary>🏬 Ordini ricevuti dalle filiali: ${lista.length}<small>si preparano con un trasferimento a filiale: quello che manca resta negli inevasi</small></summary>
+        <div class="lista">${lista.map(o => `<a href="trasferimento.html?nuovo=1&ordine=${o.id}" title="Prepara il trasferimento con gli articoli di questo ordine">
+            <div class="t"><b>${esc(o.da)}</b><small>Ordine ${esc(o.prot)} del ${dataIt(o.data)} · ${o.righe} articoli, ${o.pezzi.toLocaleString("it-IT")} pezzi</small></div>
+            <span class="vai">Prepara trasferimento →</span></a>`).join("")}
+          ${nOrdInev ? `<a href="inevasi.html" title="Articoli ordinati dalle filiali e non ancora mandati">
+            <div class="t"><b>⏳ Inevasi in attesa</b><small>${nOrdInev} ordini con ${pezziInev.toLocaleString("it-IT")} pezzi ancora da mandare (ognuno una volta sola)</small></div>
+            <span class="vai">Vedi inevasi →</span></a>` : ""}</div>
+      </details>`);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>

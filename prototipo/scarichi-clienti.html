@@ -31,27 +31,34 @@
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio"],
     controparte: { filtro: "Cliente", elenco: CLIENTI_E_SEDI },
-    azioniRiga: ["Modifica", "Stampa DDT", "Stampa proforma", "Duplica"],
+    // "Nuovo scarico" = merce spedita a un cliente senza ordine: stessa scheda dell'ordine da cliente (ordine-cliente.html?tipo=scarico)
+    nuovoUrl: "ordine-cliente.html?nuovo=1&tipo=scarico",
+    azioniRiga: ["Apri", "Stampa DDT", "Apri l'ordine d'origine"],
+    azione: (az, r) => {
+      if (az === "Apri l'ordine d'origine") { if (r.ordine) location.href = `ordine-cliente.html?db=${r.ordine}`; else avviso("Questo scarico non è nato da un ordine"); return; }
+      if (!r.url) return false;
+      location.href = az === "Stampa DDT" ? r.url + "&ddt=1" : r.url;
+    },
     colonne: [
       COL.numero("Protocollo / Mov."),
       COL.stato(),
       COL.data("data", "Data"),
+      COL.testo("doc", "N. bolla", 90),
       COL.controparte("Cliente", 240),
-      COL.data("bolla", "Bolla"),
+      COL.data("bolla", "Data bolla"),
       COL.testo("causale", "Causale", 160),
-      COL.euro("totArt", "Imp. articoli"),
       COL.euro("tot", "Totale", true),
       COL.intero("nArt", "Pezzi")
     ],
     dati: []
   });
 
-  // Dopo l'accesso: gli scarichi salvati nel database (oggi nascono dagli ordini da clienti, rispondendo Sì a
-  // "Vuoi scalare la merce dalla giacenza?"): un clic apre l'ordine da cui è nato lo scarico
+  // Dopo l'accesso: gli scarichi salvati nel database. Nascono dagli ordini da clienti (Sì a "Vuoi scalare la merce
+  // dalla giacenza?") o da "Nuovo scarico"; un clic apre lo scarico, che porta all'ordine d'origine se c'è
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "scarico_cliente", ID_SEDI_DB[trovaSede(leggiSede()).nome], "");
-    righe.forEach(r => { const n = /ordine da cliente #(\d+)/i.exec(r.causale || ""); r.url = n ? `ordine-cliente.html?db=${n[1]}` : null; });
+    const righe = await elencoMovimentiDb(db, "scarico_cliente", ID_SEDI_DB[trovaSede(leggiSede()).nome], "ordine-cliente.html");
+    righe.forEach(r => { const n = /ordine da cliente #(\d+)/i.exec(r.causale || ""); r.ordine = n ? +n[1] : 0; });
     if (righe.length) elenco.aggiungi(righe);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>

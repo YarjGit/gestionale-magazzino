@@ -92,10 +92,17 @@
   const dbId = +qs.get("db");
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
-  const ELENCO = "ordini-clienti.html";
 
   const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro]))
     .catch(err => { avviso("Errore nel leggere l'ordine: " + err.message); return null; }) : null;
+  // La stessa scheda fa anche lo "Scarico a cliente" (?nuovo=1&tipo=scarico, o un movimento scarico_cliente salvato):
+  // come nel gestionale attuale lo scarico toglie la merce dalla giacenza appena è Definitivo e stampa il suo DDT.
+  const SCARICO = nuovo ? qs.get("tipo") === "scarico" : !!movDb && movDb.tipo === "scarico_cliente";
+  const TIPO = SCARICO ? "scarico_cliente" : "ordine_cliente";
+  const NOME = SCARICO ? "Scarico a cliente" : "Ordine da cliente";
+  const ELENCO = SCARICO ? "scarichi-clienti.html" : "ordini-clienti.html";
+  // Scarico nato da un ordine (risposta Sì a "Vuoi scalare…"): le righe restano collegate all'ordine
+  const ordineOrigine = SCARICO && movDb ? +((/ordine da cliente #(\d+)/i.exec(movDb.causale || "") || [])[1] || 0) : 0;
   const ord = nuovo ? { stato: "Definitivo", data: oggi, clienteId: "", numBolla: "", dataBolla: oggi, colli: "", contenuto: "ARREDI SACRI", peso: "", porto: "Franco", corriere: "", tracking: "", causale: "", annotazioni: "" }
     : movDb ? { id: movDb.id, stato: movDb.stato, data: movDb.data_movimento, clienteId: movDb.cliente_id || "", numBolla: movDb.numero_documento || "",
         dataBolla: movDb.data_bolla || "", colli: movDb.colli ?? "", contenuto: movDb.contenuto || "", peso: movDb.peso != null ? String(movDb.peso).replace(".", ",") : "", porto: movDb.porto || "Franco",
@@ -104,14 +111,17 @@
     : null;
 
   if (!ord) {
-    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Ordine #${esc(dbId || "")} non trovato</b>
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Movimento #${esc(dbId || "")} non trovato</b>
       <span><a href="${ELENCO}" style="color:var(--accent)">Torna all'elenco</a></span></div></div>`;
     document.querySelectorAll(".top-actions .btn").forEach(b => { if (b.id !== "btnChiudi") b.hidden = true; });
     $("btnChiudi").onclick = () => location.href = ELENCO;
     throw new Error("ordine non trovato");
   }
   const annullato = ord.stato === "Annullato";
-  document.title = `${nuovo ? "Nuovo ordine cliente" : `Ordine cliente #${ord.id}`} – Gestionale Magazzino`;
+  document.title = `${nuovo ? "Nuovo " + NOME.toLowerCase() : `${NOME} #${ord.id}`} – Gestionale Magazzino`;
+  // nel menu si accende "Scarichi a Clienti" invece di "Ordini da Clienti"
+  if (SCARICO) document.querySelectorAll('a[href="ordini-clienti.html"], a[href="scarichi-clienti.html"]')
+    .forEach(a => a.classList.toggle("active", a.getAttribute("href") === ELENCO));
 
   // Clienti del database (con l'indirizzo per il DDT); quello dell'ordine salvato c'è subito
   let CLIENTI_DB = movDb && movDb.clienti ? [movDb.clienti] : [];
@@ -124,15 +134,15 @@
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   const inp = (id, val, extra = "") => `<input class="mod" id="${id}" value="${esc(val)}" ${extra} disabled>`;
   // Righe: prezzo di vendita IVA inclusa, quantità ordinata (è quella che va sul DDT)
-  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, nelMovimento: "nell'ordine" };
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, nelMovimento: SCARICO ? "nello scarico" : "nell'ordine", verboUscita: "mandare" };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
       <div>
-        <h1 class="page-title">${nuovo ? "Nuovo ordine da cliente" : `Ordine da cliente <span class="num">#${ord.id}</span>`} <span class="pill" id="pillStato"></span></h1>
+        <h1 class="page-title">${nuovo ? "Nuovo " + NOME.toLowerCase() : `${NOME} <span class="num">#${ord.id}</span>`} <span class="pill" id="pillStato"></span></h1>
         <div class="crumbs">
           <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
-          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO}">Ordini da Clienti</a><span>-</span><span>${nuovo ? "Nuovo" : "#" + ord.id}</span>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO}">${SCARICO ? "Scarichi a Clienti" : "Ordini da Clienti"}</a><span>-</span><span>${nuovo ? "Nuovo" : "#" + ord.id}</span>
         </div>
       </div>
       <div class="totale-top">
@@ -141,9 +151,10 @@
         <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
       </div>
     </div>
-    ${annullato ? '<div class="banner ann">✕ Questo ordine è annullato e non si può modificare.</div>' : ""}
-    <div class="banner" id="bannerScalato" hidden style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Merce già scalata dalla giacenza (<b></b>): stampando di nuovo il DDT non si scala due volte.</span></div>
-    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo ordine: scegli il cliente (o aggiungilo), poi gli articoli. Il DDT sarà intestato al cliente." : "Stai modificando l'ordine. Ricordati di salvare."}</div>
+    ${annullato ? `<div class="banner ann">✕ Questo ${SCARICO ? "scarico" : "ordine"} è annullato e non si può modificare.</div>` : ""}
+    ${SCARICO ? `<div class="banner" style="background:#fff7ed;border:1px solid #f5c58a;color:#9a4b00">📦 <span>Lo scarico <b>toglie la merce dalla giacenza</b> di ${esc(sedeLavoro)} quando è Definitivo (o Evaso).${ordineOrigine ? ` È nato dall'<a href="ordine-cliente.html?db=${ordineOrigine}" style="color:inherit;font-weight:700">ordine da cliente #${ordineOrigine}</a>: se mandi meno pezzi, abbassa qui le quantità.` : ""}</span></div>` : ""}
+    <div class="banner" id="bannerScalato" hidden style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Merce già scalata dalla giacenza (<a style="color:inherit;font-weight:700"></a>): stampando di nuovo il DDT non si scala due volte. Gli articoli dell'ordine non si cambiano più: per mandare meno pezzi apri lo scarico.</span></div>
+    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? `Nuovo ${SCARICO ? "scarico" : "ordine"}: scegli il cliente (o aggiungilo), poi gli articoli. Il DDT sarà intestato al cliente.` : "Stai modificando. Ricordati di salvare."}</div>
 
     <section class="panel">
       <div class="schede" id="schede">
@@ -163,6 +174,7 @@
               <div class="campi">
                 ${campo("s4", 'Cliente <span style="color:var(--ko)">*</span>', `<select class="mod" id="fCliente" disabled>${opzClienti(ord.clienteId)}</select>`)}
                 <div class="f s2" style="align-self:end"><button class="btn btn-light solo-mod" id="btnNuovoCliente" type="button">➕ Nuovo cliente</button></div>
+                ${campo("s2", "Sconto cliente %", `<div style="display:flex;gap:6px"><input class="mod" id="fSconto" type="number" min="0" max="100" step="0.5" value="" placeholder="0" style="text-align:right;width:80px" disabled><button class="btn btn-light solo-mod" id="btnSconto" type="button" title="Mette questo sconto su tutte le righe">Applica a tutte</button></div>`, "es. librerie 35%: vale anche per gli articoli che aggiungi dopo")}
               </div>
               <div class="cliente-ddt" id="clienteDdt"></div>
             </div>
@@ -279,11 +291,20 @@
   const righe = avviaRighe({
     ...CFG_RIGHE,
     prezzoDi: art => art.prezzo,
+    scontoNuovo: () => Math.min(100, Math.max(0, +$("fSconto").value || 0)),
+    // lo scarico non può mandare più pezzi di quelli in giacenza (avviso come nelle vendite)
+    limiteGiacenza: SCARICO,
     sedeEstera: () => trovaSede(leggiSede()).estera,
     giacenzaNeiSuggerimenti: true,
     testoVuoto: () => "Spara i barcode con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
     cambiato: () => ricalcola()
   });
+  $("btnSconto").onclick = () => {
+    const p = Math.min(100, Math.max(0, +$("fSconto").value || 0));
+    if (!righe.RIGHE.length) { avviso("Aggiungi prima gli articoli: lo sconto vale anche per quelli che aggiungi dopo"); return; }
+    righe.scontoATutte(p);
+    avviso(`Sconto ${p}% messo su tutte le ${righe.RIGHE.length} righe`);
+  };
   function ricalcola() {
     $("impPezzi").value = righe.pezzi();
     $("totCompl").textContent = numero(righe.totale());
@@ -301,23 +322,29 @@
     if (!lista.length) { avviso("Non ci sono articoli da mettere nel DDT"); return; }
     const qta = n => (+n).toLocaleString("it-IT", { maximumFractionDigits: 2 });
     sessionStorage.setItem("ddt", JSON.stringify({
-      titolo: "Ordine da Cliente", sede: sedeLavoro,
+      titolo: SCARICO ? "Spedizione a Cliente" : "Ordine da Cliente", sede: sedeLavoro,
       numBolla: $("fNumBolla").value.trim(), dataBolla: $("fDataBolla").value ? dataIt($("fDataBolla").value) : "",
       consegna: righeCliente(c), codiceCliente: c.codice,
       colli: $("fColli").value, contenuto: $("fContenuto").value.trim(), peso: $("fPeso").value.trim().replace(".", ","), porto: $("fPorto").value,
       corriere: $("fCorriere").value.trim(), tracking: $("fTracking").value.trim(),
       quantitaTotale: qta(lista.reduce((s, r) => s + +r.qta, 0)),
       righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: qta(r.qta) })),
-      ritorno: location.pathname.split("/").pop() + location.search
+      ritorno: location.pathname.split("/").pop() + location.search.replace(/[&?]ddt=1/, "")
     }));
     location.href = "stampa-ddt.html?auto=1";
   }
   // Prima del DDT: "Vuoi scalare la merce dalla giacenza?" (decisione dell'utente). Sì = scarico a cliente collegato all'ordine,
   // No = la giacenza non cambia (la domanda torna alla stampa successiva). Se è già stato scalato non si chiede più.
   let scaricoId = null;
-  const mostraScarico = () => { $("bannerScalato").hidden = !scaricoId; if (scaricoId) $("bannerScalato").querySelector("b").textContent = `scarico #${scaricoId}`; };
+  const mostraScarico = () => {
+    $("bannerScalato").hidden = !scaricoId;
+    if (!scaricoId) return;
+    const a = $("bannerScalato").querySelector("a");
+    a.textContent = `scarico #${scaricoId}`; a.href = `ordine-cliente.html?db=${scaricoId}`;
+  };
   async function ddtConScarico() {
-    if (!movDb) { stampaDdt(); return; }   // ordine non salvato: si stampa e basta
+    // ordine non salvato, o scheda di uno scarico (la merce esce già salvandolo): si stampa e basta
+    if (!movDb || SCARICO) { stampaDdt(); return; }
     const db = await dbPronto;
     if (db) scaricoId = await scaricoDiOrdineDb(db, movDb.righe.map(r => r.id)).catch(() => scaricoId);
     mostraScarico();
@@ -332,6 +359,11 @@
     try {
       const db = await dbPronto;
       scaricoId = await scaricaOrdineClienteDb(db, movDb, movDb.righe);
+      // come "La spedizione conclude l'ordine principale" del gestionale attuale, ma da solo: l'ordine spedito diventa Evaso
+      if (!["Evaso", "Annullato"].includes(movDb.stato)) {
+        const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).eq("id", movDb.id);
+        if (!error) { movDb.stato = "Evaso"; $("selStato").value = "Evaso"; mostraStato(); }
+      }
       mostraScarico();
       avviso(`Merce scalata dalla giacenza (scarico #${scaricoId})`);
       $("finScarico").classList.remove("show");
@@ -358,8 +390,18 @@
     if (!$("fCliente").value) { avviso("Scegli il cliente (o aggiungilo con ➕ Nuovo cliente)"); document.querySelector('.scheda-tab[data-t="dettagli"]').click(); $("fClienteCerca").focus(); return false; }
     if (righe.senzaArticolo()) { avviso("C'è una riga senza articolo: scegli l'articolo o eliminala con il cestino"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
     if (!righe.RIGHE.some(r => r.articolo && r.qta > 0)) { avviso("Aggiungi almeno un articolo nella scheda Articoli"); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
+    if (righeBloccate() && firmaRighe(righe.RIGHE) !== firmaRighe(righePrima)) {
+      avviso(`La merce di questo ordine è già scalata (scarico #${scaricoId}): gli articoli non si cambiano qui. Per mandare meno pezzi apri lo scarico.`, true);
+      righe.ripristina(righePrima.map(r => ({ ...r }))); ricalcola();
+      return false;
+    }
+    const oltre = SCARICO && ["Definitivo", "Evaso"].includes($("selStato").value) && righe.oltreGiacenza();
+    if (oltre) { avviso(oltre, true); document.querySelector('.scheda-tab[data-t="articoli"]').click(); return false; }
     return true;
   }
+  // Ordine già scalato: le sue righe sono collegate allo scarico e non si sostituiscono
+  const righeBloccate = () => !SCARICO && !!scaricoId && !!movDb;
+  const firmaRighe = lista => JSON.stringify(lista.filter(r => r.articolo).map(r => [r.articolo.codice, +r.qta, +r.prezzo, +r.sconto || 0]));
   $("btnModifica").onclick = () => { valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value); righePrima = righe.fotografia(); modalita(true); };
   $("btnAnnulla").onclick = () => {
     if (nuovo) { if (!righe.RIGHE.length || confirm("Uscire senza salvare l'ordine?")) location.href = ELENCO; return; }
@@ -382,18 +424,28 @@
       // numero di bolla progressivo dell'anno, se non è scritto a mano
       const numBolla = testo("fNumBolla") || await prossimaBollaClienteDb(db, sedeId, dataBolla.slice(0, 4));
       const dati = {
-        tipo: "ordine_cliente", stato: $("selStato").value, sede_id: sedeId, cliente_id: $("fCliente").value, fornitore_id: null,
+        tipo: TIPO, stato: $("selStato").value, sede_id: sedeId, cliente_id: $("fCliente").value, fornitore_id: null,
         data_movimento: $("fData").value || oggi, data_documento: $("fData").value || oggi, numero_documento: numBolla, data_bolla: dataBolla,
         colli: $("fColli").value === "" ? null : +$("fColli").value, contenuto: testo("fContenuto"),
         peso: $("fPeso").value.trim() ? Math.round(+$("fPeso").value.replace(",", ".") * 100) / 100 || null : null,
         porto: $("fPorto").value, spedizioniere: testo("fCorriere"), tracking: testo("fTracking"),
         causale: testo("fCausale"), annotazioni: testo("fAnnot"), spese: 0
       };
-      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({
-        articolo_id: r.articolo.id, quantita: r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: 0
-      })), ord.id);
-      avviso(`Ordine salvato · bolla ${numBolla}`);
+      let id = ord.id;
+      if (righeBloccate()) {
+        // ordine già scalato: si salvano solo i dati del documento, le righe restano quelle collegate allo scarico
+        const { error } = await db.from("movimenti").update({ ...dati, stato: movDb.stato === "Evaso" && dati.stato !== "Annullato" ? "Evaso" : dati.stato, modificato_il: new Date().toISOString() }).eq("id", id);
+        if (error) throw error;
+      } else {
+        id = await salvaMovimentoDb(db, dati, lista.map(r => ({
+          articolo_id: r.articolo.id, quantita: r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: 0,
+          // scarico nato da un ordine: ogni riga resta collegata alla sua riga d'ordine (così l'ordine non si scala due volte)
+          ...(r.ordineRigaId ? { ordine_riga_id: r.ordineRigaId } : {})
+        })), ord.id);
+      }
+      avviso(`${SCARICO ? "Scarico" : "Ordine"} salvato · bolla ${numBolla}`);
       setTimeout(() => location.replace(chiudi ? ELENCO : `ordine-cliente.html?db=${id}`), 900);
+      return;
     } catch (err) {
       avviso(err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/21-ordini-clienti-ddt.sql" : "Errore nel salvare: " + err.message);
       pulsanti.forEach(b => b.disabled = false);
@@ -404,13 +456,18 @@
   $("btnChiudi").onclick = () => location.href = ELENCO;
   $("btnExcel").onclick = () => {
     const c = clienteScelto();
-    righe.excel({ sede: sedeLavoro, tipo: "Ordine da Cliente", numero: ord.id || null,
+    righe.excel({ sede: sedeLavoro, tipo: SCARICO ? "Spedizione a Cliente" : "Ordine da Cliente", numero: ord.id || null,
       riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero Bolla", $("fNumBolla").value], ["Data Bolla", $("fDataBolla").value ? dataIt($("fDataBolla").value) : ""],
         ["Cliente - Codice", c ? c.codice : ""], ["Cliente - Nome", c ? c.nome : ""], ["Cliente - Indirizzo", c ? c.indirizzo || "" : ""],
         ["Cliente - CAP", c ? c.cap || "" : ""], ["Cliente - Citta", c ? c.citta || "" : ""], ["Cliente - Provincia", c ? c.provincia || "" : ""]], spese: [] });
   };
 
-  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo })));
+  // scarico salvato: se è definitivo i suoi pezzi sono già usciti dalla giacenza (giaScaricati, per il limite in modifica)
+  const giaUsciti = SCARICO && movDb && ["Definitivo", "Evaso"].includes(movDb.stato);
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo,
+    ordineRigaId: r.ordine_riga_id || null, giaScaricati: giaUsciti ? +r.quantita : 0 })));
+  // sconto uguale su tutte le righe: si mostra nel campo "Sconto cliente %"
+  if (movDb && movDb.righe.length && movDb.righe.every(r => +r.sconto === +movDb.righe[0].sconto) && +movDb.righe[0].sconto) $("fSconto").value = +movDb.righe[0].sconto;
   ricalcola();
   modalita(nuovo);
 
@@ -423,8 +480,10 @@
     const scelto = $("fCliente").value || ord.clienteId;
     $("fCliente").innerHTML = opzClienti(scelto);
     campoCliente.aggiorna(); mostraCliente();
-    if (movDb) { scaricoId = await scaricoDiOrdineDb(db, movDb.righe.map(r => r.id)); mostraScarico(); }
+    if (movDb && !SCARICO) { scaricoId = await scaricoDiOrdineDb(db, movDb.righe.map(r => r.id)); mostraScarico(); }
     await caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]);
+    // dall'elenco "Stampa DDT" (…&ddt=1): si stampa subito (con la domanda sullo scarico, se è un ordine)
+    if (movDb && qs.has("ddt")) ddtConScarico();
   }).catch(err => avviso("Errore nel leggere clienti e articoli: " + err.message));
 </script>
 </body>

@@ -56,7 +56,11 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   "Fornitore" e il DDT usciva intestato a quello). Cliente cercato scrivendo o aggiunto al volo; prezzi di vendita IVA inclusa; numero bolla automatico "N/anno".
   Stampa **DDT** `stampa-ddt.html` identica a quella del gestionale attuale (richiesta dell'utente): "DA CONSEGNARE A" = sempre il cliente. L'ordine non scarica la giacenza:
   prima del DDT la finestra "Vuoi scalare la merce dalla giacenza?" (Sì = movimento `scarico_cliente` con le righe collegate via `ordine_riga_id`, una volta sola;
-  No = niente). Da quale anno di acquisto scalare: da decidere con l'utente. Gli scarichi si vedono in Scarichi a Clienti (clic = ordine d'origine).
+  No = niente). Da quale anno di acquisto scalare: da decidere con l'utente. Dopo il Sì l'ordine diventa Evaso e i suoi articoli non si cambiano più (si salvano solo i dati del documento).
+- **Scarico a cliente** = stessa scheda `ordine-cliente.html` (`?nuovo=1&tipo=scarico`, o un `scarico_cliente` salvato): toglie la merce appena è Definitivo,
+  non lascia mandare più della giacenza, DDT intitolato "Spedizione a Cliente". Lo scarico nato da un ordine tiene `ordine_riga_id` anche se si modifica (meno pezzi = spedizione parziale).
+  Numero bolla unico per ordini e scarichi della sede. "Sconto cliente %" (es. librerie 35%) mette lo sconto su tutte le righe e su quelle aggiunte dopo.
+  In Ordini da Clienti del Magazzino Centrale il riquadro "Ordini ricevuti dalle filiali" (→ trasferimento / inevasi), separato dagli ordini dei clienti.
 - `aumento.html` (elenco `aumento-giacenza.html`): merce che entra senza fornitore. Motivo a riquadri (Inventario, Da altri centri o sedi chiuse,
   Donazione, Altro), **anno di acquisto scelto a mano** (anche passato: si stampa sulle etichette), prezzi di acquisto, quantità in "Arrivata".
   Colonne `motivo` e `anno_acquisto` in `database/16-aumento-giacenza.sql`.

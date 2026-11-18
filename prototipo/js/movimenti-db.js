@@ -54,7 +54,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
 const TIPI_DB = [
   ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
   ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
-  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", null], ["esistenza", "Giacenza iniziale", null]
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
 ];
 async function elencoTuttiMovimentiDb(db, sedeId) {
   const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>
@@ -215,10 +215,11 @@ async function salvaMovimentoDb(db, mov, righe, id) {
 }
 
 // ---------- Ordini da clienti (ordine-cliente.html) ----------
-// Prossimo numero di bolla del DDT della sede nell'anno, come nel gestionale attuale: "3/2026"
+// Prossimo numero di bolla del DDT della sede nell'anno, come nel gestionale attuale: "3/2026".
+// La numerazione è una sola per ordini e scarichi a clienti (lo scarico nato da un ordine tiene il numero dell'ordine).
 async function prossimaBollaClienteDb(db, sedeId, anno) {
   const { data, error } = await db.from("movimenti").select("numero_documento")
-    .eq("tipo", "ordine_cliente").eq("sede_id", sedeId).like("numero_documento", `%/${anno}`);
+    .in("tipo", ["ordine_cliente", "scarico_cliente"]).eq("sede_id", sedeId).like("numero_documento", `%/${anno}`);
   if (error) throw error;
   const max = (data || []).reduce((m, r) => Math.max(m, parseInt(r.numero_documento, 10) || 0), 0);
   return `${max + 1}/${anno}`;

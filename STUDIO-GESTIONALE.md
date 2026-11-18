@@ -110,3 +110,19 @@ Visto nello Storico ordini e nella pagina Giacenze, in sola lettura:
 - Uno stesso articolo può comparire due volte nello stesso trasferimento (righe 5 e 28, 1 + 2 pezzi): facile da non notare.
 Nel nuovo gestionale: la vendita scarica prima il lotto più vecchio che ha pezzi (FIFO); il riallineamento parte dal totale contato
 e lo divide sui lotti; la giacenza è sempre la somma dei movimenti (nessun numero salvato a parte da "ricalcolare").
+
+## Ordini da clienti e scarichi a clienti (studio del 18/11/2026, CAL SMM Roma e Magazzino Centrale)
+- **Scarichi a Clienti** (SpedizioniInviate) = movimento "Spedizione a Cliente": toglie la merce. Protocollo "anno-numero" (es. 2026-000021) e,
+  se c'è, numero di bolla "N/anno". Campi come la vendita più Numero bolla, Data bolla, Riferimento fattura, Condizione pagamento, Spedizioniere.
+  Stampa ▾: per Progressivo, per Codice, DDT. Righe: Ordinata, Spedita, Giac., Anno giac. (anche qui "(auto)" = anno in corso), Costo senza IVA, IVA, Sconto %.
+- Lo **sconto del cliente** è sul documento (es. librerie 35%) e si ripete su ogni riga.
+- Uno scarico può nascere da un ordine: causale "Scarico relativo all'ordine #N del …", scheda "Movimenti collegati" con le righe dell'ordine
+  (Quantità, Mancante) e il tasto "Concludi Ordine Principale" ("La spedizione conclude l'ordine principale"), da premere a mano.
+- Nel Magazzino Centrale "Scarichi a Clienti" è molto usato (librerie e centri liturgici, anche esteri); a SMM quasi mai (qualche scarico verso il Magazzino Centrale).
+- **Nel Magazzino Centrale "Ordini da Clienti" contiene soprattutto gli ordini delle filiali** (Evaso / Riordino): gli inevasi diventano nuovi
+  ordini "Riordino" con nomi a catena (n.inevasi--inevasi-Ord.184/2026…) e gli stessi articoli si ripetono in più riordini dello stesso giorno
+  (importi quasi uguali): è facile mandare due volte la stessa merce o perderla di vista.
+- Quando il DDT di un ordine esce sbagliato, oggi si annulla l'ordine e se ne rifà uno nuovo con un altro numero di bolla.
+Nel nuovo gestionale: la scheda dell'ordine da cliente fa anche lo scarico (ordine-cliente.html?tipo=scarico); lo scarico nato da un ordine resta
+collegato riga per riga, l'ordine diventa Evaso da solo e non si scala due volte; "Sconto cliente %" mette lo sconto su tutte le righe;
+gli ordini delle filiali stanno in un riquadro a parte (una volta sola, con quello che resta da mandare) e non si mescolano ai clienti.
