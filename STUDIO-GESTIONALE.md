@@ -130,3 +130,6 @@ gli ordini delle filiali stanno in un riquadro a parte (una volta sola, con quel
   Un trasferimento ha mandato 2 pezzi con 1 in giacenza (1 → −1), poi una rettifica in diminuzione per un cambio merce (−1 → −2),
   poi un aumento di 2 pezzi ha solo riportato a 0 (−2 → 0). La pagina Articoli mostra 0 e non −2: il "buco" non si vede mai,
   e ogni pezzo aggiunto va prima a coprirlo.
+- **Vendite e-commerce**: oggi si registrano come "Trasferimento a Filiale" verso la Sede Centrale con causale "E-COMMERCE"
+  (detto dall'utente il 19/11/2026). La merce esce dalla sede che spedisce come in una vendita. Nel nuovo gestionale: da decidere
+  quando si farà il collegamento all'e-commerce (oggi rimandato); intanto i trasferimenti con causale E-COMMERCE vanno tenuti riconoscibili.
