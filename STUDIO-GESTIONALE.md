@@ -133,3 +133,11 @@ gli ordini delle filiali stanno in un riquadro a parte (una volta sola, con quel
 - **Vendite e-commerce**: oggi si registrano come "Trasferimento a Filiale" verso la Sede Centrale con causale "E-COMMERCE"
   (detto dall'utente il 19/11/2026). La merce esce dalla sede che spedisce come in una vendita. Nel nuovo gestionale: da decidere
   quando si farà il collegamento all'e-commerce (oggi rimandato); intanto i trasferimenti con causale E-COMMERCE vanno tenuti riconoscibili.
+- **Trasferimento e-commerce del mese** (19/11/2026): si crea a inizio mese e ogni vendita online si aggiunge alla stessa scheda.
+  Il totale della giacenza non dipende dalla data (è la somma dei movimenti), ma la data della scheda sposta tutte le sue righe:
+  con la data di inizio mese i pezzi venduti dopo risultano usciti prima dei carichi arrivati nel frattempo (giacenza sotto zero nello storico,
+  poi "aumenti" per rimediare che diventano pezzi in più); con la data di oggi le vendite dei giorni prima risultano fatte oggi.
+  A fine anno è pericoloso: una scheda di dicembre portata a gennaio sposta le vendite di dicembre nell'anno nuovo (giacenza di inizio anno sbagliata).
+  Controllati i 16 articoli di un trasferimento: con la data spostata a inizio mese andavano sotto zero 2 articoli.
+- Due riallineamenti nello stesso giorno sugli stessi articoli vengono applicati entrambi (inventario contato due volte → giacenza sotto zero, poi corretta con aumenti).
+Nel nuovo gestionale: una vendita e-commerce = un movimento con la sua data (come le vendite giornaliere), mai righe aggiunte a una scheda vecchia.
