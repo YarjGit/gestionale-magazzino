@@ -52,6 +52,9 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 
 ## Regole decise (22/10/2026)
 
+**Vendite e-commerce** (deciso il 19/11/2026)
+- Sono una **vendita della sede che spedisce** (giornata "Vendite e-commerce", una al giorno con la data della vendita), non un trasferimento alla Sede Centrale come nel gestionale attuale.
+
 **Giacenza**
 - Gli articoli sono **divisi per anno di acquisto** (lotti): serve per una corretta gestione.
 - L'**anno si stampa sull'etichetta del prezzo** di ogni articolo; le etichette si stampano ogni volta che la merce viene caricata in giacenza (anno = anno del carico).
