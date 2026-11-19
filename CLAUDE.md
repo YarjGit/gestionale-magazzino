@@ -37,6 +37,10 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 ## Schede movimento
 - Righe articolo comuni a tutte le schede (＋, cestino, frecce, − / +, IVA per riga, pistola): `js/righe-movimento.js`.
   Schede: `carico.html`, `ordine.html` (fornitore obbligatorio, articoli del fornitore), `vendita.html` (quantità solo in Spedita, prezzi IVA inclusa).
+- **Vendite e-commerce** = `vendita.html?nuovo=1&canale=ecommerce` (tasto "🛒 Vendite e-commerce" in Vendite Giornaliere): una giornata al giorno, causale "E-COMMERCE – …".
+  Nel vecchio era un trasferimento mensile alla Sede Centrale riempito per tutto il mese (date sbagliate, giacenza sotto zero). Regole di ogni giornata (negozio o e-commerce):
+  una sola per giorno, su una giornata vecchia si chiede prima di aggiungere articoli, spostarla di giorno chiede conferma e mai in un altro anno.
+  Trasferimenti: non si manda più della giacenza (blocco, non più solo conferma).
 - **Ordini → carichi**: in Carichi da Fornitori il riquadro "Ordini a fornitori da caricare" (ordini aperti, esclusi quelli a una sede) apre `carico.html?nuovo=1&ordine=N`:
   fornitore e ordine già collegati, Spedita = quanto manca, poi − / +, sconto per riga e ✕. "Nuovo carico" resta per i carichi senza ordine.
   Allo stesso modo in Trasferimenti da Filiali il riquadro "Ordini alle sedi in attesa" (ordini della sede a un fornitore-sede, es. SMM → Magazzino Centrale):

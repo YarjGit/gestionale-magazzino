@@ -38,6 +38,10 @@
     dati: []
   });
 
+  // Vendite e-commerce: una giornata a parte per ogni giorno (nel gestionale attuale era un trasferimento mensile alla Sede Centrale)
+  document.getElementById("btnCrea").insertAdjacentHTML("beforebegin",
+    `<a class="btn btn-light" href="vendita.html?nuovo=1&canale=ecommerce" title="Vendite online di oggi: una giornata a parte, con la data della vendita" style="color:#5b21b6;border-color:#cdb8f5;background:#f5f0ff">🛒 Vendite e-commerce</a>`);
+
   // Dopo l'accesso: le giornate salvate nel database, in cima a quelle di esempio
   dbPronto.then(async db => {
     if (!db) return;

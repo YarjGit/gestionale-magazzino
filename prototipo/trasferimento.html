@@ -336,8 +336,19 @@
     }
     const sopra = daMandare.filter(r => r.ordinata != null && r.manda > r.ordinata);
     if (sopra.length && !confirm(`Per ${sopra.length} articoli mandi più di quanto ordinato. Confermi?`)) return;
-    const oltre = daMandare.filter(r => r.manda > (r.articolo.giac ?? 0));
-    if (oltre.length && !confirm(`Per ${oltre.length} articoli mandi più di quanto risulta in giacenza qui:\n` + oltre.map(r => `• ${r.articolo.codice}: mandi ${r.manda}, in giacenza ${r.articolo.giac ?? 0}`).join("\n") + "\n\nLa giacenza andrà sotto zero. Confermi?")) return;
+    // Non si manda più di quello che c'è (nel gestionale attuale si poteva e la giacenza andava sotto zero senza che si vedesse).
+    // Trasferimento già spedito che si modifica: i suoi pezzi sono già usciti, quindi contano come disponibili.
+    const giaUsciti = new Map();
+    if (salvato && spedito && !ricevente) mov.righe.forEach(r => giaUsciti.set(r.articolo.id, (giaUsciti.get(r.articolo.id) || 0) + +r.quantita));
+    const pezziPer = new Map();
+    // stesso articolo su più righe (es. ordine + inevasi vecchi): si somma
+    daMandare.forEach(r => { const p = pezziPer.get(r.articolo.codice) || [r.articolo, 0]; p[1] += r.manda; pezziPer.set(r.articolo.codice, p); });
+    const oltre = [...pezziPer.values()].filter(([a, n]) => stato === "Definitivo" && n > (a.giac ?? 0) + (giaUsciti.get(a.id) || 0));
+    if (oltre.length) {
+      avviso(`Non puoi mandare più di quanto c'è in giacenza: ` + oltre.map(([a, n]) => `${a.codice} (mandi ${n}, ce ne sono ${(a.giac ?? 0) + (giaUsciti.get(a.id) || 0)})`).join(", ")
+        + `. Se i pezzi ci sono davvero, prima caricali (es. Aumento giacenza).`, true);
+      return;
+    }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
     try {

@@ -72,7 +72,13 @@
     throw new Error("vendita non trovata");
   }
   const giornoIt = d => d.split("-").reverse().join("/");
-  document.title = `${nuovo ? "Nuova giornata" : `Vendite del ${giornoIt(ven.data)}`} – Gestionale Magazzino`;
+  // Vendite e-commerce: una giornata a parte per ogni giorno (?nuovo=1&canale=ecommerce), riconosciuta dalla causale "E-COMMERCE …".
+  // Nel gestionale attuale era un trasferimento alla Sede Centrale aperto a inizio mese e riempito per tutto il mese:
+  // le righe aggiunte dopo prendevano la data della scheda e la giacenza andava sotto zero nello storico.
+  const ECOM = nuovo ? qs.get("canale") === "ecommerce" : /^E-?COMMERCE/i.test(ven.causale || "");
+  const NOME_G = ECOM ? "Vendite e-commerce" : "Vendite";
+  const causaleDi = g => ECOM ? `E-COMMERCE – vendite online del ${giornoIt(g)}` : `Riepilogo vendite giornaliere del ${giornoIt(g)}`;
+  document.title = `${nuovo ? (ECOM ? "Nuova giornata e-commerce" : "Nuova giornata") : `${NOME_G} del ${giornoIt(ven.data)}`} – Gestionale Magazzino`;
 
   const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
@@ -83,7 +89,7 @@
   $("contenuto").innerHTML = `
     <div class="scheda-head">
       <div>
-        <h1 class="page-title">${nuovo ? "Nuova giornata di vendite" : `Vendite del <span class="num">${giornoIt(ven.data)}</span>`} <span class="pill" id="pillStato"></span></h1>
+        <h1 class="page-title">${nuovo ? (ECOM ? "Nuova giornata di vendite e-commerce" : "Nuova giornata di vendite") : `${NOME_G} del <span class="num">${giornoIt(ven.data)}</span>`}${ECOM ? ' <span class="pill" style="background:#7c3aed1f;color:#7c3aed">🛒 e-commerce</span>' : ""} <span class="pill" id="pillStato"></span></h1>
         <div class="crumbs">
           <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
           <span>-</span><span>Movimenti</span><span>-</span><a href="vendite-giornaliere.html">Vendite Giornaliere</a><span>-</span><span>${nuovo ? "Nuova" : giornoIt(ven.data)}</span>
@@ -98,6 +104,9 @@
     <div class="banner provv" id="bannerProvv" hidden><span>◷</span><span>La giornata è <b>provvisoria</b>: si può ancora completare e <b>non viene scaricata</b> dalle giacenze.</span></div>
     ${ven && ven.stato === "Annullato" ? '<div class="banner ann">✕ Questa giornata è annullata: non scarica le giacenze e non si può modificare.</div>' : ""}
     <div class="banner mod" id="bannerModifica" hidden>✎ Stai modificando la giornata. Ricordati di salvare.</div>
+    ${ECOM ? `<div class="banner" style="background:#f5f0ff;border:1px solid #cdb8f5;color:#5b21b6">🛒 <span>Vendite <b>online</b> di <b>un solo giorno</b>: la merce esce dalla giacenza di ${esc(sedeLavoro)} con la data della vendita. Il giorno dopo se ne fa una nuova: mai righe aggiunte a una giornata vecchia.</span></div>` : ""}
+    <div class="banner provv" id="bannerGiaOggi" hidden><span>📅</span><span></span></div>
+    <div class="banner provv" id="bannerVecchia" hidden><span>⚠</span><span>Questa giornata è del <b>${ven ? giornoIt(ven.data) : ""}</b>: aggiungi qui solo articoli venduti <b>quel giorno</b>. Le vendite di oggi vanno nella giornata di oggi: <a id="linkOggi" href="vendita.html?nuovo=1${ECOM ? "&canale=ecommerce" : ""}" style="color:inherit;font-weight:700">aprila →</a></span></div>
 
     <section class="panel">
       <div class="schede" id="schede">
@@ -117,7 +126,7 @@
             <div class="gruppo">
               <h3>📄 Giornata</h3>
               <div class="campi">
-                ${campo("s2", "Tipo di movimento", `<select disabled><option>Vendita giornaliera</option></select>`)}
+                ${campo("s2", "Tipo di movimento", `<select disabled><option>${ECOM ? "Vendita e-commerce" : "Vendita giornaliera"}</option></select>`)}
                 ${campo("s4", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato">${opz(["Provvisorio", "Definitivo"].concat(ven && ven.stato === "Annullato" ? ["Annullato"] : []), ven ? ven.stato : "Definitivo")}</select><button class="btn" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisoria = ancora da completare")}
                 ${campo("s2", "Giorno", `<input class="mod" type="date" id="giorno" value="${ven ? ven.data : oggi}">`)}
                 ${campo("s2", "Sede", `<input value="${esc(sedeLavoro)}" disabled>`)}
@@ -128,7 +137,7 @@
             <div class="gruppo">
               <h3>📝 Note</h3>
               <div class="campi">
-                ${campo("s3", "Causale", `<textarea class="mod" id="causale">${esc(ven ? ven.causale : `Riepilogo vendite giornaliere del ${giornoIt(oggi)}`)}</textarea>`, "non stampata sul documento")}
+                ${campo("s3", "Causale", `<textarea class="mod" id="causale">${esc(ven ? ven.causale : causaleDi(oggi))}</textarea>`, "non stampata sul documento")}
                 ${campo("s3", "Annotazioni", `<textarea class="mod" id="annotazioni">${esc(ven ? ven.annotazioni || "" : "")}</textarea>`, "stampate sul riepilogo")}
               </div>
             </div>
@@ -187,17 +196,30 @@
   };
   mostraStato();
   // la causale segue il giorno scelto finché non viene scritta a mano
+  // Spostare una giornata salvata sposta TUTTE le sue vendite: si chiede, e mai in un altro anno (cambierebbe la giacenza di inizio anno)
   $("giorno").onchange = () => {
-    if (/^Riepilogo vendite giornaliere del /.test($("causale").value)) $("causale").value = `Riepilogo vendite giornaliere del ${giornoIt($("giorno").value)}`;
+    const nuovoG = $("giorno").value;
+    if (ven && ven.dbId && nuovoG && nuovoG !== ven.data) {
+      if (nuovoG.slice(0, 4) !== ven.data.slice(0, 4)) { avviso(`La giornata è del ${ven.data.slice(0, 4)}: non si può spostare in un altro anno (cambierebbe la giacenza di inizio anno). Fai una giornata nuova.`, true); $("giorno").value = ven.data; return; }
+      if (!confirm(`Spostare tutta la giornata dal ${giornoIt(ven.data)} al ${giornoIt(nuovoG)}? Tutte le sue vendite cambieranno giorno.\nSe vuoi solo registrare le vendite di un altro giorno, fai una giornata nuova.`)) { $("giorno").value = ven.data; return; }
+    }
+    if (/^(Riepilogo vendite giornaliere del |E-COMMERCE – vendite online del )/.test($("causale").value)) $("causale").value = causaleDi(nuovoG);
   };
 
   // ---------- Righe della giornata (prezzo = prezzo di vendita IVA inclusa; scarica la colonna Spedita) ----------
+  let okGiornoVecchio = false;
   const righe = avviaRighe({
+    // giornata di un giorno passato: prima di aggiungere un articolo si chiede se è stato venduto quel giorno (una volta sola)
+    puoAggiungere: () => {
+      if (!ven || !ven.dbId || $("giorno").value === oggi || okGiornoVecchio) return true;
+      okGiornoVecchio = confirm(`Questa giornata è del ${giornoIt($("giorno").value)}.\nL'articolo è stato venduto quel giorno?\n\nOK = sì, aggiungilo qui · Annulla = no (le vendite di oggi vanno nella giornata di oggi)`);
+      return okGiornoVecchio;
+    },
     ...CFG_RIGHE,
     // sede estera: si vende senza IVA, quindi il prezzo è quello in etichetta tolta l'IVA
     prezzoDi: art => trovaSede(leggiSede()).estera ? Math.round(art.prezzo / (1 + (art.iva === 4 ? 4 : art.iva === 0 ? 0 : 22) / 100) * 100) / 100 : art.prezzo,
     sedeEstera: () => trovaSede(leggiSede()).estera,
-    testoVuoto: () => "Spara i barcode degli articoli venduti con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
+    testoVuoto: () => ECOM ? "Spara o scrivi i codici degli articoli venduti online in questo giorno." : "Spara i barcode degli articoli venduti con la pistola, oppure usa il tasto ＋ e scrivi il codice.",
     cambiato: () => ricalcola()
   });
 
@@ -231,6 +253,7 @@
     pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
     ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = !modifica);
     $("bannerModifica").hidden = !modifica || nuovo;
+    $("bannerVecchia").hidden = !modifica || !ven || !ven.dbId || ven.data === oggi;
     righe.disegna();
   }
   $("btnModifica").onclick = () => {
@@ -261,6 +284,14 @@
       data_movimento: $("giorno").value || oggi, causale: $("causale").value.trim() || null, annotazioni: $("annotazioni").value.trim() || null,
       spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
     };
+    // Una sola giornata per giorno (negozio ed e-commerce separati): niente doppioni
+    try {
+      const doppia = await giornataDelGiornoDb(db, dati.data_movimento);
+      if (doppia && (!ven || doppia.id !== ven.dbId)) {
+        avviso(`C'è già la giornata ${ECOM ? "e-commerce " : ""}del ${giornoIt(dati.data_movimento)} (#${doppia.id}): aggiungi lì gli articoli invece di farne un'altra.`, true);
+        mostraGiaOggi(doppia, dati.data_movimento); return;
+      }
+    } catch (err) { avviso("Errore nel controllare le giornate: " + err.message); return; }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
     try {
@@ -276,7 +307,7 @@
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
-  $("btnExcel").onclick = () => righe.excel({ sede: sedeLavoro, tipo: "Vendite Giornaliere", numero: ven ? ven.id : null,
+  $("btnExcel").onclick = () => righe.excel({ sede: sedeLavoro, tipo: ECOM ? "Vendite E-commerce" : "Vendite Giornaliere", numero: ven ? ven.id : null,
     riepilogo: [["Giorno", dataIt($("giorno").value || oggi)]], spese: [] });
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
@@ -294,9 +325,29 @@
   modalita(nuovo);
   if (nuovo) $("addArt").focus();
 
-  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database
-  dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]))
-    .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+  // Giornata (del negozio o e-commerce, come questa) già salvata per quel giorno e non annullata: { id } o null
+  async function giornataDelGiornoDb(db, giorno) {
+    const { data, error } = await db.from("movimenti").select("id, stato, causale")
+      .eq("tipo", "vendite_giornaliere").eq("sede_id", ID_SEDI_DB[sedeLavoro]).eq("data_movimento", giorno);
+    if (error) throw error;
+    return (data || []).find(m => m.stato !== "Annullato" && /^E-?COMMERCE/i.test(m.causale || "") === ECOM) || null;
+  }
+  function mostraGiaOggi(g, giorno) {
+    $("bannerGiaOggi").hidden = false;
+    $("bannerGiaOggi").lastElementChild.innerHTML = `La giornata ${ECOM ? "e-commerce " : ""}del <b>${giornoIt(giorno)}</b> c'è già: <a href="vendita.html?db=${g.id}" style="color:inherit;font-weight:700">aprila e aggiungi lì →</a>`;
+  }
+
+  // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database.
+  // Giornata nuova: se quella di oggi c'è già lo si dice subito · giornata vecchia: il link porta a quella di oggi
+  dbPronto.then(async db => {
+    if (!db) return;
+    if (nuovo || (ven && ven.dbId && ven.data !== oggi)) {
+      const g = await giornataDelGiornoDb(db, oggi);
+      if (nuovo && g) mostraGiaOggi(g, oggi);
+      if (g) $("linkOggi").href = `vendita.html?db=${g.id}`;
+    }
+    await caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]);
+  }).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
 </script>
 </body>
 </html>
