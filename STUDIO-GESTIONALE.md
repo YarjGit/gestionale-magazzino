@@ -126,3 +126,7 @@ e lo divide sui lotti; la giacenza è sempre la somma dei movimenti (nessun nume
 Nel nuovo gestionale: la scheda dell'ordine da cliente fa anche lo scarico (ordine-cliente.html?tipo=scarico); lo scarico nato da un ordine resta
 collegato riga per riga, l'ordine diventa Evaso da solo e non si scala due volte; "Sconto cliente %" mette lo sconto su tutte le righe;
 gli ordini delle filiali stanno in un riquadro a parte (una volta sola, con quello che resta da mandare) e non si mescolano ai clienti.
+- Terzo esempio (una lampada, 19/11/2026): l'**aumento di giacenza "sparisce"** quando la giacenza era già sotto zero senza che si vedesse.
+  Un trasferimento ha mandato 2 pezzi con 1 in giacenza (1 → −1), poi una rettifica in diminuzione per un cambio merce (−1 → −2),
+  poi un aumento di 2 pezzi ha solo riportato a 0 (−2 → 0). La pagina Articoli mostra 0 e non −2: il "buco" non si vede mai,
+  e ogni pezzo aggiunto va prima a coprirlo.
