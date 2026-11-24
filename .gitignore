@@ -12,3 +12,7 @@ prototipo/js/dati-articoli-reali.js
 .claude/
 Thumbs.db
 desktop.ini
+
+# Copie di sicurezza del database: dati veri, mai su GitHub
+backup-gestionale-*.sql
+*.dump
