@@ -254,6 +254,25 @@ function avviaRighe(cfg) {
     ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}${altro(a) ? '<span class="altro-forn">&nbsp;· altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art">&nbsp;· ${esc(cfg.notaArticolo(a))}</span>` : ""}${cfg.giacenzaNeiSuggerimenti ? giacSugg(a) : ""}<small>${a.barcode}</small></div>`).join("")
     : `<div class="sugg" style="cursor:default;color:var(--muted)">${nessuno(testo)}</div>`;
 
+  // La lista dei suggerimenti della riga si apre "sopra" la pagina (position: fixed): dentro la tabella, con poche righe,
+  // veniva tagliata dal bordo e se ne vedeva uno solo. Così se ne vedono almeno 6; se sotto non c'è spazio si apre verso l'alto.
+  function apriSottoCampo(box, campo) {
+    const r = campo.getBoundingClientRect();
+    const sotto = innerHeight - r.bottom - 12, sopra = r.top - 12;
+    const suVersoAlto = sotto < 220 && sopra > sotto;
+    Object.assign(box.style, {
+      position: "fixed", left: Math.max(8, Math.min(r.left, innerWidth - Math.max(r.width, 460) - 8)) + "px", right: "auto",
+      width: Math.max(r.width, 460) + "px", maxHeight: Math.max(160, Math.min(320, suVersoAlto ? sopra : sotto)) + "px",
+      top: suVersoAlto ? "auto" : (r.bottom + 4) + "px", bottom: suVersoAlto ? (innerHeight - r.top + 4) + "px" : "auto", zIndex: 50
+    });
+  }
+  const riposiziona = () => document.querySelectorAll("[data-suggriga].show").forEach(box => {
+    const campo = document.querySelector(`[data-cercariga="${box.dataset.suggriga}"]`);
+    if (campo) apriSottoCampo(box, campo); else box.classList.remove("show");
+  });
+  window.addEventListener("scroll", riposiziona, true);
+  window.addEventListener("resize", riposiziona);
+
   // Ricerca dentro la riga vuota (anche con la pistola: codice + Invio)
   let suggRiga = 0;
   $("righeArt").oninput = e => {
@@ -264,6 +283,7 @@ function avviaRighe(cfg) {
     const box = document.querySelector(`[data-suggriga="${pos}"]`);
     box.innerHTML = suggerimenti(trova(e.target.value), suggRiga, e.target.value);
     box.classList.toggle("show", !!e.target.value.trim());
+    if (box.classList.contains("show")) apriSottoCampo(box, e.target);
   };
   $("righeArt").onkeydown = e => {
     const pos = e.target.dataset.cercariga;
@@ -282,7 +302,7 @@ function avviaRighe(cfg) {
       const stessoBarcode = letto ? lista.filter(a => a.barcode === letto) : [];
       if (stessoBarcode.length > 1 && !e.target.dataset.sceltoBarcode) {
         e.target.dataset.sceltoBarcode = "1";
-        box.innerHTML = suggerimenti(lista, suggRiga, e.target.value); box.classList.add("show");
+        box.innerHTML = suggerimenti(lista, suggRiga, e.target.value); box.classList.add("show"); apriSottoCampo(box, e.target);
         avviso(`Il barcode ${letto} è su ${stessoBarcode.length} articoli (${stessoBarcode.map(a => a.codice).join(", ")}): scegli quello giusto con le frecce e premi Invio`, true);
         return;
       }

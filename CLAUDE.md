@@ -40,7 +40,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Schede: `carico.html`, `ordine.html` (fornitore obbligatorio, articoli del fornitore), `vendita.html` (quantità solo in Spedita, prezzi IVA inclusa).
 - **Vendite e-commerce** = `vendita.html?nuovo=1&canale=ecommerce` (tasto "🛒 Vendite e-commerce" in Vendite Giornaliere): una giornata al giorno, causale "E-COMMERCE – …".
   Nel vecchio era un trasferimento mensile alla Sede Centrale riempito per tutto il mese (date sbagliate, giacenza sotto zero). Regole di ogni giornata (negozio o e-commerce):
-  una sola per giorno, su una giornata vecchia si chiede prima di aggiungere articoli, spostarla di giorno chiede conferma e mai in un altro anno.
+  se quella del giorno c'è già: finestra "già create, vuoi riaprire quelle di oggi?" (Sì = si riapre; No = un'altra giornata con nota obbligatoria,
+  scritta nella causale e nelle annotazioni); su una giornata vecchia si chiede prima di aggiungere articoli, spostarla di giorno chiede conferma e mai in un altro anno.
   Trasferimenti: non si manda più della giacenza (blocco, non più solo conferma).
   Lista a parte `vendite-giornaliere.html?canale=ecommerce` (la lista normale mostra solo il negozio); "Aggiungi alle vendite di oggi" apre `vendita.html?db=N&modifica=1`.
   Nella giornata e-commerce ogni vendita è una riga a sé con l'ora (`righeSeparate`, colonna `movimenti_righe.aggiunto_il`, `database/26-ora-righe.sql`).

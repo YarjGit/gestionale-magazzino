@@ -35,6 +35,23 @@
 
 <main class="content" id="contenuto"></main>
 
+<!-- Giornata dello stesso giorno già creata: si riapre quella, oppure se ne fa un'altra con una nota obbligatoria -->
+<div id="finDoppia" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(20,30,50,0.45)">
+  <div style="width:min(480px,100%);padding:22px;border-radius:14px;background:#fff;box-shadow:0 20px 60px rgba(20,30,50,0.3)">
+    <h3 id="doppiaTitolo" style="margin-bottom:8px;font-size:1.05rem"></h3>
+    <p id="doppiaTesto" style="margin-bottom:14px;color:var(--muted);line-height:1.45"></p>
+    <div id="doppiaNotaBox" hidden>
+      <label for="doppiaNota" style="font-size:0.8rem;font-weight:600;color:var(--muted)">Nota per distinguerla dall'altra <span style="color:var(--ko)">*</span></label>
+      <textarea id="doppiaNota" rows="2" placeholder="es. vendite del pomeriggio, ordine telefonico, fiera…" style="width:100%;margin-top:5px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btn-light" id="doppiaNo">No</button>
+      <button class="btn btn-primary" id="doppiaSi">Sì, riapri quelle di oggi</button>
+      <button class="btn btn-primary" id="doppiaCrea" hidden>Crea un'altra giornata</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/intestazioni.js"></script>
@@ -286,12 +303,15 @@
       data_movimento: $("giorno").value || oggi, causale: $("causale").value.trim() || null, annotazioni: $("annotazioni").value.trim() || null,
       spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
     };
-    // Una sola giornata per giorno (negozio ed e-commerce separati): niente doppioni
+    // Di solito una giornata per giorno (negozio ed e-commerce separati). Se c'è già: si riapre quella,
+    // oppure se ne fa un'altra ma con una nota che la distingue (obbligatoria)
     try {
       const doppia = await giornataDelGiornoDb(db, dati.data_movimento);
-      if (doppia && (!ven || doppia.id !== ven.dbId)) {
-        avviso(`C'è già la giornata ${ECOM ? "e-commerce " : ""}del ${giornoIt(dati.data_movimento)} (#${doppia.id}): aggiungi lì gli articoli invece di farne un'altra.`, true);
-        mostraGiaOggi(doppia, dati.data_movimento); return;
+      if (doppia && !haNotaDistinta()) {
+        const scelta = await chiediDoppione(doppia, dati.data_movimento, true);
+        if (scelta !== "nuova") return;
+        dati.causale = $("causale").value.trim() || null;
+        dati.annotazioni = $("annotazioni").value.trim() || null;
       }
     } catch (err) { avviso("Errore nel controllare le giornate: " + err.message); return; }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
@@ -343,12 +363,45 @@
     const { data, error } = await db.from("movimenti").select("id, stato, causale")
       .eq("tipo", "vendite_giornaliere").eq("sede_id", ID_SEDI_DB[sedeLavoro]).eq("data_movimento", giorno);
     if (error) throw error;
-    return (data || []).find(m => m.stato !== "Annullato" && /^E-?COMMERCE/i.test(m.causale || "") === ECOM) || null;
+    // (la giornata che si sta guardando non conta)
+    return (data || []).find(m => m.stato !== "Annullato" && m.id !== (ven && ven.dbId) && /^E-?COMMERCE/i.test(m.causale || "") === ECOM) || null;
   }
-  function mostraGiaOggi(g, giorno) {
-    $("bannerGiaOggi").hidden = false;
-    $("bannerGiaOggi").lastElementChild.innerHTML = `La giornata ${ECOM ? "e-commerce " : ""}del <b>${giornoIt(giorno)}</b> c'è già: <a href="vendita.html?db=${g.id}" style="color:inherit;font-weight:700">aprila e aggiungi lì →</a>`;
+  // La giornata ha già la sua nota che la distingue (scritta nella finestra, o una giornata salvata con la causale cambiata)
+  let notaDistinta = "";
+  const haNotaDistinta = () => !!notaDistinta || !!(ven && ven.dbId && $("causale").value.trim() && $("causale").value.trim() !== causaleDi(ven.data));
+  // Finestra "Vendite di oggi già create, vuoi riaprire quelle di oggi?": Sì = si apre quella già fatta;
+  // No = si scrive la nota obbligatoria e si continua con questa. Restituisce "riapri", "nuova" o "annulla".
+  function chiediDoppione(g, giorno, salvando) {
+    const oggiS = giorno === oggi;
+    $("doppiaTitolo").textContent = `${ECOM ? "Vendite e-commerce" : "Vendite giornaliere"} ${oggiS ? "di oggi" : "del " + giornoIt(giorno)} già create`;
+    $("doppiaTesto").innerHTML = `Vuoi riaprire quelle ${oggiS ? "di oggi" : "del " + giornoIt(giorno)} (#${g.id}) e aggiungere lì gli articoli?`
+      + (salvando && righe.RIGHE.some(r => r.articolo) ? "<br><small>Se scegli Sì, gli articoli scritti in questa pagina non vengono salvati.</small>" : "");
+    $("doppiaSi").textContent = `Sì, riapri quelle ${oggiS ? "di oggi" : "del " + giornoIt(giorno)}`;
+    $("doppiaNotaBox").hidden = true; $("doppiaCrea").hidden = true; $("doppiaSi").hidden = false; $("doppiaNo").textContent = "No";
+    $("doppiaNota").value = "";
+    $("finDoppia").style.display = "flex";
+    return new Promise(fine => {
+      const chiudi = v => { $("finDoppia").style.display = "none"; fine(v); };
+      $("doppiaSi").onclick = () => { ultimaUscitaOk(); location.href = `vendita.html?db=${g.id}&modifica=1`; chiudi("riapri"); };
+      $("doppiaNo").onclick = () => {
+        if (!$("doppiaNotaBox").hidden) { chiudi("annulla"); return; }   // secondo clic su "Annulla"
+        $("doppiaNotaBox").hidden = false; $("doppiaCrea").hidden = false; $("doppiaSi").hidden = true; $("doppiaNo").textContent = "Annulla";
+        $("doppiaNota").focus();
+      };
+      $("doppiaCrea").onclick = () => {
+        const nota = $("doppiaNota").value.trim();
+        if (!nota) { avviso("Scrivi una nota per distinguerla dall'altra giornata", true); $("doppiaNota").focus(); return; }
+        notaDistinta = nota;
+        // la nota va nella causale (si vede nell'elenco) e nelle annotazioni
+        $("causale").value = `${causaleDi($("giorno").value || oggi)} – ${nota}`;
+        $("annotazioni").value = [nota, $("annotazioni").value.trim()].filter(Boolean).join("\n");
+        avviso("Nuova giornata separata: " + nota);
+        chiudi("nuova");
+      };
+    });
   }
+  // uscendo per riaprire l'altra giornata il browser non deve chiedere "vuoi uscire?"
+  const ultimaUscitaOk = () => document.body.classList.remove("in-modifica");
 
   // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database.
   // Giornata nuova: se quella di oggi c'è già lo si dice subito · giornata vecchia: il link porta a quella di oggi
@@ -356,7 +409,8 @@
     if (!db) return;
     if (nuovo || (ven && ven.dbId && ven.data !== oggi)) {
       const g = await giornataDelGiornoDb(db, oggi);
-      if (nuovo && g) mostraGiaOggi(g, oggi);
+      // giornata nuova ma quella di oggi c'è già: si chiede subito se riaprire quella
+      if (nuovo && g && await chiediDoppione(g, oggi, false) === "annulla") location.href = ELENCO_V;
       if (g) $("linkOggi").href = `vendita.html?db=${g.id}`;
     }
     await caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]);
