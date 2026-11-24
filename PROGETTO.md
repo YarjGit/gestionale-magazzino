@@ -95,6 +95,12 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 - Lette dalla pagina Giacenze del gestionale attuale e caricate con `13-giacenze-iniziali.sql`: un movimento "esistenza" per sede e anno di acquisto.
 - Risultato: Magazzino Centrale 762 articoli / 17.795,1 pezzi (uguale al vecchio gestionale); CAL SMM Roma 1.601 articoli / 10.926,1 pezzi dal vecchio gestionale, in più i carichi di prova fatti col nuovo.
 - Da sistemare: 6 righe di SMM senza codice articolo nel vecchio gestionale (non importate); 212 articoli solo del Magazzino Centrale aggiunti all'anagrafica.
+- **Deciso il 24/11/2026: il caricamento definitivo di giacenze e anagrafiche (articoli, fornitori, barcode) si fa DOPO l'inventario del Magazzino Centrale.**
+  Intanto si continuano a costruire le funzioni del gestionale. I file già pronti (`riferimenti/import/23`–`26`) andranno rifatti con i dati aggiornati.
+  Da sistemare nel vecchio prima dell'inventario: il barcode "vuoto" 8030969000003 su 256 articoli del Magazzino Centrale (4 con giacenza: A99-A0124,
+  B9906, A99-A0224, F02T10-O VL), il barcode 9770042735001 su due articoli di SMM (R03MED e R02460/BD-SAN4 15X15 M/B).
+- Barcode: nel vecchio ogni sede ha i suoi (SMM ristampa l'etichetta con prezzo ed elastico e la spara nelle vendite giornaliere; il Magazzino Centrale
+  ha l'adesivo fisso senza prezzo). Nel nuovo servono **barcode per sede** sullo stesso articolo e devono funzionare tutti quelli di oggi.
 
 ## Prossimi passi
 
