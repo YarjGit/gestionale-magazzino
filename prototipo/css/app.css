@@ -32,7 +32,7 @@ button, input, select { font: inherit; color: inherit; }
   position: fixed;
   inset: 0 auto 0 0;
   width: var(--side-w);
-  background: linear-gradient(180deg, var(--side-bg), #15213b);
+  background: #000;   /* nero, chiesto dall'utente il 24/11/2026 (prima blu scuro) */
   color: var(--side-text);
   display: flex;
   flex-direction: column;
