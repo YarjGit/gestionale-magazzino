@@ -45,7 +45,9 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Trasferimenti: non si manda più della giacenza (blocco, non più solo conferma).
   Lista a parte `vendite-giornaliere.html?canale=ecommerce` (la lista normale mostra solo il negozio); "Aggiungi alle vendite di oggi" apre `vendita.html?db=N&modifica=1`.
   Nella giornata e-commerce ogni vendita è una riga a sé con l'ora (`righeSeparate`, colonna `movimenti_righe.aggiunto_il`, `database/26-ora-righe.sql`).
-  Scarica dalla sede di lavoro. "📄 Riepilogo del mese": Excel per la Sede Centrale Apostolato Liturgico (Riepilogo, Articoli con fornitore e costi, Per giorno).
+  Scarica dalla sede di lavoro. "🖨️ Trasferimento del mese": stampa su carta intestata (`stampa-documento.html`) "Trasferimento a Filiale" alla Sede Centrale Apostolato Liturgico
+  (Via Portuense 739), una riga per articolo con i pezzi del mese, prezzo = costo d'acquisto, importo IVA inclusa, numero mese/anno, data = fine mese. L'Excel del mese è stato tolto (24/11/2026: non serve).
+  In cima alla lista i tasti uniti "🏪 Vendite del centro / 🛒 Vendite e-commerce" (`.scelta-canale`), sempre nello stesso posto: quello della lista aperta è blu.
 - **Cambio sede con una pagina aperta**: la pagina si ricarica con la sede nuova (prima un movimento aperto restava sulla sede vecchia); se si sta modificando, chiede conferma.
 - **Ordini → carichi**: in Carichi da Fornitori il riquadro "Ordini a fornitori da caricare" (ordini aperti, esclusi quelli a una sede) apre `carico.html?nuovo=1&ordine=N`:
   fornitore e ordine già collegati, Spedita = quanto manca, poi − / +, sconto per riga e ✕. "Nuovo carico" resta per i carichi senza ordine.

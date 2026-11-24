@@ -23,11 +23,10 @@
 
 <div class="fin-sfondo" id="finMese">
   <div class="fin">
-    <h3>📄 Riepilogo e-commerce del mese</h3>
-    <p>Per la <b>Sede Centrale dell'Apostolato Liturgico</b>, con tutti gli articoli venduti online dalla sede in cui lavori nel mese scelto:
-      la <b>stampa del Trasferimento a Filiale</b> su carta intestata e il file Excel con anagrafica, quantità, prezzi e costi.</p>
+    <h3>🖨️ Trasferimento e-commerce del mese</h3>
+    <p>Stampa su carta intestata del <b>Trasferimento a Filiale</b> per la <b>Sede Centrale dell'Apostolato Liturgico</b>, con tutti gli articoli venduti online dalla sede in cui lavori nel mese scelto.</p>
     <label style="font-size:0.8rem;font-weight:600;color:var(--muted)">Mese <input type="month" id="meseEcom" style="margin-left:8px"></label>
-    <div class="tasti"><button class="btn btn-light" id="meseAnnulla">Annulla</button><button class="btn btn-light" id="meseCrea">📥 File Excel</button><button class="btn btn-primary" id="meseStampa">🖨️ Stampa trasferimento</button></div>
+    <div class="tasti"><button class="btn btn-light" id="meseAnnulla">Annulla</button><button class="btn btn-primary" id="meseStampa">🖨️ Stampa trasferimento</button></div>
   </div>
 </div>
 
@@ -73,11 +72,11 @@
       <a href="vendite-giornaliere.html?canale=ecommerce" role="tab" aria-selected="${ECOM}" class="${ECOM ? "attivo" : ""}" title="Le giornate di vendite online">🛒 Vendite e-commerce</a>
     </div>`);
 
-  // ---------- Riepilogo e-commerce del mese per la Sede Centrale dell'Apostolato Liturgico ----------
+  // ---------- Trasferimento e-commerce del mese per la Sede Centrale dell'Apostolato Liturgico ----------
   // La merce venduta online esce dalla giacenza della sede che spedisce (giornate e-commerce); a fine mese la Sede Centrale
-  // riceve un Excel con tutti gli articoli venduti: anagrafica, quantità, prezzi di vendita e costi d'acquisto.
+  // riceve la stampa del Trasferimento a Filiale con tutti gli articoli venduti (il file Excel non serve: tolto il 24/11/2026).
   if (ECOM) document.getElementById("btnCrea").insertAdjacentHTML("beforebegin",
-    `<button class="btn btn-light" id="btnRiepEcom" title="File Excel del mese per la Sede Centrale dell'Apostolato Liturgico" style="color:#5b21b6;border-color:#cdb8f5">📄 Riepilogo del mese</button>`);
+    `<button class="btn btn-light" id="btnRiepEcom" title="Stampa del mese per la Sede Centrale dell'Apostolato Liturgico" style="color:#5b21b6;border-color:#cdb8f5">🖨️ Trasferimento del mese</button>`);
   const $m = id => document.getElementById(id);
   if (ECOM) $m("btnRiepEcom").onclick = () => { $m("meseEcom").value = new Date().toISOString().slice(0, 7); $m("finMese").classList.add("show"); };
   $m("meseAnnulla").onclick = () => $m("finMese").classList.remove("show");
@@ -144,51 +143,6 @@
       location.href = "stampa-documento.html?auto=1";
     } catch (err) { avviso("Errore nel preparare la stampa: " + err.message, true); }
     finally { $m("meseStampa").disabled = false; }
-  };
-
-  $m("meseCrea").onclick = async () => {
-    $m("meseCrea").disabled = true;
-    try {
-      const x = await giornateDelMese();
-      if (!x) return;
-      const { db, sede, mese, nomeMese, giornate } = x;
-      // nomi dei fornitori degli articoli venduti
-      const idForn = [...new Set(giornate.flatMap(g => g.movimenti_righe.map(r => r.articoli && r.articoli.fornitore_id)).filter(Boolean))];
-      const { data: forn } = idForn.length ? await db.from("fornitori").select("id, ragione_sociale").in("id", idForn) : { data: [] };
-      const nomeForn = new Map((forn || []).map(f => [f.id, f.ragione_sociale]));
-      const cent = v => Math.round(v * 100) / 100;
-      const perArticolo = new Map(), perGiorno = [];
-      for (const g of giornate) for (const r of g.movimenti_righe) {
-        const art = r.articoli || {};
-        const x = perArticolo.get(art.id) || { art, qta: 0, venduto: 0 };
-        x.qta += +r.quantita; x.venduto += +r.totale;
-        perArticolo.set(art.id, x);
-        perGiorno.push([dataIt(g.data_movimento), art.codice, art.descrizione, +r.quantita, cent(+r.prezzo), +r.sconto || 0, cent(+r.totale)]);
-      }
-      const articoli = [...perArticolo.values()].sort((p, q) => String(p.art.codice).localeCompare(String(q.art.codice)));
-      const totPezzi = articoli.reduce((s, x) => s + x.qta, 0);
-      const totVenduto = cent(articoli.reduce((s, x) => s + x.venduto, 0));
-      const totCosto = cent(articoli.reduce((s, x) => s + x.qta * (+x.art.costo_netto || 0), 0));
-      const blob = cartellaExcel([
-        { nome: "Riepilogo", intestazione: "colonna", larghezze: [34, 48], formati: [, "euro"], righe: [
-          ["Destinatario", "Sede Centrale Apostolato Liturgico"], ["Sede che ha spedito", sede], ["Mese", nomeMese],
-          ["Giornate di vendita online", String(giornate.length)], ["Articoli diversi", String(articoli.length)],
-          ["Pezzi venduti", String(totPezzi)], ["Totale venduto (IVA inclusa, EURO)", totVenduto], ["Totale costo d'acquisto (EURO)", totCosto],
-          ["Nota", "Costo = costo d'acquisto attuale dell'articolo; la merce è uscita dalla giacenza della sede che ha spedito"]] },
-        { nome: "Articoli", intestazione: "riga", larghezze: [18, 44, 34, 16, 7, 10, 14, 14, 14, 14],
-          formati: [, , , , "intero", "intero", "euro", "euro", "euro", "euro"],
-          righe: [["Codice", "Descrizione", "Fornitore", "Barcode", "IVA %", "Quantità", "Prezzo medio IVA incl.", "Totale venduto", "Costo unitario", "Totale costo"]]
-            .concat(articoli.map(x => [x.art.codice, x.art.descrizione, nomeForn.get(x.art.fornitore_id) || "", x.art.barcode || "",
-              x.art.aliquote_iva ? +x.art.aliquote_iva.aliquota : 22, x.qta, cent(x.venduto / (x.qta || 1)), cent(x.venduto), cent(+x.art.costo_netto || 0), cent(x.qta * (+x.art.costo_netto || 0))]))
-            .concat([["TOTALE", "", "", "", "", totPezzi, "", totVenduto, "", totCosto]]) },
-        { nome: "Per giorno", intestazione: "riga", larghezze: [12, 18, 44, 10, 12, 9, 14], formati: [, , , "intero", "euro", "intero", "euro"],
-          righe: [["Giorno", "Codice", "Descrizione", "Quantità", "Prezzo IVA incl.", "Sconto %", "Totale"]].concat(perGiorno) }
-      ]);
-      scaricaFile(`${sede}_E-commerce_${mese}.xlsx`, blob);
-      $m("finMese").classList.remove("show");
-      avviso(`File creato: ${articoli.length} articoli, ${totPezzi} pezzi venduti online in ${nomeMese}`);
-    } catch (err) { avviso("Errore nel creare il riepilogo: " + err.message, true); }
-    finally { $m("meseCrea").disabled = false; }
   };
 
   // Dopo l'accesso: le giornate salvate nel database, in cima a quelle di esempio
