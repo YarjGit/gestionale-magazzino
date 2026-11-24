@@ -42,10 +42,16 @@ function trovaSede(nome) {
   return SEDI.find(s => s.nome === nome && s.attiva) || SEDI.find(s => s.nome === "CAL SMM Roma");
 }
 
+// La sede vale per la scheda del browser (sessionStorage); una scheda nuova (es. aperta dal menu)
+// parte dall'ultima sede scelta (localStorage), così non richiede la sede ogni volta.
 function leggiSede() {
-  try { return sessionStorage.getItem("sede"); } catch (e) { return null; }
+  try {
+    let s = sessionStorage.getItem("sede");
+    if (!s) { s = localStorage.getItem("ultimaSede"); if (s) sessionStorage.setItem("sede", s); }
+    return s;
+  } catch (e) { return null; }
 }
 
 function salvaSede(nome) {
-  try { sessionStorage.setItem("sede", nome); } catch (e) {}
+  try { sessionStorage.setItem("sede", nome); localStorage.setItem("ultimaSede", nome); } catch (e) {}
 }

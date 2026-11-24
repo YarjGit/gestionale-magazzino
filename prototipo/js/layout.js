@@ -225,6 +225,28 @@ function avviso(testo, errore) {
     </div>`;
   document.body.appendChild(scelta);
 
+  // ---------- Ogni voce del menu nella sua scheda del browser ----------
+  // Ogni scheda prende il nome della pagina che mostra ("gm-articoli", "gm-carico"…). Le voci del menu aprono la loro
+  // pagina nella scheda con quel nome: se c'è già si riusa, se no se ne apre una nuova. Così passando da
+  // "Aumento giacenza" a "Ordini a fornitori" la scheda in cui si stava lavorando resta com'era.
+  const nomeScheda = href => "gm-" + (href.split("?")[0].split("/").pop().replace(/\.html$/, "") || "index");
+  try { window.name = nomeScheda(location.pathname); } catch (e) {}
+  sidebar.querySelectorAll("a[href]").forEach(a => {
+    const href = a.getAttribute("href");
+    if (!href || href === "#" || a.classList.contains("todo") || a.classList.contains("futuro")) return;
+    a.target = nomeScheda(href);
+  });
+
+  // Uscendo (chiudendo la scheda, tornando indietro) da una scheda in modifica il browser chiede conferma.
+  // Non dopo Salva / Annulla: lì la pagina si sposta da sola.
+  let ultimoSalva = 0;
+  document.addEventListener("click", e => { if (e.target.closest("#btnSalva, #btnSalvaChiudi, #btnAnnulla")) ultimoSalva = Date.now(); }, true);
+  window.addEventListener("beforeunload", e => {
+    if (!document.body.classList.contains("in-modifica") || Date.now() - ultimoSalva < 20000) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
   // ---------- Comportamento menu ----------
   sidebar.querySelectorAll(".nav-item").forEach(item => {
     const btn = item.querySelector("button.nav-link");
