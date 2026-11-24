@@ -16,3 +16,6 @@ desktop.ini
 # Copie di sicurezza del database: dati veri, mai su GitHub
 backup-gestionale-*.sql
 *.dump
+
+# Script con nomi di fornitori reali (solo PC di lavoro)
+strumenti/importa-articoli-mc.ps1

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fornitore – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Biglietto da visita del fornitore: come uscirà in alto a destra su carichi e ordini */
+  .biglietto { padding: 14px 16px; border: 1px dashed #b9cdf0; border-radius: 12px; background: #f6f9ff; font-size: 0.86rem; line-height: 1.5; }
+  .biglietto b.t { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .biglietto .vuoto-b { color: var(--muted); }
+  .avviso-doppio { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #fff3dd; color: #9a5a00; font-size: 0.8rem; }
+  .art-forn td.num { text-align: right; font-family: "JetBrains Mono", monospace; }
+  textarea#fNote { min-height: 110px; }
+</style>
+</head>
+<body data-page="fornitori">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
+  <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
+  <button class="btn btn-verde" id="btnSalvaChiudi" hidden>✔ Salva e chiudi</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script type="module">
+  // Scheda fornitore, come quella del gestionale attuale (Dettagli · Articoli · Storico modifiche).
+  // ?nuovo=1 nuovo fornitore, già in modifica · ?cod=000123 fornitore salvato (si apre in lettura, poi Modifica).
+  // Colonne nazione, cellulare, email: database/22-scheda-fornitori.sql
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const codice = qs.get("cod") || "";
+  const ELENCO = "fornitori.html";
+  const db = await dbPronto;
+
+  let forn = null, sedi = [], articoli = [];
+  try {
+    if (db) {
+      const { data: s } = await db.from("sedi").select("id, nome").order("nome");
+      sedi = s || [];
+      if (!nuovo && codice) {
+        const { data, error } = await db.from("fornitori").select("*").eq("codice", codice).maybeSingle();
+        if (error) throw error;
+        forn = data;
+        if (forn) {
+          const { data: art } = await db.from("articoli").select("codice, descrizione, costo_netto, prezzo_vendita_ivato, attivo")
+            .or(`fornitore_id.eq.${forn.id},fornitore2_id.eq.${forn.id}`).order("codice").limit(2000);
+          articoli = art || [];
+        }
+      }
+    }
+  } catch (err) { avviso("Errore nel leggere il fornitore: " + err.message, true); }
+
+  if (!nuovo && !forn) {
+    $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Fornitore ${esc(codice)} non trovato</b>
+      <span><a href="${ELENCO}" style="color:var(--accent)">Torna all'elenco dei fornitori</a></span></div></div>`;
+    ["btnModifica"].forEach(id => $(id).hidden = true);
+    $("btnChiudi").onclick = () => location.href = ELENCO;
+    throw new Error("fornitore non trovato");
+  }
+  const f = forn || { codice: "", ragione_sociale: "", aliquota_iva: 22, partita_iva: "", codice_fiscale: "", indirizzo: "", cap: "", citta: "", provincia: "",
+    nazione: "Italia", telefono: "", cellulare: "", email: "", sede_collegata: "", note: "" };
+  document.title = `${nuovo ? "Nuovo fornitore" : f.ragione_sociale} – Gestionale Magazzino`;
+
+  const v = x => esc(x ?? "");
+  const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
+  const inp = (id, val, extra = "") => `<input class="mod" id="${id}" value="${v(val)}" ${extra} disabled>`;
+  const ALIQUOTE = [22, 10, 5, 4, 0];
+  const NAZIONI = ["Italia", "Austria", "Belgio", "Cina", "Croazia", "Francia", "Germania", "India", "Polonia", "Portogallo", "Regno Unito", "Romania", "San Marino", "Spagna", "Stati Uniti", "Svizzera", "Città del Vaticano"];
+
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${nuovo ? "Nuovo fornitore" : `${v(f.ragione_sociale)} <span class="num">${v(f.codice)}</span>`}</h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Configurazione</span><span>-</span><a href="${ELENCO}">Fornitori</a><span>-</span><span>${nuovo ? "Nuovo" : v(f.codice)}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Articoli di questo fornitore</div>
+        <div class="v">${articoli.length.toLocaleString("it-IT")}</div>
+        <div class="p">${f.sede_collegata ? "collegato a una sede" : "fornitore esterno"}</div>
+      </div>
+    </div>
+    <div class="banner mod" id="bannerModifica" hidden>✎ ${nuovo ? "Nuovo fornitore: basta la ragione sociale, il codice si assegna da solo." : "Stai modificando il fornitore. Ricordati di salvare."}</div>
+
+    <section class="panel">
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
+        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n">${articoli.length}</span></button>
+        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+      </div>
+
+      <div class="pannello-tab" id="tab-dettagli">
+        <div class="dettagli">
+          <div>
+            <div class="gruppo">
+              <h3>🏭 Fornitore</h3>
+              <div class="campi">
+                ${campo("s1", "Codice", inp("fCodice", f.codice, 'placeholder="automatico"'), nuovo ? "vuoto = il successivo libero" : "")}
+                ${campo("s4", 'Ragione sociale <span style="color:var(--ko)">*</span>', inp("fNome", f.ragione_sociale, 'style="text-transform:uppercase"'))}
+                ${campo("s1", "Aliquota IVA", `<select class="mod" id="fIva" disabled>${ALIQUOTE.map(a => `<option value="${a}"${+f.aliquota_iva === a ? " selected" : ""}>${a}%</option>`).join("")}</select>`)}
+              </div>
+              <div id="doppio"></div>
+            </div>
+            <div class="gruppo">
+              <h3>🧾 Dati fiscali</h3>
+              <div class="campi">
+                ${campo("s2", "Partita IVA", inp("fPiva", f.partita_iva, 'maxlength="16"'), "11 cifre per l'Italia")}
+                ${campo("s2", "Codice fiscale", inp("fCf", f.codice_fiscale, 'maxlength="16" style="text-transform:uppercase"'))}
+                ${campo("s2", "Archivio collegato", `<select class="mod" id="fSede" disabled><option value="">— nessuno (fornitore esterno) —</option>${sedi.map(s => `<option value="${v(s.id)}"${s.id === f.sede_collegata ? " selected" : ""}>${v(s.nome)}</option>`).join("")}</select>`, "solo se il fornitore è una nostra sede")}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📍 Indirizzo</h3>
+              <div class="campi">
+                ${campo("s3", "Indirizzo", inp("fIndirizzo", f.indirizzo, 'placeholder="es. Via Roma, 1"'))}
+                ${campo("s1", "CAP", inp("fCap", f.cap, 'maxlength="10"'))}
+                ${campo("s2", "Città", inp("fCitta", f.citta))}
+                ${campo("s1", "Provincia", inp("fProv", f.provincia, 'maxlength="2" style="text-transform:uppercase"'))}
+                ${campo("s2", "Nazione", `<input class="mod" id="fNazione" list="nazioni" value="${v(f.nazione || "Italia")}" disabled><datalist id="nazioni">${NAZIONI.map(n => `<option value="${n}">`).join("")}</datalist>`)}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>☎ Contatti</h3>
+              <div class="campi">
+                ${campo("s2", "Telefono", inp("fTel", f.telefono, 'type="tel"'))}
+                ${campo("s2", "Cellulare", inp("fCell", f.cellulare, 'type="tel"'))}
+                ${campo("s3", "Email", inp("fEmail", f.email, 'type="email"'))}
+              </div>
+            </div>
+            <div class="gruppo">
+              <h3>📝 Annotazioni</h3>
+              <div class="campi">
+                ${campo("s6", "Annotazioni", `<textarea class="mod" id="fNote" disabled>${v(f.note)}</textarea>`, "solo per uso interno, non stampate")}
+              </div>
+            </div>
+          </div>
+          <aside class="riepilogo">
+            <h3>Come esce sui documenti</h3>
+            <div class="biglietto" id="biglietto"></div>
+          </aside>
+        </div>
+      </div>
+
+      <div class="pannello-tab" id="tab-articoli" hidden>
+        ${articoli.length ? `<div class="table-wrap"><table class="art-forn">
+          <thead><tr><th>Codice</th><th>Descrizione</th><th class="num">Costo</th><th class="num">Prezzo IVA incl.</th></tr></thead>
+          <tbody>${articoli.map(a => `<tr${a.attivo === false ? ' style="opacity:.5"' : ""}><td><a href="articolo.html?cod=${encodeURIComponent(a.codice)}" target="_blank" style="color:var(--accent)">${v(a.codice)}</a></td><td>${v(a.descrizione)}</td><td class="num">${numero(+a.costo_netto)}</td><td class="num">${numero(+a.prezzo_vendita_ivato)}</td></tr>`).join("")}</tbody>
+        </table></div>` : `<div class="vuoto"><b>Nessun articolo</b><span>${nuovo ? "Gli articoli si collegano al fornitore dalla loro scheda, dopo aver salvato il fornitore." : "Nessun articolo ha questo fornitore come fornitore 1 o 2."}</span></div>`}
+      </div>
+
+      <div class="pannello-tab" id="tab-storico" hidden>
+        ${forn ? `<div class="timeline">
+          <div class="evento ok"><div class="quando">${forn.creato_il ? new Date(forn.creato_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" }) : ""}</div><div class="cosa">Fornitore creato</div></div>
+          ${forn.modificato_il ? `<div class="evento"><div class="quando">${new Date(forn.modificato_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</div><div class="cosa">Ultima modifica</div></div>` : ""}
+        </div>` : '<div class="vuoto"><b>Fornitore non ancora salvato</b></div>'}
+      </div>
+    </section>`;
+
+  // ---------- Schede ----------
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+
+  // ---------- Biglietto: si aggiorna mentre si scrive ----------
+  function biglietto() {
+    const t = id => $(id).value.trim();
+    const righe = [t("fNome").toUpperCase(), t("fIndirizzo"), [t("fCap"), t("fCitta"), t("fProv") ? `(${t("fProv").toUpperCase()})` : ""].filter(Boolean).join(" "),
+      t("fNazione") && t("fNazione") !== "Italia" ? t("fNazione") : "", t("fPiva") ? "P.IVA " + t("fPiva") : "", t("fTel") ? "Tel. " + t("fTel") : ""].filter(Boolean);
+    $("biglietto").innerHTML = `<b class="t">Fornitore</b>${righe.length ? righe.map(esc).join("<br>") : '<span class="vuoto-b">Scrivi la ragione sociale e l\'indirizzo</span>'}`;
+  }
+  document.querySelectorAll(".mod").forEach(el => el.addEventListener("input", biglietto));
+  biglietto();
+
+  // ---------- Avviso se esiste già un fornitore con lo stesso nome o la stessa partita IVA ----------
+  let tutti = null;
+  const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const pivaN = s => String(s || "").toUpperCase().replace(/^IT/, "").replace(/\D/g, "").replace(/^0+/, "");
+  async function controllaDoppio() {
+    if (!db) return null;
+    if (!tutti) { const { data } = await db.from("fornitori").select("id, codice, ragione_sociale, partita_iva"); tutti = data || []; }
+    const n = norm($("fNome").value), p = pivaN($("fPiva").value);
+    // la stessa partita IVA è normale per le nostre sedi (Pie Discepole): lì conta solo il nome
+    const altro = tutti.find(x => x.id !== (forn && forn.id) && ((n && norm(x.ragione_sociale) === n) || (p.length >= 9 && p !== "901011007" && pivaN(x.partita_iva) === p)));
+    $("doppio").innerHTML = altro ? `<div class="avviso-doppio">⚠ C'è già <a href="fornitore.html?cod=${encodeURIComponent(altro.codice)}" target="_blank" style="color:inherit;font-weight:700">${esc(altro.codice)} · ${esc(altro.ragione_sociale)}</a> con lo stesso nome o la stessa partita IVA.</div>` : "";
+    return altro;
+  }
+  ["fNome", "fPiva"].forEach(id => $(id).addEventListener("change", controllaDoppio));
+
+  // ---------- Modifica / Annulla / Salva ----------
+  let valoriPrima = [];
+  function modalita(modifica) {
+    document.body.classList.toggle("in-modifica", modifica);
+    document.querySelectorAll(".mod").forEach(el => el.disabled = !modifica);
+    if (!nuovo) $("fCodice").disabled = true;   // il codice di un fornitore salvato non si cambia (lo usano articoli e movimenti)
+    ["btnChiudi", "btnModifica"].forEach(id => $(id).hidden = modifica);
+    ["btnAnnulla", "btnSalva", "btnSalvaChiudi", "bannerModifica"].forEach(id => $(id).hidden = !modifica);
+  }
+  $("btnModifica").onclick = () => { valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value); modalita(true); $("fNome").focus(); };
+  $("btnAnnulla").onclick = () => {
+    if (nuovo) { location.href = ELENCO; return; }
+    document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
+    $("doppio").innerHTML = ""; biglietto(); modalita(false);
+  };
+  $("btnChiudi").onclick = () => location.href = ELENCO;
+
+  async function prossimoCodice() {
+    const { data, error } = await db.from("fornitori").select("codice");
+    if (error) throw error;
+    // codici numerici dei fornitori esterni (i 900xxx sono le nostre sedi, i 0035xx i laboratori: si saltano)
+    const max = (data || []).reduce((m, r) => /^\d{1,6}$/.test(r.codice) && +r.codice < 3500 ? Math.max(m, +r.codice) : m, 0);
+    let n = max + 1;
+    const usati = new Set((data || []).map(r => r.codice));
+    while (usati.has(String(n).padStart(6, "0"))) n++;
+    return String(n).padStart(6, "0");
+  }
+
+  async function salva(chiudi) {
+    if (!db) { avviso("Per salvare serve l'accesso al database"); return; }
+    const t = id => $(id).value.trim();
+    const nome = t("fNome").toUpperCase();
+    if (!nome) { avviso("Scrivi la ragione sociale"); $("fNome").focus(); return; }
+    const piva = t("fPiva").toUpperCase().replace(/\s/g, "");
+    if (piva && (t("fNazione") || "Italia") === "Italia" && !/^(IT)?\d{11}$/.test(piva)
+        && !confirm("La partita IVA italiana ha 11 cifre. Salvare lo stesso?")) { $("fPiva").focus(); return; }
+    const email = t("fEmail");
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { avviso("L'email non sembra giusta"); $("fEmail").focus(); return; }
+    const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
+    pulsanti.forEach(b => b.disabled = true);
+    try {
+      const doppio = await controllaDoppio();
+      if (doppio && !confirm(`C'è già il fornitore ${doppio.codice} · ${doppio.ragione_sociale} con lo stesso nome o la stessa partita IVA. Salvare lo stesso?`)) { pulsanti.forEach(b => b.disabled = false); return; }
+      const dati = {
+        ragione_sociale: nome, aliquota_iva: +$("fIva").value, partita_iva: piva.replace(/^IT/, "") || null, codice_fiscale: t("fCf").toUpperCase() || null,
+        indirizzo: t("fIndirizzo") || null, cap: t("fCap") || null, citta: t("fCitta").toUpperCase() || null, provincia: t("fProv").toUpperCase() || null,
+        nazione: t("fNazione") || "Italia", telefono: t("fTel") || null, cellulare: t("fCell") || null, email: email || null,
+        sede_collegata: $("fSede").value || null, note: t("fNote") || null
+      };
+      let cod = f.codice;
+      if (nuovo) {
+        cod = t("fCodice") || await prossimoCodice();
+        const { error } = await db.from("fornitori").insert({ ...dati, codice: cod });
+        if (error) throw error;
+      } else {
+        const { error } = await db.from("fornitori").update({ ...dati, modificato_il: new Date().toISOString() }).eq("id", forn.id);
+        if (error) throw error;
+      }
+      avviso(`Fornitore ${cod} · ${nome} salvato`);
+      setTimeout(() => location.replace(chiudi ? ELENCO : `fornitore.html?cod=${encodeURIComponent(cod)}`), 800);
+    } catch (err) {
+      const msg = err.code === "23505" ? "Questo codice è già usato da un altro fornitore: cambialo o lascialo vuoto"
+        : err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/22-scheda-fornitori.sql" : "Errore nel salvare: " + err.message;
+      avviso(msg, true);
+      pulsanti.forEach(b => b.disabled = false);
+    }
+  }
+  $("btnSalva").onclick = () => salva(false);
+  $("btnSalvaChiudi").onclick = () => salva(true);
+
+  modalita(nuovo);
+  if (nuovo) $("fNome").focus();
+</script>
+</body>
+</html>

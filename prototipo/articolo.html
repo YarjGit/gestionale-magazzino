@@ -452,8 +452,32 @@
     };
     // il fornitore scritto a mano non è più "dedotto"
     if (dati.fornitore_id !== (primaArt && primaArt.forn1)) dati.fornitore_dedotto = false;
+    // Codice nuovo: niente spazi doppi (nel gestionale attuale "F05/1-4        142" e "F051-4  142" creavano confusione)
+    if (nuovo) { dati.codice = dati.codice.replace(/\s+/g, " "); $("codice").value = dati.codice; }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
+    // Codici quasi uguali (stessi caratteri a parte spazi, slash, trattini, punti) e barcode già usati: si chiede prima di salvare
+    try {
+      const chiave = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const avvisi = [];
+      if (dati.barcode) {
+        let q = db.from("articoli").select("codice").eq("barcode", dati.barcode);
+        if (!nuovo && art.id) q = q.neq("id", art.id);
+        const { data } = await q;
+        if (data && data.length) avvisi.push(`il barcode ${dati.barcode} è già dell'articolo ${data.map(x => x.codice).join(", ")}: con la pistola non si saprebbe quale scegliere`);
+      }
+      if (nuovo) {
+        const simili = [];
+        for (let da = 0; ; da += 1000) {
+          const { data, error } = await db.from("articoli").select("codice, descrizione").order("codice").range(da, da + 999);
+          if (error) break;
+          simili.push(...data.filter(x => chiave(x.codice) === chiave(dati.codice)));
+          if (data.length < 1000) break;
+        }
+        if (simili.length) avvisi.push(`esiste già un codice quasi uguale: ${simili.map(x => `"${x.codice}" (${x.descrizione})`).join(", ")}`);
+      }
+      if (avvisi.length && !confirm("Attenzione:\n• " + avvisi.join("\n• ") + "\n\nSalvare lo stesso?")) { pulsanti.forEach(b => b.disabled = false); return; }
+    } catch (err) { /* il controllo non deve bloccare il salvataggio */ }
     try {
       const q = nuovo ? db.from("articoli").insert(dati) : db.from("articoli").update({ ...dati, modificato_il: new Date().toISOString() }).eq("id", art.id);
       const { error } = await q;

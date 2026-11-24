@@ -285,7 +285,7 @@ function avviaRighe(cfg) {
     $("addArt").value = ""; $("addQta").value = 1;
     $("suggArt").classList.remove("show");
   };
-  $("addArt").oninput = () => { suggAttivo = 0; mostraSugg(); };
+  $("addArt").oninput = () => { suggAttivo = 0; delete $("addArt").dataset.sceltoBarcode; mostraSugg(); };
   $("addArt").onkeydown = e => {
     const lista = trova($("addArt").value);
     if (e.key === "ArrowDown") { suggAttivo = Math.min(suggAttivo + 1, lista.length - 1); mostraSugg(); e.preventDefault(); }
@@ -293,6 +293,16 @@ function avviaRighe(cfg) {
     if (e.key === "Escape") $("suggArt").classList.remove("show");
     if (e.key === "Enter") {
       e.preventDefault();
+      // Barcode stampato su più articoli (succedeva nel gestionale attuale tra sedi diverse): si sceglie a mano dalla lista
+      const letto = $("addArt").value.trim();
+      const stessoBarcode = letto ? lista.filter(a => a.barcode === letto) : [];
+      if (stessoBarcode.length > 1 && !e.target.dataset.sceltoBarcode) {
+        e.target.dataset.sceltoBarcode = "1";
+        mostraSugg();
+        avviso(`Il barcode ${letto} è su ${stessoBarcode.length} articoli (${stessoBarcode.map(a => a.codice).join(", ")}): scegli quello giusto con le frecce e premi Invio`, true);
+        return;
+      }
+      delete e.target.dataset.sceltoBarcode;
       if (lista[suggAttivo]) aggiungiDaCampo(lista[suggAttivo]);
       else if ($("addArt").value.trim()) avviso(ricercaCorta || cercaArticoli($("addArt").value).length ? nessuno($("addArt").value) : `Nessun articolo con codice o barcode "${$("addArt").value.trim()}"`);
     }

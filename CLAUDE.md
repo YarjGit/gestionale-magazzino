@@ -91,6 +91,16 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   `strumenti/importa-articoli.ps1` lo converte in `prototipo/js/dati-articoli-reali.js` (escluso da GitHub): se il file c'è, il prototipo locale usa gli articoli veri, online restano quelli di esempio.
   Nell'export fornitore e alcune aliquote sono codici interni (GUID): per collegarli servono gli export di Fornitori e Aliquote. Aliquote riconosciute dai prezzi: `4570c2b4…` = 4%, `9bc97d64…` e `3c5611a4…` = 0% (quale codice a zero: da confermare).
 - Fornitori trascritti dagli screenshot (231, senza doppioni): `riferimenti/fornitori/fornitori-da-screenshot.csv` (solo PC di lavoro).
+- **Ogni sede del gestionale attuale ha il suo elenco di fornitori e di articoli.** Magazzino Centrale (24/11/2026, solo PC di lavoro):
+  53 fornitori → `riferimenti/import/23-fornitori-magazzino-centrale.sql` (27 mancanti); 4.836 articoli (Articoli → Import/Export → "Esporta JSON")
+  in `riferimenti/magazzino-centrale/`, `strumenti/importa-articoli-mc.ps1` (non su GitHub: contiene nomi di fornitori) → `24-articoli-magazzino-centrale.sql` (2.603 articoli).
+  **Codici quasi uguali** (stessi caratteri a parte spazi, slash, punti: "F06P1 AV" / "F06 P1 AV") a volte sono lo stesso articolo, a volte articoli diversi
+  ("Q1103" / "Q11/03"): si uniscono solo se coincide anche l'inizio della descrizione. **Barcode uguali per articoli diversi** tra le sedi: l'articolo
+  del Magazzino Centrale entra senza barcode. Elenco: `riferimenti/magazzino-centrale/codici-da-controllare.csv`.
+  Nel nuovo: la scheda articolo avvisa per codici quasi uguali e barcode già usati e toglie gli spazi doppi dai codici nuovi;
+  se la pistola legge un barcode presente su più articoli si sceglie dalla lista.
+- Scheda fornitore `fornitore.html` (`?nuovo=1`, `?cod=…`; colonne in `database/22-scheda-fornitori.sql`): codice automatico (il successivo sotto 003500),
+  avviso se nome o partita IVA ci sono già (la P.IVA delle Pie Discepole è comune a tutte le sedi), schede Articoli e Storico.
 - Articoli → fornitori: export Excel del gestionale attuale in `riferimenti/articoli-fornitori/articoli-fornitori.xlsx` (solo PC di lavoro, colonne Fornitore 1/2 con i nomi).
   `strumenti/collega-fornitori-excel.ps1` genera `riferimenti/import/08-fornitori-da-excel.sql` (da incollare su Supabase; sostituisce 04 e 07).
   Excel: 4.983 articoli; gli altri sono dedotti dal codice (famiglia prima dello slash, poi numero fornitore; senza slash = Magazzino Centrale) e segnati `fornitore_dedotto = true` (da verificare). I 234 rimasti senza sono del Magazzino Centrale (confermato): `database/12-senza-fornitore-a-magazzino-centrale.sql`.

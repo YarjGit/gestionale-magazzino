@@ -37,6 +37,8 @@
     sezione: "Configurazione",
     dalDatabase: true,
     nuovo: "Nuovo fornitore",
+    nuovoUrl: "fornitore.html?nuovo=1",
+    scheda: r => r.cod ? `fornitore.html?cod=${encodeURIComponent(r.cod)}` : null,
     csv: "fornitori",
     chiave: "nome",
     tabs: [
