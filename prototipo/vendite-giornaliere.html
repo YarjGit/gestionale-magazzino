@@ -24,9 +24,10 @@
 <div class="fin-sfondo" id="finMese">
   <div class="fin">
     <h3>📄 Riepilogo e-commerce del mese</h3>
-    <p>File Excel per la <b>Sede Centrale dell'Apostolato Liturgico</b> con tutti gli articoli venduti online dalla sede in cui lavori nel mese scelto: anagrafica, quantità, prezzi e costi.</p>
+    <p>Per la <b>Sede Centrale dell'Apostolato Liturgico</b>, con tutti gli articoli venduti online dalla sede in cui lavori nel mese scelto:
+      la <b>stampa del Trasferimento a Filiale</b> su carta intestata e il file Excel con anagrafica, quantità, prezzi e costi.</p>
     <label style="font-size:0.8rem;font-weight:600;color:var(--muted)">Mese <input type="month" id="meseEcom" style="margin-left:8px"></label>
-    <div class="tasti"><button class="btn btn-light" id="meseAnnulla">Annulla</button><button class="btn btn-primary" id="meseCrea">📥 Crea il file Excel</button></div>
+    <div class="tasti"><button class="btn btn-light" id="meseAnnulla">Annulla</button><button class="btn btn-light" id="meseCrea">📥 File Excel</button><button class="btn btn-primary" id="meseStampa">🖨️ Stampa trasferimento</button></div>
   </div>
 </div>
 
@@ -80,24 +81,77 @@
   const $m = id => document.getElementById(id);
   if (ECOM) $m("btnRiepEcom").onclick = () => { $m("meseEcom").value = new Date().toISOString().slice(0, 7); $m("finMese").classList.add("show"); };
   $m("meseAnnulla").onclick = () => $m("finMese").classList.remove("show");
-  $m("meseCrea").onclick = async () => {
+  // Giornate e-commerce del mese scelto (sede di lavoro), lette dal database; null se manca qualcosa (l'avviso è già mostrato)
+  async function giornateDelMese() {
     const mese = $m("meseEcom").value;
-    if (!/^\d{4}-\d{2}$/.test(mese)) { avviso("Scegli il mese"); return; }
+    if (!/^\d{4}-\d{2}$/.test(mese)) { avviso("Scegli il mese"); return null; }
     const db = await dbPronto;
-    if (!db) { avviso("Serve l'accesso al database"); return; }
+    if (!db) { avviso("Serve l'accesso al database"); return null; }
     const sede = trovaSede(leggiSede()).nome;
     const [a, m] = mese.split("-").map(Number);
     const fine = new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10);
     const nomeMese = new Date(a, m - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+    const { data, error } = await db.from("movimenti")
+      .select("id, data_movimento, causale, movimenti_righe(quantita, prezzo, sconto, totale, articoli(id, codice, descrizione, barcode, costo_netto, fornitore_id, unita_misura, aliquote_iva(aliquota)))")
+      .eq("tipo", "vendite_giornaliere").eq("sede_id", ID_SEDI_DB[sede]).in("stato", ["Definitivo", "Evaso"])
+      .gte("data_movimento", mese + "-01").lte("data_movimento", fine).order("data_movimento");
+    if (error) throw error;
+    const giornate = (data || []).filter(g => /^E-?COMMERCE/i.test(g.causale || ""));
+    if (!giornate.length) { avviso(`Nessuna vendita e-commerce di ${sede} in ${nomeMese}`, true); return null; }
+    return { db, sede, mese, a, m, fine, nomeMese, giornate };
+  }
+
+  // ---------- Stampa del mese: "Trasferimento a Filiale" alla Sede Centrale su carta intestata (stampa-documento.html) ----------
+  // Come la stampa dell'ordine: in alto a sinistra la sede che ha spedito, a destra la Sede Centrale.
+  // Una riga per articolo con i pezzi di tutto il mese; prezzo = costo d'acquisto (come i trasferimenti tra filiali), importo IVA inclusa.
+  // Data = ultimo giorno del mese (oggi, se il mese non è finito); numero = mese/anno (uno per mese e per sede).
+  const SEDE_CENTRALE = ["SEDE CENTRALE APOSTOLATO LITURGICO", "Via Portuense, 739", "00148 Roma (RM)", "Telefono: 0665656224"];
+  $m("meseStampa").onclick = async () => {
+    $m("meseStampa").disabled = true;
+    try {
+      const x = await giornateDelMese();
+      if (!x) return;
+      const perArticolo = new Map();
+      for (const g of x.giornate) for (const r of g.movimenti_righe) {
+        const art = r.articoli || {};
+        const y = perArticolo.get(art.id) || { art, qta: 0 };
+        y.qta += +r.quantita;
+        perArticolo.set(art.id, y);
+      }
+      const cent = v => Math.round(v * 100) / 100;
+      const righeSt = [...perArticolo.values()].filter(y => y.qta).sort((p, q) => String(p.art.codice).localeCompare(String(q.art.codice)))
+        .map((y, i) => {
+          const costo = cent(+y.art.costo_netto || 0), iva = y.art.aliquote_iva ? +y.art.aliquote_iva.aliquota : 22;
+          const importo = cent(y.qta * costo * (1 + iva / 100));
+          return { n: i + 1, cod: y.art.codice, descr: y.art.descrizione, importoNum: importo,
+            qta: y.qta.toLocaleString("it-IT", { maximumFractionDigits: 2 }) + (y.art.unita_misura === "Metri" ? " mt" : ""),
+            prezzo: numero(costo), iva: iva + "%", importo: numero(importo) };
+        });
+      const tot = cent(righeSt.reduce((s, r) => s + r.importoNum, 0));
+      const data = x.fine < oggiIso ? x.fine : oggiIso;
+      sessionStorage.setItem("stampa", JSON.stringify({
+        titolo: "Trasferimento a Filiale", sede: x.sede,
+        info: [["Data", dataIt(data)], ["Numero", `${x.m}/${x.a}`]],
+        destinatario: SEDE_CENTRALE,
+        colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
+          { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
+        righe: righeSt,
+        totali: [["Totale Articoli", numero(tot)], ["= Totale Complessivo", numero(tot)]],
+        note: `Vendite e-commerce di ${x.nomeMese} (${x.giornate.length} ${x.giornate.length === 1 ? "giornata" : "giornate"})`,
+        ritorno: "vendite-giornaliere.html?canale=ecommerce"
+      }));
+      registra("Stampa trasferimento e-commerce del mese", `${x.sede} – ${x.nomeMese}`);
+      location.href = "stampa-documento.html?auto=1";
+    } catch (err) { avviso("Errore nel preparare la stampa: " + err.message, true); }
+    finally { $m("meseStampa").disabled = false; }
+  };
+
+  $m("meseCrea").onclick = async () => {
     $m("meseCrea").disabled = true;
     try {
-      const { data, error } = await db.from("movimenti")
-        .select("id, data_movimento, causale, movimenti_righe(quantita, prezzo, sconto, totale, articoli(id, codice, descrizione, barcode, costo_netto, fornitore_id, aliquote_iva(aliquota)))")
-        .eq("tipo", "vendite_giornaliere").eq("sede_id", ID_SEDI_DB[sede]).in("stato", ["Definitivo", "Evaso"])
-        .gte("data_movimento", mese + "-01").lte("data_movimento", fine).order("data_movimento");
-      if (error) throw error;
-      const giornate = (data || []).filter(g => /^E-?COMMERCE/i.test(g.causale || ""));
-      if (!giornate.length) { avviso(`Nessuna vendita e-commerce di ${sede} in ${nomeMese}`, true); return; }
+      const x = await giornateDelMese();
+      if (!x) return;
+      const { db, sede, mese, nomeMese, giornate } = x;
       // nomi dei fornitori degli articoli venduti
       const idForn = [...new Set(giornate.flatMap(g => g.movimenti_righe.map(r => r.articoli && r.articoli.fornitore_id)).filter(Boolean))];
       const { data: forn } = idForn.length ? await db.from("fornitori").select("id, ragione_sociale").in("id", idForn) : { data: [] };
