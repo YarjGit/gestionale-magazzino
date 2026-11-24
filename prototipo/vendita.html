@@ -334,9 +334,9 @@
   if (!nuovo && ven && ven.dbId && ven.stato !== "Annullato" && qs.has("modifica")) {
     $("btnModifica").click();
     document.querySelector('.scheda-tab[data-t="articoli"]').click();
-    $("addArt").focus();
+    righe.nuovaRiga();   // riga vuota pronta: si scrive il codice o si spara con la pistola
   }
-  if (nuovo) $("addArt").focus();
+  if (nuovo) { document.querySelector('.scheda-tab[data-t="articoli"]').click(); righe.nuovaRiga(); }
 
   // Giornata (del negozio o e-commerce, come questa) già salvata per quel giorno e non annullata: { id } o null
   async function giornataDelGiornoDb(db, giorno) {

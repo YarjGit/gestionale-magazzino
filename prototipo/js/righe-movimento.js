@@ -34,8 +34,11 @@ const nomeIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k])[1];
 const percIva = k => (ALIQUOTE_RIGA.find(a => a[0] === k) || [k, k, 0])[2];
 
 // conFornitore: aggiunge l'interruttore "anche di altri fornitori" (di solito si cercano solo gli articoli del fornitore scelto)
+// Il riquadro "Aggiungi articolo" sopra la tabella non si usa più (chiesto dall'utente il 24/11/2026): gli articoli si aggiungono
+// con il ＋ della tabella, scrivendo il codice o sparandolo con la pistola. Resta nascosto perché altre parti lo usano dietro le quinte.
 function righeHtmlAggiungi(conFornitore) {
-  return `<div class="aggiungi-art solo-mod richiede-forn">
+  return `${conFornitore ? `<div class="solo-mod richiede-forn" style="margin:4px 0 8px"><label class="interr" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> cerca anche articoli di altri fornitori</label></div>` : ""}
+    <div class="aggiungi-art" hidden>
       <div class="f cerca-art">
         <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
         <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
@@ -43,7 +46,6 @@ function righeHtmlAggiungi(conFornitore) {
       </div>
       <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
       <button class="btn btn-primary" id="addBtn">Aggiungi</button>
-      ${conFornitore ? `<label class="interr" style="margin:0 0 8px" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> anche di altri fornitori</label>` : ""}
     </div>`;
 }
 
@@ -135,7 +137,7 @@ function avviaRighe(cfg) {
     document.querySelector(`[data-cercariga="${r.pos}"]`).focus();
   }
   function completaRiga(r, art, forza) {
-    if (RIGHE.some(x => x.articolo === art)) {   // articolo già presente: la riga vuota sparisce e la quantità va sulla sua riga
+    if (!cfg.righeSeparate && RIGHE.some(x => x.articolo === art)) {   // articolo già presente: la riga vuota sparisce e la quantità va sulla sua riga
       RIGHE.splice(RIGHE.indexOf(r), 1);
       aggiungi(art, r.qta, { vaiAlCampo: false });
       return;
@@ -233,7 +235,11 @@ function avviaRighe(cfg) {
     const altrove = soloDelFornitore() && !ricercaCorta && cercaArticoli(testo)[0];
     return altrove ? `${esc(altrove.codice)} è di un altro fornitore: attiva "anche di altri fornitori" per aggiungerlo` : testoNessunArticolo();
   };
-  if ($("tuttiForn")) $("tuttiForn").onchange = () => { $("addArt").dispatchEvent(new Event("input")); $("addArt").focus(); };
+  // cambiando l'interruttore si rifà la ricerca nella riga vuota che si sta scrivendo
+  if ($("tuttiForn")) $("tuttiForn").onchange = () => {
+    const campo = [...document.querySelectorAll("[data-cercariga]")].pop();
+    if (campo) { campo.dispatchEvent(new Event("input", { bubbles: true })); campo.focus(); }
+  };
   // Giacenza della sede di lavoro accanto all'articolo suggerito (rossa se zero, "?" se non si conosce); pezzi interi, decimali solo per i metri
   const giacSugg = a => {
     const altra = cfg.giacenzaAltra && cfg.giacenzaAltra(a);
@@ -254,6 +260,7 @@ function avviaRighe(cfg) {
     const pos = e.target.dataset.cercariga;
     if (!pos) return;
     suggRiga = 0;
+    delete e.target.dataset.sceltoBarcode;
     const box = document.querySelector(`[data-suggriga="${pos}"]`);
     box.innerHTML = suggerimenti(trova(e.target.value), suggRiga, e.target.value);
     box.classList.toggle("show", !!e.target.value.trim());
@@ -270,8 +277,22 @@ function avviaRighe(cfg) {
     if (e.key === "Escape") box.classList.remove("show");
     if (e.key === "Enter") {
       e.preventDefault();
-      if (lista[suggRiga]) completaRiga(RIGHE.find(x => x.pos === +pos), lista[suggRiga]);
-      else if (e.target.value.trim()) avviso(ricercaCorta || cercaArticoli(e.target.value).length ? nessuno(e.target.value) : `Nessun articolo con codice o barcode "${e.target.value.trim()}"`);
+      // Barcode stampato su più articoli: si sceglie a mano dalla lista (frecce + Invio)
+      const letto = e.target.value.trim();
+      const stessoBarcode = letto ? lista.filter(a => a.barcode === letto) : [];
+      if (stessoBarcode.length > 1 && !e.target.dataset.sceltoBarcode) {
+        e.target.dataset.sceltoBarcode = "1";
+        box.innerHTML = suggerimenti(lista, suggRiga, e.target.value); box.classList.add("show");
+        avviso(`Il barcode ${letto} è su ${stessoBarcode.length} articoli (${stessoBarcode.map(a => a.codice).join(", ")}): scegli quello giusto con le frecce e premi Invio`, true);
+        return;
+      }
+      if (lista[suggRiga]) {
+        const r = RIGHE.find(x => x.pos === +pos);
+        completaRiga(r, lista[suggRiga]);
+        // riga completata (o unita a quella dello stesso articolo): subito una riga nuova, così la pistola continua senza cliccare ＋
+        if (!RIGHE.includes(r) || r.articolo) nuovaRiga();
+      }
+      else if (letto) avviso(ricercaCorta || cercaArticoli(e.target.value).length ? nessuno(e.target.value) : `Nessun articolo con codice o barcode "${letto}"`);
     }
   };
 
@@ -345,7 +366,13 @@ function avviaRighe(cfg) {
     aggiorna: () => { totali(); disegna(); },   // dopo aggiunte "silenziose"
     totale: () => Math.round(RIGHE.reduce((s, r) => s + r.tot, 0) * 100) / 100,
     pezzi: () => RIGHE.reduce((s, r) => s + (r.articolo ? (cfg.spedita ? r.sped : r.qta) : 0), 0),
-    senzaArticolo: () => RIGHE.some(r => !r.articolo),
+    // le righe vuote in cui non si è scritto niente (es. l'ultima aperta da sola dopo la pistola) si tolgono senza chiedere
+    senzaArticolo: () => {
+      const vuote = RIGHE.filter(r => !r.articolo && !((document.querySelector(`[data-cercariga="${r.pos}"]`) || {}).value || "").trim());
+      if (vuote.length) { vuote.forEach(r => RIGHE.splice(RIGHE.indexOf(r), 1)); totali(); disegna(); }
+      return RIGHE.some(r => !r.articolo);
+    },
+    nuovaRiga,
     // primo avviso di giacenza superata (es. controllo al salvataggio), oppure ""
     oltreGiacenza: () => {
       if (!cfg.limiteGiacenza) return "";

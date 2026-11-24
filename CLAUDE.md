@@ -35,7 +35,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - Gli appunti con dati reali restano in `riferimenti/`; in `STUDIO-GESTIONALE.md` solo la struttura.
 
 ## Schede movimento
-- Righe articolo comuni a tutte le schede (＋, cestino, frecce, − / +, IVA per riga, pistola): `js/righe-movimento.js`.
+- Righe articolo comuni a tutte le schede (＋, cestino, frecce, − / +, IVA per riga, pistola): `js/righe-movimento.js`. Niente riquadro "Aggiungi articolo" (tolto il 24/11/2026):
+  si aggiunge col ＋ scrivendo o sparando il codice; dopo ogni articolo si apre da sola una riga nuova; le righe vuote si tolgono al salvataggio.
   Schede: `carico.html`, `ordine.html` (fornitore obbligatorio, articoli del fornitore), `vendita.html` (quantità solo in Spedita, prezzi IVA inclusa).
 - **Vendite e-commerce** = `vendita.html?nuovo=1&canale=ecommerce` (tasto "🛒 Vendite e-commerce" in Vendite Giornaliere): una giornata al giorno, causale "E-COMMERCE – …".
   Nel vecchio era un trasferimento mensile alla Sede Centrale riempito per tutto il mese (date sbagliate, giacenza sotto zero). Regole di ogni giornata (negozio o e-commerce):

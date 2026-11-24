@@ -384,8 +384,10 @@
   }
   function chiudiAttesa() {
     $("modAttesa").classList.remove("show");
-    $("addArt").value = ""; $("suggArt").classList.remove("show");
-    $("addArt").focus();
+    // si torna alla riga vuota in cui si stava scrivendo (o sparando), pulita
+    const campo = [...document.querySelectorAll("[data-cercariga]")].pop();
+    document.querySelectorAll("[data-suggriga]").forEach(s => s.classList.remove("show"));
+    if (campo) { campo.value = ""; campo.focus(); }
   }
   $("modOk").onclick = () => { chiudiAttesa(); avviso("Non aggiunto: è già in attesa"); };
   $("modPiu").onclick = () => {
