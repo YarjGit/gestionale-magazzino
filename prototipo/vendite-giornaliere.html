@@ -63,10 +63,14 @@
     dati: []
   });
 
-  // Vendite e-commerce: una lista a parte (nel gestionale attuale era un trasferimento mensile alla Sede Centrale)
-  document.getElementById("btnCrea").insertAdjacentHTML("beforebegin", ECOM
-    ? `<a class="btn btn-light" href="vendite-giornaliere.html" title="Le giornate di vendita del negozio">🏪 Vendite del negozio</a>`
-    : `<a class="btn btn-light" href="vendite-giornaliere.html?canale=ecommerce" title="Tutte le giornate di vendite online" style="color:#5b21b6;border-color:#cdb8f5;background:#f5f0ff">🛒 Vendite e-commerce</a>`);
+  // Vendite del centro / Vendite e-commerce: due tasti sempre nello stesso posto, quello della lista aperta è blu
+  // (nel gestionale attuale l'e-commerce era un trasferimento mensile alla Sede Centrale)
+  // A sinistra (subito dopo "Record attuali"): così restano fermi anche se i tasti a destra cambiano
+  document.getElementById("recordAttuali").closest("label").insertAdjacentHTML("afterend", `
+    <div class="scelta-canale" role="tablist" aria-label="Quali vendite vedere">
+      <a href="vendite-giornaliere.html" role="tab" aria-selected="${!ECOM}" class="${ECOM ? "" : "attivo"}" title="Le giornate di vendita del centro">🏪 Vendite del centro</a>
+      <a href="vendite-giornaliere.html?canale=ecommerce" role="tab" aria-selected="${ECOM}" class="${ECOM ? "attivo" : ""}" title="Le giornate di vendite online">🛒 Vendite e-commerce</a>
+    </div>`);
 
   // ---------- Riepilogo e-commerce del mese per la Sede Centrale dell'Apostolato Liturgico ----------
   // La merce venduta online esce dalla giacenza della sede che spedisce (giornate e-commerce); a fine mese la Sede Centrale
