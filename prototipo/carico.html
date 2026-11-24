@@ -225,19 +225,20 @@
 
       <!-- RIGHE -->
       <div class="pannello-tab" id="tab-articoli" hidden>
-        <div class="aggiungi-art" id="barraAggiungi" hidden>
-          <div class="f cerca-art">
-            <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
-            <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
+        <!-- Niente riquadro "Aggiungi articolo" (chiesto dall'utente il 24/11/2026): col ＋ si apre una riga dove si scrive
+             o si spara il codice; la quantità si cambia poi sulla riga dell'articolo. Dopo ogni articolo la riga resta pronta. -->
+        <div class="riga-nuova" id="barraAggiungi" hidden>
+          <div class="cerca-art cerca-riga" style="flex:1">
+            <input id="addArt" type="text" placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off">
             <div class="suggerimenti" id="suggArt"></div>
           </div>
-          <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
-          <div class="f" style="width:120px"><label for="addPrezzo">Costo unit.</label><input id="addPrezzo" placeholder="dall'articolo" style="text-align:right"></div>
-          <button class="btn btn-primary" id="addBtn">Aggiungi</button>
-          <label class="interr" style="margin:0 0 8px" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> anche di altri fornitori</label>
+          <label class="interr" style="margin:0" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" id="tuttiForn"><span></span></span> anche di altri fornitori</label>
+          <button class="btn-riga" id="chiudiRigaNuova" title="Chiudi la riga di ricerca">✕</button>
+          <span hidden><input id="addQta" type="number" value="1"><input id="addPrezzo"><button id="addBtn"></button></span>
         </div>
         <div class="nota-viola" id="notaPrezzi" hidden>💶 In questa scheda si indicano i <b>prezzi di acquisto</b>.</div>
         <div class="art-toolbar">
+          <button class="btn-riga nuova solo-mod" id="piuRiga" title="Aggiungi un articolo: si scrive il codice o si spara con la pistola">＋</button>
           <button class="btn btn-light" id="etichetteSel">🏷️ Etichette dei selezionati</button>
           <label class="interr" style="margin-left:0"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
           <span class="info" id="infoEtichette"></span>
@@ -438,7 +439,7 @@
       avviso(precompila ? `Carico riempito con l'ordine ${o.prot}: correggi quantità e sconti, togli quello che non è arrivato`
         : `Ordine ${o.prot} collegato: spara la merce arrivata nella scheda Articoli`);
       document.querySelector('.scheda-tab[data-t="articoli"]').click();
-      $("addArt").focus();
+      // la riga di ricerca si apre col ＋ quando serve aggiungere altro
     }
     apriOrdine = async ordineId => {
       const db = await dbPronto;
@@ -451,7 +452,7 @@
       collegaOrdine(o, true);
       $("bannerModifica").textContent = `✎ Carico dall'ordine ${o.prot} del ${dataIt(o.data)}: le quantità sono quelle ancora da arrivare. Correggile con − / +, metti lo sconto riga per riga o togli con ✕ quello che non è arrivato, poi salva.`;
     };
-    $("btnSalta").onclick = () => { document.querySelector('.scheda-tab[data-t="articoli"]').click(); $("addArt").focus(); };
+    $("btnSalta").onclick = () => { document.querySelector('.scheda-tab[data-t="articoli"]').click(); apriRigaNuova(); };
   }
 
   // ---------- Riordini: ciò che è stato ordinato ma non è arrivato ----------
@@ -548,6 +549,15 @@
     avviso(`${art.codice}: +${n} (${r.qta}${r.ordinata != null ? ` di ${r.ordinata} ordinati` : " in totale"})`);
     $("addArt").focus();
   }
+  // ＋: apre la riga di ricerca (resta aperta dopo ogni articolo, così la pistola continua); ✕ la chiude
+  function apriRigaNuova() {
+    if (!document.body.classList.contains("in-modifica")) return;
+    $("barraAggiungi").hidden = false;
+    $("addArt").value = ""; $("suggArt").classList.remove("show");
+    $("addArt").focus();
+  }
+  $("piuRiga").onclick = apriRigaNuova;
+  $("chiudiRigaNuova").onclick = () => { $("barraAggiungi").hidden = true; $("suggArt").classList.remove("show"); };
   $("addArt").oninput = () => { suggAttivo = 0; mostraSugg(); };
   $("tuttiForn").onchange = () => { mostraSugg(); $("addArt").focus(); };
   $("addArt").onkeydown = e => {
@@ -673,7 +683,8 @@
     document.body.classList.toggle("in-modifica", modifica);
     modificabili().forEach(el => el.disabled = !modifica);
     pulsantiLettura.forEach(id => $(id).hidden = modifica || (id === "btnModifica" && annullato));
-    ["btnSalva", "btnAnnulla", "btnSalvaChiudi", "bannerModifica", "barraAggiungi", "btnProvv", "notaPrezzi"].forEach(id => $(id).hidden = !modifica);
+    ["btnSalva", "btnAnnulla", "btnSalvaChiudi", "bannerModifica", "btnProvv", "notaPrezzi"].forEach(id => $(id).hidden = !modifica);
+    if (!modifica) $("barraAggiungi").hidden = true;
     disegnaArticoli();
   }
   function controlla() {

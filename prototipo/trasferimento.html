@@ -196,14 +196,17 @@
 
       ${info ? `<div class="nota-viola">${info}</div>` : ""}
 
-      <div class="aggiungi-art solo-mod" style="margin-top:12px">
-        <div class="f cerca-art">
-          <label for="addArt">Aggiungi articolo <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
-          <input id="addArt" type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off">
+      <!-- Niente riquadro "Aggiungi articolo": col ＋ si apre una riga dove si scrive o si spara il codice (resta aperta dopo ogni articolo) -->
+      <div class="riga-nuova" id="barraAggiungi" style="margin-top:12px" hidden>
+        <div class="cerca-art cerca-riga" style="flex:1">
+          <input id="addArt" type="text" placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off">
           <div class="suggerimenti" id="suggArt"></div>
         </div>
-        <div class="f" style="width:90px"><label for="addQta">Quantità</label><input id="addQta" type="number" min="1" value="1" style="text-align:right"></div>
-        <button class="btn btn-primary" id="addBtn">Aggiungi</button>
+        <button class="btn-riga" id="chiudiRigaNuova" title="Chiudi la riga di ricerca">✕</button>
+        <span hidden><input id="addQta" type="number" value="1"><button id="addBtn"></button></span>
+      </div>
+      <div class="azioni-righe solo-mod" style="margin-top:12px">
+        <button class="btn-riga nuova" id="piuRiga" title="Aggiungi un articolo: si scrive il codice o si spara con la pistola">＋</button>
       </div>
       <div class="azioni-righe solo-mod" ${daOrdine ? "" : "hidden"}>
         <button class="btn btn-light" id="btnTuttoDisp">✔ Manda tutto il disponibile${conInevasi ? " (articoli dell'ordine)" : ""}</button>
@@ -254,7 +257,7 @@
   function disegna() {
     const mod = modifica();
     if (!RIGHE.length && !conInevasi) {
-      $("righe").innerHTML = `<tr><td colspan="${colonne}"><div class="vuoto"><b>Nessun articolo</b><span>Spara o cerca gli articoli da mandare qui sopra.</span></div></td></tr>`;
+      $("righe").innerHTML = `<tr><td colspan="${colonne}"><div class="vuoto"><b>Nessun articolo</b><span>Usa il ＋ qui sopra e scrivi o spara il codice degli articoli da mandare.</span></div></td></tr>`;
     } else if (conInevasi) {
       $("righe").innerHTML = SEZIONI.map(z => {
         const lista = RIGHE.filter(r => r.sez === z.k);
@@ -312,6 +315,15 @@
     disegna(); $("addArt").focus();
     avviso(`${a.codice}: ${n} da mandare`);
   }
+  // ＋: apre la riga di ricerca (resta aperta dopo ogni articolo, così la pistola continua); ✕ la chiude
+  function apriRigaNuova() {
+    if (!modifica()) return;
+    $("barraAggiungi").hidden = false;
+    $("addArt").value = ""; $("suggArt").classList.remove("show");
+    $("addArt").focus();
+  }
+  $("piuRiga").onclick = apriRigaNuova;
+  $("chiudiRigaNuova").onclick = () => { $("barraAggiungi").hidden = true; $("suggArt").classList.remove("show"); };
   $("addArt").oninput = () => { attivo = 0; sugg(); };
   $("addArt").onkeydown = e => {
     const lista = trova($("addArt").value);
@@ -456,7 +468,7 @@
   $("btnEtichetteTr").hidden = !ricevente || !spedito;
   $("btnConferma").hidden = !daRicevere;
   disegna();
-  if (!salvato) $("addArt").focus();
+  if (!salvato && !daOrdine) apriRigaNuova();   // trasferimento a mano: riga di ricerca già pronta per la pistola
 
   // Ricerca e pistola sugli articoli del database (giacenza di questa sede)
   if (db && !salvato) caricaArticoliDalDb(db, sedeId).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
