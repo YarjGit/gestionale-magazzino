@@ -62,18 +62,22 @@
   // (tabella fornitori_sedi); col tasto "Anche delle altre sedi" si vedono tutti, per aggiungerne uno già esistente.
   dbPronto.then(async db => {
     if (!db) return;
+    // Niente "sedi(nome)" dentro la lettura dei fornitori: con fornitori_sedi il database trova due collegamenti
+    // tra fornitori e sedi e non sa quale usare. I nomi delle sedi si leggono a parte.
     const { data, error } = await db.from("fornitori")
-      .select("id, codice, ragione_sociale, partita_iva, codice_fiscale, sedi(nome)")
+      .select("id, codice, ragione_sociale, partita_iva, codice_fiscale, sede_collegata")
       .order("ragione_sociale");
     if (error) throw error;
+    const { data: sedi } = await db.from("sedi").select("id, nome");
+    const nomeSede = new Map((sedi || []).map(s => [s.id, s.nome]));
     const mie = await idFornitoriSedeDb(db);
     // in quali sedi è usato ogni fornitore
     const sediDi = new Map();
-    const { data: legami } = await db.from("fornitori_sedi").select("fornitore_id, sedi(nome)").range(0, 9999);
-    (legami || []).forEach(l => sediDi.set(l.fornitore_id, (sediDi.get(l.fornitore_id) || []).concat(l.sedi ? l.sedi.nome : [])));
+    const { data: legami } = await db.from("fornitori_sedi").select("fornitore_id, sede_id").range(0, 9999);
+    (legami || []).forEach(l => sediDi.set(l.fornitore_id, (sediDi.get(l.fornitore_id) || []).concat(nomeSede.get(l.sede_id) || l.sede_id)));
     const tutte = data.map(f => ({
       nome: f.ragione_sociale, piva: f.partita_iva || "", cf: f.codice_fiscale || "",
-      cod: f.codice, sede: f.sedi ? f.sedi.nome : "", usato: (sediDi.get(f.id) || []).join(", "),
+      cod: f.codice, sede: nomeSede.get(f.sede_collegata) || "", usato: (sediDi.get(f.id) || []).join(", "),
       mio: !mie || mie.has(f.id)   // senza elenco per sede (tabella non ancora creata) si vedono tutti
     }));
     let tutti = false;
