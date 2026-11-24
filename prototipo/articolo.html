@@ -505,7 +505,8 @@
     if (!db || !nuovo) return;
     const { data: forn, error } = await db.from("fornitori").select("id, codice, ragione_sociale").order("ragione_sociale");
     if (error) throw error;
-    FORN = forn.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+    // solo i fornitori della sede di lavoro
+    FORN = (await soloFornitoriSede(db, forn)).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
     ["forn1", "forn2"].forEach(id => { const s = $(id); if (s) { const v = s.value; s.innerHTML = opzFornitori(FORN.some(f => String(f.id) === v) ? v : ""); } });
     campiForn.forEach(c => c.aggiorna());
   }).catch(err => avviso("Errore nel leggere i fornitori: " + err.message));
@@ -521,7 +522,8 @@
     if (error || e2) throw error || e2;
     if (!a) return;
     const { data: giac } = await db.from("giacenze").select("sede_id, quantita").eq("articolo_id", a.id);
-    FORN = forn.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+    // solo i fornitori della sede di lavoro, più quelli già scritti sull'articolo (anche se sono di un'altra sede)
+    FORN = (await soloFornitoriSede(db, forn, [a.fornitore_id, a.fornitore2_id])).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
     const perc = a.aliquote_iva ? +a.aliquote_iva.aliquota : 22;
     const nuovoArt = articoloDa({
       id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode, costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato,

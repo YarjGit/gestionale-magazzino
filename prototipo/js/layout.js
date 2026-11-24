@@ -443,6 +443,35 @@ function apriImpostaPassword(db, email) {
   finestra.querySelector("#pw1").focus();
 }
 
+// ---------- Fornitori della sede di lavoro (tabella fornitori_sedi, database/23-fornitori-per-sede.sql) ----------
+// Come nel gestionale attuale ogni sede ha il suo elenco di fornitori (l'anagrafica è una sola).
+// idSedeLavoroDb: id della sede di lavoro nel database. idFornitoriSedeDb: Set degli id dei fornitori della sede,
+// oppure null se la tabella non c'è ancora o la sede non ha ancora nessun fornitore (allora si vedono tutti).
+async function idSedeLavoroDb(db) {
+  const nome = trovaSede(leggiSede()).nome;
+  const { data } = await db.from("sedi").select("id").eq("nome", nome).maybeSingle();
+  return data ? data.id : null;
+}
+async function idFornitoriSedeDb(db, sedeId) {
+  sedeId = sedeId || await idSedeLavoroDb(db);
+  if (!sedeId) return null;
+  const ids = new Set();
+  for (let da = 0; ; da += 1000) {
+    const { data, error } = await db.from("fornitori_sedi").select("fornitore_id").eq("sede_id", sedeId).range(da, da + 999);
+    if (error) return null;
+    data.forEach(r => ids.add(r.fornitore_id));
+    if (data.length < 1000) break;
+  }
+  return ids.size ? ids : null;
+}
+// Tiene solo i fornitori della sede (più quelli in "tenere", es. il fornitore già scelto in un documento vecchio)
+async function soloFornitoriSede(db, lista, tenere = []) {
+  const ids = await idFornitoriSedeDb(db);
+  if (!ids) return lista;
+  const resta = new Set(tenere.filter(Boolean));
+  return lista.filter(f => ids.has(f.id) || resta.has(f.id));
+}
+
 var clientDb = null;   // "var": esiste già quando il blocco qui sopra chiama apriDb()
 async function apriDb() {
   if (clientDb) return clientDb;

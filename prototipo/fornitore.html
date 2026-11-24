@@ -17,6 +17,10 @@
   .avviso-doppio { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #fff3dd; color: #9a5a00; font-size: 0.8rem; }
   .art-forn td.num { text-align: right; font-family: "JetBrains Mono", monospace; }
   textarea#fNote { min-height: 110px; }
+  .scelte-sedi { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+  .scelte-sedi label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+  .scelte-sedi label:has(input:checked) { background: #e8f1ff; border-color: #9cc2f5; color: #1f5fbf; }
+  .avviso-doppio button { margin-left: 8px; padding: 3px 10px; border: none; border-radius: 6px; background: #b26a00; color: #fff; font-weight: 600; cursor: pointer; }
 </style>
 </head>
 <body data-page="fornitori">
@@ -47,7 +51,8 @@
   const ELENCO = "fornitori.html";
   const db = await dbPronto;
 
-  let forn = null, sedi = [], articoli = [];
+  let forn = null, sedi = [], articoli = [], sediUsate = new Set(), conSedi = true;
+  const sedeLavoroId = db ? await idSedeLavoroDb(db).catch(() => null) : null;
   try {
     if (db) {
       const { data: s } = await db.from("sedi").select("id, nome").order("nome");
@@ -60,8 +65,11 @@
           const { data: art } = await db.from("articoli").select("codice, descrizione, costo_netto, prezzo_vendita_ivato, attivo")
             .or(`fornitore_id.eq.${forn.id},fornitore2_id.eq.${forn.id}`).order("codice").limit(2000);
           articoli = art || [];
+          const { data: leg, error: e3 } = await db.from("fornitori_sedi").select("sede_id").eq("fornitore_id", forn.id);
+          if (e3) conSedi = false; else (leg || []).forEach(l => sediUsate.add(l.sede_id));
         }
-      }
+      } else if (nuovo && sedeLavoroId) sediUsate.add(sedeLavoroId);   // il fornitore nuovo è della sede che lo crea
+      if (nuovo) { const { error: e4 } = await db.from("fornitori_sedi").select("sede_id").limit(1); if (e4) conSedi = false; }
     }
   } catch (err) { avviso("Errore nel leggere il fornitore: " + err.message, true); }
 
@@ -80,6 +88,8 @@
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   const inp = (id, val, extra = "") => `<input class="mod" id="${id}" value="${v(val)}" ${extra} disabled>`;
   const ALIQUOTE = [22, 10, 5, 4, 0];
+  // sedi da spuntare: quelle che usano il gestionale, più quelle già collegate
+  const sediScelta = sedi.filter(s => SEDI_ATTIVE.includes(s.nome) || sediUsate.has(s.id));
   const NAZIONI = ["Italia", "Austria", "Belgio", "Cina", "Croazia", "Francia", "Germania", "India", "Polonia", "Portogallo", "Regno Unito", "Romania", "San Marino", "Spagna", "Stati Uniti", "Svizzera", "Città del Vaticano"];
 
   $("contenuto").innerHTML = `
@@ -125,6 +135,12 @@
                 ${campo("s2", "Codice fiscale", inp("fCf", f.codice_fiscale, 'maxlength="16" style="text-transform:uppercase"'))}
                 ${campo("s2", "Archivio collegato", `<select class="mod" id="fSede" disabled><option value="">— nessuno (fornitore esterno) —</option>${sedi.map(s => `<option value="${v(s.id)}"${s.id === f.sede_collegata ? " selected" : ""}>${v(s.nome)}</option>`).join("")}</select>`, "solo se il fornitore è una nostra sede")}
               </div>
+            </div>
+            <div class="gruppo">
+              <h3>🏬 Sedi che usano questo fornitore</h3>
+              ${conSedi ? `<div class="scelte-sedi" id="sediForn">${sediScelta.map(s => `<label><input type="checkbox" class="mod" value="${v(s.id)}"${sediUsate.has(s.id) ? " checked" : ""} disabled> ${v(s.nome)}</label>`).join("")}</div>
+                <span class="aiuto">ogni sede vede nei carichi e negli ordini solo i suoi fornitori</span>`
+                : '<span class="aiuto">Per dividere i fornitori per sede va eseguito su Supabase il file database/23-fornitori-per-sede.sql</span>'}
             </div>
             <div class="gruppo">
               <h3>📍 Indirizzo</h3>
@@ -201,7 +217,15 @@
     const n = norm($("fNome").value), p = pivaN($("fPiva").value);
     // la stessa partita IVA è normale per le nostre sedi (Pie Discepole): lì conta solo il nome
     const altro = tutti.find(x => x.id !== (forn && forn.id) && ((n && norm(x.ragione_sociale) === n) || (p.length >= 9 && p !== "901011007" && pivaN(x.partita_iva) === p)));
-    $("doppio").innerHTML = altro ? `<div class="avviso-doppio">⚠ C'è già <a href="fornitore.html?cod=${encodeURIComponent(altro.codice)}" target="_blank" style="color:inherit;font-weight:700">${esc(altro.codice)} · ${esc(altro.ragione_sociale)}</a> con lo stesso nome o la stessa partita IVA.</div>` : "";
+    $("doppio").innerHTML = altro ? `<div class="avviso-doppio">⚠ C'è già <a href="fornitore.html?cod=${encodeURIComponent(altro.codice)}" target="_blank" style="color:inherit;font-weight:700">${esc(altro.codice)} · ${esc(altro.ragione_sociale)}</a> con lo stesso nome o la stessa partita IVA.
+      ${nuovo && conSedi && sedeLavoroId ? `<button type="button" id="btnAggiungiSede">Usalo anche a ${esc(trovaSede(leggiSede()).nome)}</button>` : ""}</div>` : "";
+    // Fornitore già esistente in un'altra sede: invece di un doppione si aggiunge alla sede di lavoro
+    if (altro && $("btnAggiungiSede")) $("btnAggiungiSede").onclick = async () => {
+      const { error } = await db.from("fornitori_sedi").insert({ fornitore_id: altro.id, sede_id: sedeLavoroId });
+      if (error && error.code !== "23505") { avviso("Errore: " + error.message, true); return; }
+      avviso(`${altro.ragione_sociale} ora è anche tra i fornitori di ${trovaSede(leggiSede()).nome}`);
+      setTimeout(() => location.replace(`fornitore.html?cod=${encodeURIComponent(altro.codice)}`), 800);
+    };
     return altro;
   }
   ["fNome", "fPiva"].forEach(id => $(id).addEventListener("change", controllaDoppio));
@@ -215,10 +239,10 @@
     ["btnChiudi", "btnModifica"].forEach(id => $(id).hidden = modifica);
     ["btnAnnulla", "btnSalva", "btnSalvaChiudi", "bannerModifica"].forEach(id => $(id).hidden = !modifica);
   }
-  $("btnModifica").onclick = () => { valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.value); modalita(true); $("fNome").focus(); };
+  $("btnModifica").onclick = () => { valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.type === "checkbox" ? el.checked : el.value); modalita(true); $("fNome").focus(); };
   $("btnAnnulla").onclick = () => {
     if (nuovo) { location.href = ELENCO; return; }
-    document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
+    document.querySelectorAll(".mod").forEach((el, i) => { if (el.type === "checkbox") el.checked = valoriPrima[i]; else el.value = valoriPrima[i]; });
     $("doppio").innerHTML = ""; biglietto(); modalita(false);
   };
   $("btnChiudi").onclick = () => location.href = ELENCO;
@@ -242,6 +266,8 @@
     const piva = t("fPiva").toUpperCase().replace(/\s/g, "");
     if (piva && (t("fNazione") || "Italia") === "Italia" && !/^(IT)?\d{11}$/.test(piva)
         && !confirm("La partita IVA italiana ha 11 cifre. Salvare lo stesso?")) { $("fPiva").focus(); return; }
+    if (conSedi && $("sediForn") && ![...$("sediForn").querySelectorAll("input")].some(c => c.checked)
+        && !confirm("Nessuna sede spuntata: il fornitore non comparirà nei carichi e negli ordini di nessuna sede. Salvare lo stesso?")) return;
     const email = t("fEmail");
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { avviso("L'email non sembra giusta"); $("fEmail").focus(); return; }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
@@ -255,14 +281,22 @@
         nazione: t("fNazione") || "Italia", telefono: t("fTel") || null, cellulare: t("fCell") || null, email: email || null,
         sede_collegata: $("fSede").value || null, note: t("fNote") || null
       };
-      let cod = f.codice;
+      let cod = f.codice, id = forn && forn.id;
       if (nuovo) {
         cod = t("fCodice") || await prossimoCodice();
-        const { error } = await db.from("fornitori").insert({ ...dati, codice: cod });
+        const { data: ins, error } = await db.from("fornitori").insert({ ...dati, codice: cod }).select("id").single();
         if (error) throw error;
+        id = ins.id;
       } else {
         const { error } = await db.from("fornitori").update({ ...dati, modificato_il: new Date().toISOString() }).eq("id", forn.id);
         if (error) throw error;
+      }
+      // Sedi che usano il fornitore: si aggiungono le spuntate e si tolgono le altre
+      if (conSedi && $("sediForn")) {
+        const caselle = [...$("sediForn").querySelectorAll("input")];
+        const si = caselle.filter(c => c.checked).map(c => c.value), no = caselle.filter(c => !c.checked).map(c => c.value);
+        if (si.length) { const { error } = await db.from("fornitori_sedi").upsert(si.map(s => ({ fornitore_id: id, sede_id: s })), { onConflict: "fornitore_id,sede_id", ignoreDuplicates: true }); if (error) throw error; }
+        if (no.length) { const { error } = await db.from("fornitori_sedi").delete().eq("fornitore_id", id).in("sede_id", no); if (error) throw error; }
       }
       avviso(`Fornitore ${cod} · ${nome} salvato`);
       setTimeout(() => location.replace(chiudi ? ELENCO : `fornitore.html?cod=${encodeURIComponent(cod)}`), 800);

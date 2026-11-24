@@ -754,8 +754,9 @@
     ]);
     if (error) throw error;
     if (data) {
-      FORN = data.map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
       const scelto = $("selFornitore").value;
+      // solo i fornitori della sede di lavoro (più quello già scelto in un carico salvato)
+      FORN = (await soloFornitoriSede(db, data, [scelto])).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
       // la tendina di "Movimenti collegati" c'è solo nel carico nuovo
       ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
       aggiornaCampiForn();

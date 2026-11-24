@@ -99,7 +99,12 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   del Magazzino Centrale entra senza barcode. Elenco: `riferimenti/magazzino-centrale/codici-da-controllare.csv`.
   Nel nuovo: la scheda articolo avvisa per codici quasi uguali e barcode già usati e toglie gli spazi doppi dai codici nuovi;
   se la pistola legge un barcode presente su più articoli si sceglie dalla lista.
-- Scheda fornitore `fornitore.html` (`?nuovo=1`, `?cod=…`; colonne in `database/22-scheda-fornitori.sql`): codice automatico (il successivo sotto 003500),
+- **Fornitori per sede** (chiesto dall'utente il 24/11/2026, come nel gestionale attuale): anagrafica unica + tabella `fornitori_sedi`
+  (`database/23-fornitori-per-sede.sql`; elenchi veri SMM 231 / Magazzino Centrale 51 / Roma per Estero 111 in `riferimenti/import/25-fornitori-per-sede.sql`).
+  `soloFornitoriSede` / `idFornitoriSedeDb` in `layout.js`: carico, ordine e scheda articolo mostrano solo i fornitori della sede (più quello già scelto);
+  l'elenco Fornitori ha il tasto "Anche delle altre sedi" e la colonna "Usato da". Senza la tabella o senza collegamenti si vedono tutti.
+- Scheda fornitore `fornitore.html`: caselle "Sedi che usano questo fornitore" (il nuovo è della sede che lo crea); se esiste già in un'altra sede, "Usalo anche a …" invece del doppione.
+  Scheda fornitore `fornitore.html` (`?nuovo=1`, `?cod=…`; colonne in `database/22-scheda-fornitori.sql`): codice automatico (il successivo sotto 003500),
   avviso se nome o partita IVA ci sono già (la P.IVA delle Pie Discepole è comune a tutte le sedi), schede Articoli e Storico.
 - Articoli → fornitori: export Excel del gestionale attuale in `riferimenti/articoli-fornitori/articoli-fornitori.xlsx` (solo PC di lavoro, colonne Fornitore 1/2 con i nomi).
   `strumenti/collega-fornitori-excel.ps1` genera `riferimenti/import/08-fornitori-da-excel.sql` (da incollare su Supabase; sostituisce 04 e 07).

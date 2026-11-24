@@ -52,23 +52,42 @@
       { k: "piva", t: "Partita IVA" },
       { k: "cf", t: "Codice fiscale" },
       { k: "cod", t: "Codice" },
-      { k: "sede", t: "Sede collegata", larg: 230 }
+      { k: "sede", t: "Sede collegata", larg: 200 },
+      { k: "usato", t: "Usato da", larg: 260 }
     ],
     dati
   });
 
-  // Dopo l'accesso: i fornitori veri dal database al posto di quelli di esempio
+  // Dopo l'accesso: i fornitori veri dal database. Come nel gestionale attuale ogni sede vede il SUO elenco
+  // (tabella fornitori_sedi); col tasto "Anche delle altre sedi" si vedono tutti, per aggiungerne uno già esistente.
   dbPronto.then(async db => {
     if (!db) return;
     const { data, error } = await db.from("fornitori")
-      .select("codice, ragione_sociale, partita_iva, codice_fiscale, sedi(nome)")
+      .select("id, codice, ragione_sociale, partita_iva, codice_fiscale, sedi(nome)")
       .order("ragione_sociale");
     if (error) throw error;
-    pagina.aggiorna(data.map(f => ({
+    const mie = await idFornitoriSedeDb(db);
+    // in quali sedi è usato ogni fornitore
+    const sediDi = new Map();
+    const { data: legami } = await db.from("fornitori_sedi").select("fornitore_id, sedi(nome)").range(0, 9999);
+    (legami || []).forEach(l => sediDi.set(l.fornitore_id, (sediDi.get(l.fornitore_id) || []).concat(l.sedi ? l.sedi.nome : [])));
+    const tutte = data.map(f => ({
       nome: f.ragione_sociale, piva: f.partita_iva || "", cf: f.codice_fiscale || "",
-      cod: f.codice, sede: f.sedi ? f.sedi.nome : ""
-    })));
-    avviso(`${data.length} fornitori caricati dal database`);
+      cod: f.codice, sede: f.sedi ? f.sedi.nome : "", usato: (sediDi.get(f.id) || []).join(", "),
+      mio: !mie || mie.has(f.id)   // senza elenco per sede (tabella non ancora creata) si vedono tutti
+    }));
+    let tutti = false;
+    const mostra = () => {
+      pagina.aggiorna(tutti ? tutte : tutte.filter(r => r.mio));
+      $btn.textContent = tutti ? "Solo di questa sede" : "Anche delle altre sedi";
+    };
+    const $btn = document.createElement("button");
+    $btn.className = "btn btn-light";
+    $btn.title = "Mostra anche i fornitori usati dalle altre sedi";
+    $btn.onclick = () => { tutti = !tutti; mostra(); };
+    document.getElementById("btnCrea").before($btn);
+    mostra();
+    avviso(mie ? `${tutte.filter(r => r.mio).length} fornitori di ${trovaSede(leggiSede()).nome}` : `${data.length} fornitori caricati dal database`);
   }).catch(err => pagina.errore("Non riesco a leggere i fornitori dal database: " + (err.message || err)));
 </script>
 </body>
