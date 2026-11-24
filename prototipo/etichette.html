@@ -456,6 +456,7 @@
   // Stampa: apre la finestra di stampa del browser con solo i fogli (misure vere, vedi @media print)
   $("btnStampa").onclick = () => {
     if (!righe.some(r => r.n > 0)) { avviso("Aggiungi almeno un'etichetta"); return; }
+    registra("Stampa etichette", `${righe.reduce((s, r) => s + (+r.n || 0), 0)} etichette di ${righe.filter(r => r.n > 0).length} articoli`);
     disegna(null, true);
     window.print();
     disegna();

@@ -331,7 +331,8 @@
       righe: lista.map((r, i) => ({ n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr, qta: qta(r.qta) })),
       ritorno: location.pathname.split("/").pop() + location.search.replace(/[&?]ddt=1/, "")
     }));
-    location.href = "stampa-ddt.html?auto=1";
+    registra("Stampa DDT", `${SCARICO ? "Scarico" : "Ordine"} #${ord.id || "nuovo"} · bolla ${$("fNumBolla").value.trim()} · ${c.nome}`, { tabella: "movimenti", riferimento: ord.id ? String(ord.id) : null })
+      .finally(() => location.href = "stampa-ddt.html?auto=1");
   }
   // Prima del DDT: "Vuoi scalare la merce dalla giacenza?" (decisione dell'utente). Sì = scarico a cliente collegato all'ordine,
   // No = la giacenza non cambia (la domanda torna alla stampa successiva). Se è già stato scalato non si chiede più.

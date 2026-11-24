@@ -70,6 +70,9 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Colonne `motivo` e `anno_acquisto` in `database/16-aumento-giacenza.sql`.
 - Tasto **Excel** in carico, ordine, trasferimento, vendita e aumento (`js/excel.js`, senza librerie): vero .xlsx come quello del gestionale attuale,
   fogli "Riepilogo" (Ente, tipo, numero, date, fornitore o sedi, totali e spese) e "Dettaglio" (Codice … Prezzo Totale); nome "ENTE_Tipo_N_#id.xlsx".
+- **Attività Utenti** (`attivita-utenti.html`, `database/24-registro-attivita.sql`): tabella `registro_attivita` (solo lettura e aggiunta).
+  Le modifiche a movimenti, articoli, fornitori, clienti, fornitori delle sedi e utenti le annota il database (trigger `registra`, mail dal login);
+  accessi (una volta per login), uscite, scelta sede, stampa etichette, DDT ed Excel con `registra(attivita, dettagli)` di `layout.js`.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 
 ## Struttura

@@ -310,6 +310,7 @@ function avviso(testo, errore) {
     sedeWrap.classList.remove("open");
     scelta.classList.remove("show");
     document.dispatchEvent(new CustomEvent("sede-cambiata", { detail: sedeAttiva }));
+    registra("Scelta sede", sedeAttiva.nome);
   };
 
   [sediMenu, scelta].forEach(box => {
@@ -366,6 +367,7 @@ function avviso(testo, errore) {
         nome.split(" ").filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase() || "?";
       user.querySelector('[data-azione="esci"]').onclick = async e => {
         e.preventDefault();
+        await registra("Uscita");
         await db.auth.signOut();
         location.replace("login.html");
       };
@@ -380,6 +382,15 @@ function avviso(testo, errore) {
         contenuto.insertAdjacentHTML("afterbegin", `<div class="avviso-accesso">⛔ L'indirizzo <b>${email}</b> non è tra gli utenti autorizzati:
           chiedi all'amministratore di aggiungerlo. Finché non è autorizzato, il gestionale non mostra nessun dato.</div>`);
       }
+      // Accesso nuovo (non una semplice pagina aperta): si annota una volta sola per ogni login
+      const chiave = "accessoRegistrato:" + session.user.id;
+      try {
+        if (session.user.last_sign_in_at && localStorage.getItem(chiave) !== session.user.last_sign_in_at) {
+          localStorage.setItem(chiave, session.user.last_sign_in_at);
+          clientDb = db;
+          registra("Accesso", session.user.app_metadata && session.user.app_metadata.provider === "email" ? "con email" : "");
+        }
+      } catch (e) {}
       return db;
     } catch (err) {
       contenuto.insertAdjacentHTML("afterbegin", `<div class="avviso-accesso">⚠️ Collegamento al database non riuscito (${err.message}). Controlla la connessione e ricarica la pagina.</div>`);
@@ -441,6 +452,28 @@ function apriImpostaPassword(db, email) {
   finestra.querySelector("#pwEsito").hidden = true;
   finestra.classList.add("show");
   finestra.querySelector("#pw1").focus();
+}
+
+// ---------- Registro delle attività (tabella registro_attivita, database/24-registro-attivita.sql) ----------
+// Le modifiche ai dati le annota il database da solo; qui si annotano accessi, uscite, cambi di sede, stampe ed Excel.
+// La mail la mette il database (quella con cui si è entrati). Se il registro non c'è ancora, non succede niente.
+function dispositivo() {
+  const u = navigator.userAgent;
+  const browser = /Edg\//.test(u) ? "Edge" : /Chrome\//.test(u) ? "Chrome" : /Firefox\//.test(u) ? "Firefox" : /Safari\//.test(u) ? "Safari" : "Browser";
+  const sistema = /Windows/.test(u) ? "Windows" : /Android/.test(u) ? "Android" : /iPhone|iPad/.test(u) ? "iPhone/iPad" : /Mac OS/.test(u) ? "Mac" : /Linux/.test(u) ? "Linux" : "";
+  return [browser, sistema].filter(Boolean).join(" · ");
+}
+async function registra(attivita, dettagli = "", extra = {}) {
+  try {
+    const db = clientDb || (window.dbPronto && await window.dbPronto);
+    if (!db) return;
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return;
+    await db.from("registro_attivita").insert({
+      email: session.user.email, sede: leggiSede() ? trovaSede(leggiSede()).nome : null,
+      attivita, dettagli: String(dettagli || "").slice(0, 500) || null, dispositivo: dispositivo(), ...extra
+    });
+  } catch (e) { /* il registro non deve mai bloccare il lavoro */ }
 }
 
 // ---------- Fornitori della sede di lavoro (tabella fornitori_sedi, database/23-fornitori-per-sede.sql) ----------

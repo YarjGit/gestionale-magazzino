@@ -66,6 +66,7 @@ function scaricaFile(nome, blob) {
   a.download = nome.replace(/[\\/:*?"<>|]+/g, "-");
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  if (typeof registra === "function") registra("Esporta Excel", a.download);
 }
 
 // ---------- Excel di un movimento, come quello del gestionale attuale ----------

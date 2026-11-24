@@ -10,17 +10,11 @@
 <link rel="stylesheet" href="css/elenco.css">
 <style>
   .utente { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-  .iniziali {
-    display: grid; place-items: center;
-    width: 26px; height: 26px;
-    border-radius: 7px;
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 700;
-  }
-  .ip { font: 500 0.78rem "JetBrains Mono", monospace; color: var(--muted); }
+  .iniziali { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; color: #fff; font-size: 0.7rem; font-weight: 700; }
+  .disp { font-size: 0.78rem; color: var(--muted); }
   .quando b { font-weight: 600; }
   .quando small { color: var(--muted); margin-left: 6px; }
+  .det a { color: var(--accent); }
 </style>
 </head>
 <body data-page="attivita-utenti" data-top="anagrafica">
@@ -30,61 +24,88 @@
 <script src="js/layout.js"></script>
 <script src="js/anagrafica.js"></script>
 <script>
-  // Registro di chi entra e cosa fa nel gestionale. Nomi e indirizzi IP inventati.
-  const UTENTI = { "Mario Rossi": "#2f8bff", "Anna Verdi": "#7c3aed", "Luca Bianchi": "#18a058", "Amministratore": "#64748b" };
-  const ATTIVITA = {
-    "Accesso": ["#ddf5e8", "var(--ok)", "→"],
-    "Uscita": ["#f1f3f7", "#64748b", "←"],
-    "Accesso non riuscito": ["#fde4e4", "var(--ko)", "!"],
-    "Nuovo movimento": ["#e8f1ff", "#1f5fbf", "+"],
-    "Modifica articolo": ["#fff3dd", "#b26a00", "✎"],
-    "Stampa etichette": ["#f3e8ff", "#7c3aed", "🏷"]
+  // Registro di chi entra e cosa fa nel gestionale (tabella registro_attivita, database/24-registro-attivita.sql).
+  // La mail è quella con cui la persona è entrata. Le modifiche ai dati le annota il database da solo;
+  // accessi, uscite, scelta della sede, stampe ed Excel li annota la pagina. Il registro non si può modificare.
+  const STILE = {   // attività → [sfondo, colore, icona, gruppo]
+    "Accesso": ["#ddf5e8", "var(--ok)", "→", "acc"], "Uscita": ["#f1f3f7", "#64748b", "←", "acc"], "Scelta sede": ["#eef2f7", "#475569", "⌂", "acc"],
+    "Nuovo movimento": ["#e8f1ff", "#1f5fbf", "+", "mov"], "Modifica movimento": ["#fff3dd", "#b26a00", "✎", "mov"], "Cambio stato": ["#fff3dd", "#b26a00", "⇄", "mov"],
+    "Conferma ricevuto": ["#ddf5e8", "var(--ok)", "✔", "mov"], "Movimento eliminato": ["#fde4e4", "var(--ko)", "✕", "mov"],
+    "Nuovo articolo": ["#e8f1ff", "#1f5fbf", "+", "ana"], "Modifica articolo": ["#fff3dd", "#b26a00", "✎", "ana"], "Articolo eliminato": ["#fde4e4", "var(--ko)", "✕", "ana"],
+    "Nuovo fornitore": ["#e8f1ff", "#1f5fbf", "+", "ana"], "Modifica fornitore": ["#fff3dd", "#b26a00", "✎", "ana"], "Fornitore eliminato": ["#fde4e4", "var(--ko)", "✕", "ana"],
+    "Fornitore aggiunto alla sede": ["#e8f1ff", "#1f5fbf", "+", "ana"], "Fornitore tolto dalla sede": ["#fde4e4", "var(--ko)", "−", "ana"],
+    "Nuovo cliente": ["#e8f1ff", "#1f5fbf", "+", "ana"], "Modifica cliente": ["#fff3dd", "#b26a00", "✎", "ana"], "Cliente eliminato": ["#fde4e4", "var(--ko)", "✕", "ana"],
+    "Utente autorizzato": ["#f3e8ff", "#7c3aed", "+", "ana"], "Modifica utente": ["#f3e8ff", "#7c3aed", "✎", "ana"], "Utente tolto": ["#fde4e4", "var(--ko)", "✕", "ana"],
+    "Stampa etichette": ["#f3e8ff", "#7c3aed", "🏷", "sta"], "Stampa DDT": ["#f3e8ff", "#7c3aed", "🚚", "sta"], "Esporta Excel": ["#e6f6ec", "#13804a", "⤓", "sta"]
   };
-  const dati = [
-    ["2026-10-21 09:02", "Mario Rossi", "Accesso", "", "192.168.1.20"],
-    ["2026-10-21 09:15", "Mario Rossi", "Nuovo movimento", "Carico da fornitore #8816", "192.168.1.20"],
-    ["2026-10-21 09:31", "Mario Rossi", "Stampa etichette", "33 etichette", "192.168.1.20"],
-    ["2026-10-20 16:40", "Anna Verdi", "Accesso", "", "10.0.0.15"],
-    ["2026-10-20 16:52", "Anna Verdi", "Modifica articolo", "A0110/11 – prezzo", "10.0.0.15"],
-    ["2026-10-20 17:39", "Anna Verdi", "Uscita", "", "10.0.0.15"],
-    ["2026-10-19 08:58", "Luca Bianchi", "Accesso non riuscito", "Password errata", "10.0.0.31"],
-    ["2026-10-19 08:59", "Luca Bianchi", "Accesso", "", "10.0.0.31"],
-    ["2026-10-17 18:04", "Amministratore", "Accesso", "", "192.168.1.2"],
-    ["2026-10-16 07:06", "Mario Rossi", "Accesso", "", "192.168.1.20"]
-  ].map(([quando, utente, attivita, dettagli, ip]) => ({ quando, utente, attivita, dettagli, ip, id: quando + " " + utente }));
+  const stile = a => STILE[a] || ["#f1f3f7", "#475569", "•", "altro"];
+  // pagina della scheda di un movimento, dal tipo scritto nei dettagli ("carico_fornitore #12 …")
+  const PAGINA_TIPO = { carico_fornitore: "carico.html", ordine_fornitore: "ordine.html", trasferimento_a_filiale: "trasferimento.html",
+    vendite_giornaliere: "vendita.html", aumento_giacenza: "aumento.html", ordine_cliente: "ordine-cliente.html", scarico_cliente: "ordine-cliente.html" };
+  const NOMI_TIPO = { carico_fornitore: "Carico da fornitore", ordine_fornitore: "Ordine a fornitore", trasferimento_a_filiale: "Trasferimento a filiale",
+    vendite_giornaliere: "Vendite giornaliere", aumento_giacenza: "Aumento giacenza", ordine_cliente: "Ordine da cliente", scarico_cliente: "Scarico a cliente", esistenza: "Giacenza iniziale" };
+  const COLORI = ["#2f8bff", "#7c3aed", "#18a058", "#e58a00", "#0891b2", "#db2777", "#64748b"];
+  const coloreDi = s => COLORI[[...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORI.length];
+  const iniziali = email => String(email || "?").split("@")[0].split(/[._-]+/).filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase() || "?";
+  const escH = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-  const iniziali = n => n.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
-  const dataOra = q => {
-    const [d, o] = q.split(" ");
-    return `<span class="quando"><b>${d.split("-").reverse().join("/")}</b><small>${o}</small></span>`;
-  };
+  function dettagliHtml(r) {
+    let testo = escH(r.dettagli);
+    if (r.tabella === "movimenti") {
+      const m = /^(\w+) #(\d+)/.exec(r.dettagli || "");
+      if (m) {
+        testo = testo.replace(`${m[1]} #${m[2]}`, `${NOMI_TIPO[m[1]] || m[1]} #${m[2]}`);
+        if (PAGINA_TIPO[m[1]] && r.attivita !== "Movimento eliminato") testo = `<a href="${PAGINA_TIPO[m[1]]}?db=${m[2]}" target="_blank">${testo}</a>`;
+      }
+    } else if (r.tabella === "articoli" && r.riferimento && r.attivita !== "Articolo eliminato") testo = `<a href="articolo.html?cod=${encodeURIComponent(r.riferimento)}" target="_blank">${testo}</a>`;
+    else if ((r.tabella === "fornitori" || r.tabella === "fornitori_sedi") && r.riferimento && r.attivita !== "Fornitore eliminato") testo = `<a href="fornitore.html?cod=${encodeURIComponent(r.riferimento)}" target="_blank">${testo}</a>`;
+    return `<td class="det">${testo}</td>`;
+  }
 
-  avviaAnagrafica({
+  const pagina = avviaAnagrafica({
     titolo: "Attività Utenti",
     sezione: "Setup",
     csv: "attivita-utenti",
     chiave: "id",
     ordine: { k: "quando", dir: -1 },
     filtroDate: "quando",
-    filtri: [
-      { id: "fUtente", label: "Utente", campo: "utente", opzioni: Object.keys(UTENTI) },
-      { id: "fAtt", label: "Attività", campo: "attivita", opzioni: Object.keys(ATTIVITA) }
-    ],
+    testoVuoto: "Le attività compariranno qui man mano che le persone usano il gestionale.",
+    filtri: [{ id: "fAtt", label: "Attività", campo: "attivita", opzioni: Object.keys(STILE) }],
     tabs: [
-      { k: "acc", t: "Accessi", colore: "#18a058", f: r => ["Accesso", "Uscita"].includes(r.attivita) },
-      { k: "lav", t: "Operazioni", colore: "#2f8bff", f: r => !["Accesso", "Uscita", "Accesso non riuscito"].includes(r.attivita) },
-      { k: "err", t: "Non riusciti", colore: "#c62828", f: r => r.attivita === "Accesso non riuscito" }
+      { k: "acc", t: "Accessi", colore: "#18a058", f: r => stile(r.attivita)[3] === "acc" },
+      { k: "mov", t: "Movimenti", colore: "#2f8bff", f: r => stile(r.attivita)[3] === "mov" },
+      { k: "ana", t: "Anagrafiche", colore: "#b26a00", f: r => stile(r.attivita)[3] === "ana" },
+      { k: "sta", t: "Stampe ed Excel", colore: "#7c3aed", f: r => stile(r.attivita)[3] === "sta" }
     ],
-    azioniRiga: ["Vedi dettagli", "Tutte le attività di questo utente"],
+    azioniRiga: [],
     colonne: [
-      { k: "quando", t: "Quando", html: r => `<td>${dataOra(r.quando)}</td>` },
-      { k: "utente", t: "Utente", html: r => `<td><div class="utente"><span class="iniziali" style="background:${UTENTI[r.utente]}">${iniziali(r.utente)}</span>${r.utente}</div></td>` },
-      { k: "attivita", t: "Attività", html: r => { const [bg, c, i] = ATTIVITA[r.attivita]; return `<td><span class="pill" style="background:${bg};color:${c}">${i} ${r.attivita}</span></td>`; } },
-      { k: "dettagli", t: "Dettagli", larg: 260 },
-      { k: "ip", t: "Indirizzo IP", html: r => `<td><span class="ip">${r.ip}</span></td>` }
+      { k: "quando", t: "Quando", html: r => { const d = new Date(r.quando); return `<td><span class="quando"><b>${d.toLocaleDateString("it-IT")}</b><small>${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</small></span></td>`; } },
+      { k: "email", t: "Utente (mail di accesso)", larg: 260, html: r => `<td><div class="utente"><span class="iniziali" style="background:${coloreDi(r.email)}">${escH(iniziali(r.email))}</span>${escH(r.email || "—")}</div></td>` },
+      { k: "sede", t: "Sede" },
+      { k: "attivita", t: "Attività", html: r => { const [bg, c, i] = stile(r.attivita); return `<td><span class="pill" style="background:${bg};color:${c}">${i} ${escH(r.attivita)}</span></td>`; } },
+      { k: "dettagli", t: "Dettagli", larg: 380, html: dettagliHtml },
+      { k: "dispositivo", t: "Dispositivo", html: r => `<td><span class="disp">${escH(r.dispositivo || "")}</span></td>` }
     ],
-    dati
+    dati: []
   });
+
+  // Dopo l'accesso: le ultime 5.000 attività, dalla più recente
+  dbPronto.then(async db => {
+    if (!db) return;
+    const { data: sedi } = await db.from("sedi").select("id, nome");
+    const nomeSede = new Map((sedi || []).map(s => [s.id, s.nome]));
+    const righe = [];
+    for (let da = 0; da < 5000; da += 1000) {
+      const { data, error } = await db.from("registro_attivita").select("*").order("quando", { ascending: false }).range(da, da + 999);
+      if (error) {
+        if (error.code === "42P01" || /registro_attivita/.test(error.message)) { pagina.errore("Per vedere le attività va eseguito su Supabase il file database/24-registro-attivita.sql"); return; }
+        throw error;
+      }
+      righe.push(...data);
+      if (data.length < 1000) break;
+    }
+    pagina.aggiorna(righe.map(r => ({ ...r, id: String(r.id), sede: nomeSede.get(r.sede) || r.sede || "" })));
+  }).catch(err => pagina.errore("Non riesco a leggere le attività: " + (err.message || err)));
 </script>
 </body>
 </html>
