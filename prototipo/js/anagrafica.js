@@ -163,7 +163,7 @@ function avviaAnagrafica(cfg) {
   $("succ").onclick = () => { pagina++; disegna(); };
   $("aggiorna").onclick = () => { disegna(); avviso("Elenco aggiornato"); };
   // cfg.nuovoUrl: pagina della scheda nuova · cfg.scheda(riga): pagina della scheda di una riga (matita e testo blu)
-  $("btnCrea").onclick = () => cfg.nuovoUrl ? location.href = cfg.nuovoUrl : avviso(`${cfg.nuovo}: scheda da costruire`);
+  $("btnCrea").onclick = () => cfg.nuovoFn ? cfg.nuovoFn() : cfg.nuovoUrl ? location.href = cfg.nuovoUrl : avviso(`${cfg.nuovo}: scheda da costruire`);
   ["recordAttuali", "soloValidare"].forEach(id => { if ($(id)) $(id).onchange = () => avviso("Funzione da definire insieme"); });
 
   $("esporta").onclick = () => esportaExcel(cfg.csv, cfg.titolo, [cfg.colonne.map(c => c.t)].concat(filtra().map(r => cfg.colonne.map(c => r[c.k] ?? ""))));
@@ -177,7 +177,9 @@ function avviaAnagrafica(cfg) {
     const id = btn.closest("tr").dataset.id;
     if (btn.dataset.az || btn.classList.contains("ana-link")) {
       const r = cfg.dati.find(x => String(x[chiave]) === id);
-      if (cfg.scheda && r && cfg.scheda(r)) location.href = cfg.scheda(r); else avviso(`Scheda "${id}": da costruire`);
+      // cfg.apri(riga): la pagina apre la riga a modo suo (es. una finestra)
+      if (cfg.apri && r) cfg.apri(r);
+      else if (cfg.scheda && r && cfg.scheda(r)) location.href = cfg.scheda(r); else avviso(`Scheda "${id}": da costruire`);
       return;
     }
     rigaMenu = id;

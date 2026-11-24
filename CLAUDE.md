@@ -10,7 +10,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - Login uguale per tutti (Google); la sede di lavoro si sceglie dopo l'accesso e si cambia dal tasto colorato in alto.
 - **Ogni sede vede prodotti e movimenti di tutte le altre, senza limitazioni** (scelta dell'utente): niente filtri di sicurezza per sede, solo l'elenco di chi può entrare.
 - Nelle sedi si usa una **pistola laser barcode** (si comporta come una tastiera: scrive il codice e preme Invio) per etichette, vendite e inventario. I barcode stampati devono essere veri: EAN-13 se la cifra di controllo è giusta, altrimenti Code 128 (vedi `prototipo/js/barcode.js`). Ogni campo "aggiungi articolo" deve accettare la pistola.
-- Rimandati al futuro: collegamento all'e-commerce (Setup → Utenti Sito) e menu Laboratori. Restano nel menu con l'etichetta "in futuro".
+- Rimandati al futuro: collegamento all'e-commerce e menu Laboratori. Restano nel menu con l'etichetta "in futuro".
 
 ## Come lavoriamo
 - L'utente manda uno screenshot per ogni schermata del gestionale attuale; si rifà la schermata **simile ma mai identica**: cambiare sempre qualcosa nella grafica e dire cosa è cambiato.
@@ -70,6 +70,10 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Colonne `motivo` e `anno_acquisto` in `database/16-aumento-giacenza.sql`.
 - Tasto **Excel** in carico, ordine, trasferimento, vendita e aumento (`js/excel.js`, senza librerie): vero .xlsx come quello del gestionale attuale,
   fogli "Riepilogo" (Ente, tipo, numero, date, fornitore o sedi, totali e spese) e "Dettaglio" (Codice … Prezzo Totale); nome "ENTE_Tipo_N_#id.xlsx".
+- **Utenti Sito** (`utenti-sito.html`, `database/25-utenti-sito.sql`) = chi può entrare nel gestionale (non l'e-commerce): mail, nome, ruoli
+  (amministratore, responsabile magazzino, operatore, traduttore, diagnostica), sedi (solo informative), bloccato. Si entra col link alla mail.
+  Solo gli amministratori (`e_amministratore()`) modificano; nessuno può togliersi da solo il ruolo di amministratore. I ruoli per ora sono etichette:
+  i permessi per ruolo si decideranno insieme. "Impersona" del gestionale attuale non c'è (serve la chiave segreta del database).
 - **Attività Utenti** (`attivita-utenti.html`, `database/24-registro-attivita.sql`): tabella `registro_attivita` (solo lettura e aggiunta).
   Le modifiche a movimenti, articoli, fornitori, clienti, fornitori delle sedi e utenti le annota il database (trigger `registra`, mail dal login);
   accessi (una volta per login), uscite, scelta sede, stampa etichette, DDT ed Excel con `registra(attivita, dettagli)` di `layout.js`.

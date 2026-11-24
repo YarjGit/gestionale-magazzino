@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Utenti Sito – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<style>
+  .utente { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .iniziali { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #fff; font-size: 0.72rem; font-weight: 700; }
+  .ruolo { display: inline-block; margin: 1px 4px 1px 0; padding: 2px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: 600; }
+  .bloccato { color: var(--ko); font-weight: 700; }
+  .attivo { color: var(--ok); font-weight: 700; }
+  .ultimo { font-size: 0.8rem; color: var(--muted); }
+  /* Finestra utente */
+  .fin-sfondo { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(20,30,50,0.45); }
+  .fin-sfondo.show { display: flex; }
+  .fin { width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 22px; border-radius: 14px; background: #fff; box-shadow: 0 20px 60px rgba(20,30,50,0.3); }
+  .fin h3 { margin-bottom: 14px; font-size: 1.05rem; }
+  .fin .f { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .fin label.t { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .fin input[type=text], .fin input[type=email] { padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; }
+  .scelte { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scelte label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+  .scelte label:has(input:checked) { background: #e8f1ff; border-color: #9cc2f5; color: #1f5fbf; }
+  .scelte small { display: block; font-weight: 400; color: var(--muted); font-size: 0.72rem; }
+  .fin .aiuto { font-size: 0.75rem; color: var(--muted); }
+  .fin .tasti { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .solo-lettura { margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; background: #fff7ed; border: 1px solid #f5c58a; color: #9a4b00; font-size: 0.86rem; }
+</style>
+</head>
+<body data-page="utenti-sito" data-top="anagrafica">
+<main class="content"></main>
+
+<div class="fin-sfondo" id="finUtente">
+  <div class="fin">
+    <h3 id="finTitolo">Nuovo utente</h3>
+    <div class="f"><label class="t" for="uNome">Nome visualizzato</label><input type="text" id="uNome" placeholder="es. Suor Chiara, AP Liturgico Roma"></div>
+    <div class="f"><label class="t" for="uEmail">Indirizzo email <span style="color:var(--ko)">*</span></label><input type="email" id="uEmail" placeholder="nome@esempio.it">
+      <span class="aiuto">È la mail con cui entrerà: riceverà il link di accesso a questo indirizzo.</span></div>
+    <div class="f"><label class="t">Ruoli <span style="color:var(--ko)">*</span></label><div class="scelte" id="uRuoli"></div></div>
+    <div class="f"><label class="t">Sedi in cui lavora di solito</label><div class="scelte" id="uSedi"></div>
+      <span class="aiuto">Solo informativo: ogni sede vede comunque tutto.</span></div>
+    <div class="f"><div class="scelte"><label><input type="checkbox" id="uBloccato"> <span>🔒 Bloccato<small>non può più entrare né vedere i dati</small></span></label></div></div>
+    <div class="tasti"><button class="btn btn-light" id="uAnnulla">Annulla</button><button class="btn btn-primary" id="uSalva">💾 Salva</button></div>
+  </div>
+</div>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/anagrafica.js"></script>
+<script>
+  // Utenti Sito: chi può entrare nel gestionale (tabella utenti_autorizzati, database/25-utenti-sito.sql), come nel gestionale attuale.
+  // Si entra con il link mandato alla mail: basta aggiungere qui la mail e la persona può entrare. Solo gli amministratori modificano.
+  const RUOLI = [
+    ["amministratore", "Amministratore", "#7c3aed", "#f3e8ff", "gestisce utenti e impostazioni"],
+    ["responsabile_magazzino", "Responsabile magazzino", "#1f5fbf", "#e8f1ff", "movimenti, ordini, anagrafiche"],
+    ["operatore", "Operatore", "#13804a", "#e6f6ec", "lavoro di tutti i giorni in sede"],
+    ["traduttore", "Traduttore", "#b26a00", "#fff3dd", "testi e traduzioni"],
+    ["diagnostica", "Diagnostica / sistema", "#475569", "#eef2f7", "controlli tecnici"]
+  ];
+  const ruolo = k => RUOLI.find(r => r[0] === k) || [k, k, "#475569", "#eef2f7", ""];
+  const escH = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const COLORI = ["#2f8bff", "#7c3aed", "#18a058", "#e58a00", "#0891b2", "#db2777", "#64748b"];
+  const coloreDi = s => COLORI[[...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORI.length];
+  const iniziali = (nome, email) => (String(nome || "").trim() || String(email || "?").split("@")[0]).split(/[\s._-]+/).filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  let db = null, sono = { email: "", admin: false }, sediDb = [], modifica = null, elenco = [];
+
+  const pagina = avviaAnagrafica({
+    titolo: "Utenti Sito",
+    sezione: "Setup",
+    nuovo: "Nuovo utente",
+    csv: "utenti-sito",
+    chiave: "email",
+    testoVuoto: "Aggiungi le persone che possono entrare nel gestionale.",
+    tabs: [
+      { k: "adm", t: "Amministratori", colore: "#7c3aed", f: r => r.ruoli.includes("amministratore") },
+      { k: "att", t: "Attivi", colore: "#18a058", f: r => !r.bloccato },
+      { k: "blo", t: "Bloccati", colore: "#c62828", f: r => r.bloccato }
+    ],
+    azioniRiga: [],
+    colonne: [
+      { k: "nome", t: "Nome visualizzato", larg: 230, html: r => `<td><a href="#" class="ana-link" data-az="Modifica"><span class="utente"><span class="iniziali" style="background:${coloreDi(r.email)}">${escH(iniziali(r.nome, r.email))}</span>${escH(r.nome || r.email.split("@")[0])}</span></a></td>` },
+      { k: "email", t: "Indirizzo email", larg: 260 },
+      { k: "ruoliTesto", t: "Ruoli", larg: 320, html: r => `<td>${r.ruoli.map(k => { const [, n, c, bg] = ruolo(k); return `<span class="ruolo" style="background:${bg};color:${c}">${n}</span>`; }).join("")}</td>` },
+      { k: "sediTesto", t: "Sedi" },
+      { k: "ultimo", t: "Ultimo accesso", html: r => `<td><span class="ultimo">${r.ultimo ? new Date(r.ultimo).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" }) : "mai"}</span></td>` },
+      { k: "bloccato", t: "Stato", html: r => `<td>${r.bloccato ? '<span class="bloccato">🔒 Bloccato</span>' : '<span class="attivo">✓ Attivo</span>'}</td>` }
+    ],
+    dati: [],
+    apri: r => apriFinestra(r),
+    nuovoFn: () => apriFinestra(null)
+  });
+
+  // ---------- Finestra nuovo / modifica ----------
+  const $ = id => document.getElementById(id);
+  function apriFinestra(r) {
+    if (!sono.admin) { avviso("Solo un amministratore può aggiungere o modificare gli utenti"); return; }
+    modifica = r;
+    $("finTitolo").textContent = r ? `Modifica ${r.nome || r.email}` : "Nuovo utente";
+    $("uNome").value = r ? r.nome || "" : "";
+    $("uEmail").value = r ? r.email : "";
+    $("uEmail").disabled = !!r;   // la mail identifica l'utente: per cambiarla si crea un utente nuovo e si blocca il vecchio
+    $("uRuoli").innerHTML = RUOLI.map(([k, n, , , d]) => `<label><input type="checkbox" value="${k}"${(r ? r.ruoli : ["operatore"]).includes(k) ? " checked" : ""}> <span>${n}<small>${d}</small></span></label>`).join("");
+    $("uSedi").innerHTML = sediDb.filter(s => SEDI_ATTIVE.includes(s.nome) || (r && r.sedi.includes(s.id)))
+      .map(s => `<label><input type="checkbox" value="${escH(s.id)}"${r && r.sedi.includes(s.id) ? " checked" : ""}> ${escH(s.nome)}</label>`).join("");
+    $("uBloccato").checked = !!(r && r.bloccato);
+    $("finUtente").classList.add("show");
+    (r ? $("uNome") : $("uEmail")).focus();
+  }
+  $("uAnnulla").onclick = () => $("finUtente").classList.remove("show");
+  $("uSalva").onclick = async () => {
+    const email = $("uEmail").value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { avviso("Scrivi una mail valida"); $("uEmail").focus(); return; }
+    const ruoli = [...$("uRuoli").querySelectorAll("input:checked")].map(c => c.value);
+    if (!ruoli.length) { avviso("Scegli almeno un ruolo"); return; }
+    const sedi = [...$("uSedi").querySelectorAll("input:checked")].map(c => c.value);
+    const bloccato = $("uBloccato").checked;
+    // non ci si può togliere da soli il ruolo di amministratore o bloccare: si resterebbe fuori
+    if (email === sono.email.toLowerCase() && (!ruoli.includes("amministratore") || bloccato)) {
+      avviso("Non puoi togliere a te stesso il ruolo di amministratore né bloccarti: chiedi a un altro amministratore", true); return;
+    }
+    if (!modifica && elenco.some(r => r.email.toLowerCase() === email)) { avviso("Questa mail c'è già nell'elenco: aprila per modificarla", true); return; }
+    const dati = { email, nome: $("uNome").value.trim() || null, ruoli, ruolo: ruoli.includes("amministratore") ? "amministratore" : "operatore", sedi, bloccato };
+    $("uSalva").disabled = true;
+    try {
+      const { error } = modifica
+        ? await db.from("utenti_autorizzati").update(dati).eq("email", modifica.email)
+        : await db.from("utenti_autorizzati").insert(dati);
+      if (error) throw error;
+      $("finUtente").classList.remove("show");
+      avviso(modifica ? `Utente ${email} aggiornato` : `Utente ${email} aggiunto: ora può entrare con il link che riceve a quella mail`);
+      await carica();
+    } catch (err) {
+      avviso(err.code === "42703" || err.code === "PGRST204" ? "Prima va eseguito su Supabase il file database/25-utenti-sito.sql"
+        : err.code === "42501" || /row-level security/i.test(err.message) ? "Solo un amministratore può modificare gli utenti" : "Errore nel salvare: " + err.message, true);
+    } finally { $("uSalva").disabled = false; }
+  };
+
+  // ---------- Dati ----------
+  async function carica() {
+    const { data, error } = await db.from("utenti_autorizzati").select("*").order("email");
+    if (error) throw error;
+    // ultimo accesso dal registro delle attività (se c'è)
+    const ultimo = new Map();
+    const { data: acc } = await db.from("registro_attivita").select("email, quando").eq("attivita", "Accesso").order("quando", { ascending: false }).limit(2000);
+    (acc || []).forEach(a => { const k = String(a.email || "").toLowerCase(); if (!ultimo.has(k)) ultimo.set(k, a.quando); });
+    const nomeSede = new Map(sediDb.map(s => [s.id, s.nome]));
+    elenco = data.map(u => {
+      const ruoli = u.ruoli && u.ruoli.length ? u.ruoli : [u.ruolo || "operatore"];
+      const sedi = u.sedi || [];
+      return { email: u.email, nome: u.nome || "", ruoli, ruoliTesto: ruoli.map(k => ruolo(k)[1]).join(", "), sedi,
+        sediTesto: sedi.map(s => nomeSede.get(s) || s).join(", "), bloccato: !!u.bloccato, ultimo: ultimo.get(u.email.toLowerCase()) || "" };
+    });
+    pagina.aggiorna(elenco.slice());
+  }
+
+  dbPronto.then(async d => {
+    if (!d) return;
+    db = d;
+    const { data: { session } } = await db.auth.getSession();
+    sono.email = session ? session.user.email : "";
+    const { data: adm, error: eAdm } = await db.rpc("e_amministratore");
+    sono.admin = !eAdm && !!adm;
+    const { data: s } = await db.from("sedi").select("id, nome").order("nome");
+    sediDb = s || [];
+    await carica();
+    if (eAdm) document.querySelector(".page-head").insertAdjacentHTML("afterend", '<div class="solo-lettura">Per aggiungere utenti e ruoli va eseguito su Supabase il file database/25-utenti-sito.sql.</div>');
+    else if (!sono.admin) {
+      document.getElementById("btnCrea").hidden = true;
+      document.querySelector(".page-head").insertAdjacentHTML("afterend", '<div class="solo-lettura">Puoi vedere l\'elenco; solo un amministratore può aggiungere o modificare gli utenti.</div>');
+    }
+  }).catch(err => pagina.errore("Non riesco a leggere gli utenti: " + (err.message || err)));
+</script>
+</body>
+</html>

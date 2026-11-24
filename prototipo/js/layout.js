@@ -75,8 +75,8 @@ const MENU = [
   ] },
   { id: "setup", label: "Setup", gruppi: [
     { titolo: "Utenti", voci: [
-      { label: "Attività Utenti", page: "attivita-utenti" },
-      { label: "Utenti Sito", futuro: "Utenti Sito: la faremo quando collegheremo il magazzino all'e-commerce" }
+      { label: "Utenti Sito", page: "utenti-sito" },
+      { label: "Attività Utenti", page: "attivita-utenti" }
     ] },
     { titolo: "Azienda", voci: [{ label: "Sedi", page: "sedi" }, { label: "App Settings", page: "app-settings" }] },
     { titolo: "Sistema", voci: [
