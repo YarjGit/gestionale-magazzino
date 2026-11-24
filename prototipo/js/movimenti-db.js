@@ -175,9 +175,12 @@ async function inevasiAnnullatiDb(db, ordineRigaIds) {
 
 // Un movimento con le sue righe; ogni riga ha l'articolo nella forma di ARTICOLI (con la giacenza della sede)
 async function leggiMovimentoDb(db, id, sedeId) {
-  const { data: m, error } = await db.from("movimenti")
-    .select(`*, fornitori(id, codice, ragione_sociale), clienti(*), movimenti_righe(id, quantita, quantita_ordinata, ordine_riga_id, prezzo, sconto, etichette, totale, articoli(${CAMPI_ARTICOLO}))`)
+  // aggiunto_il (ora della riga, vendite e-commerce: database/26-ora-righe.sql) solo se la colonna c'è già
+  const leggi = extra => db.from("movimenti")
+    .select(`*, fornitori(id, codice, ragione_sociale), clienti(*), movimenti_righe(id, quantita, quantita_ordinata, ordine_riga_id, prezzo, sconto, etichette, totale${extra}, articoli(${CAMPI_ARTICOLO}))`)
     .eq("id", id).maybeSingle();
+  let { data: m, error } = await leggi(", aggiunto_il");
+  if (error && (error.code === "42703" || /aggiunto_il/.test(error.message))) ({ data: m, error } = await leggi(""));
   if (error) throw error;
   if (!m) return null;
   const ids = m.movimenti_righe.map(r => r.articoli.id);

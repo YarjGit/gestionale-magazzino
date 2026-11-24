@@ -8,9 +8,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/elenco.css">
+<style>
+  .fin-sfondo { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(20,30,50,0.45); }
+  .fin-sfondo.show { display: flex; }
+  .fin { width: min(460px, 100%); padding: 22px; border-radius: 14px; background: #fff; box-shadow: 0 20px 60px rgba(20,30,50,0.3); }
+  .fin h3 { margin-bottom: 6px; font-size: 1.05rem; }
+  .fin p { margin-bottom: 14px; color: var(--muted); font-size: 0.86rem; line-height: 1.45; }
+  .fin input { padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; }
+  .fin .tasti { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+</style>
 </head>
 <body data-page="vendite-giornaliere" data-top="elenco">
 <main class="content"></main>
+
+<div class="fin-sfondo" id="finMese">
+  <div class="fin">
+    <h3>📄 Riepilogo e-commerce del mese</h3>
+    <p>File Excel per la <b>Sede Centrale dell'Apostolato Liturgico</b> con tutti gli articoli venduti online dalla sede in cui lavori nel mese scelto: anagrafica, quantità, prezzi e costi.</p>
+    <label style="font-size:0.8rem;font-weight:600;color:var(--muted)">Mese <input type="month" id="meseEcom" style="margin-left:8px"></label>
+    <div class="tasti"><button class="btn btn-light" id="meseAnnulla">Annulla</button><button class="btn btn-primary" id="meseCrea">📥 Crea il file Excel</button></div>
+  </div>
+</div>
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
@@ -19,10 +37,17 @@
 <script src="js/dati-vendite.js"></script>
 <script src="js/dati-articoli.js"></script>
 <script src="js/movimenti-db.js"></script>
+<script src="js/excel.js"></script>
 <script>
+  // ?canale=ecommerce → solo le giornate di vendite online (lista a parte); senza → solo le giornate del negozio
+  const ECOM = new URLSearchParams(location.search).get("canale") === "ecommerce";
+  const eEcom = r => /^E-?COMMERCE/i.test(r.causale || "");
+  const oggiIso = new Date().toISOString().slice(0, 10);
   const elenco = avviaElenco({
-    titolo: "Vendite Giornaliere",
-    nuovo: "Nuova giornata",
+    titolo: ECOM ? "Vendite e-commerce" : "Vendite Giornaliere",
+    nota: ECOM ? "🛒 Una giornata per ogni giorno di vendite online: la merce esce dalla giacenza della sede in cui lavori. Durante il giorno si aprono le <b>vendite di oggi</b> e si aggiungono gli articoli man mano, con l'ora." : undefined,
+    nuovo: ECOM ? "Vendite e-commerce di oggi" : "Nuova giornata",
+    nuovoUrl: ECOM ? "vendita.html?nuovo=1&canale=ecommerce" : undefined,
     dettaglio: "vendita.html",
     csv: "vendite-giornaliere",
     stati: [STATO.definitivo, STATO.annullato],
@@ -38,15 +63,91 @@
     dati: []
   });
 
-  // Vendite e-commerce: una giornata a parte per ogni giorno (nel gestionale attuale era un trasferimento mensile alla Sede Centrale)
-  document.getElementById("btnCrea").insertAdjacentHTML("beforebegin",
-    `<a class="btn btn-light" href="vendita.html?nuovo=1&canale=ecommerce" title="Vendite online di oggi: una giornata a parte, con la data della vendita" style="color:#5b21b6;border-color:#cdb8f5;background:#f5f0ff">🛒 Vendite e-commerce</a>`);
+  // Vendite e-commerce: una lista a parte (nel gestionale attuale era un trasferimento mensile alla Sede Centrale)
+  document.getElementById("btnCrea").insertAdjacentHTML("beforebegin", ECOM
+    ? `<a class="btn btn-light" href="vendite-giornaliere.html" title="Le giornate di vendita del negozio">🏪 Vendite del negozio</a>`
+    : `<a class="btn btn-light" href="vendite-giornaliere.html?canale=ecommerce" title="Tutte le giornate di vendite online" style="color:#5b21b6;border-color:#cdb8f5;background:#f5f0ff">🛒 Vendite e-commerce</a>`);
+
+  // ---------- Riepilogo e-commerce del mese per la Sede Centrale dell'Apostolato Liturgico ----------
+  // La merce venduta online esce dalla giacenza della sede che spedisce (giornate e-commerce); a fine mese la Sede Centrale
+  // riceve un Excel con tutti gli articoli venduti: anagrafica, quantità, prezzi di vendita e costi d'acquisto.
+  if (ECOM) document.getElementById("btnCrea").insertAdjacentHTML("beforebegin",
+    `<button class="btn btn-light" id="btnRiepEcom" title="File Excel del mese per la Sede Centrale dell'Apostolato Liturgico" style="color:#5b21b6;border-color:#cdb8f5">📄 Riepilogo del mese</button>`);
+  const $m = id => document.getElementById(id);
+  if (ECOM) $m("btnRiepEcom").onclick = () => { $m("meseEcom").value = new Date().toISOString().slice(0, 7); $m("finMese").classList.add("show"); };
+  $m("meseAnnulla").onclick = () => $m("finMese").classList.remove("show");
+  $m("meseCrea").onclick = async () => {
+    const mese = $m("meseEcom").value;
+    if (!/^\d{4}-\d{2}$/.test(mese)) { avviso("Scegli il mese"); return; }
+    const db = await dbPronto;
+    if (!db) { avviso("Serve l'accesso al database"); return; }
+    const sede = trovaSede(leggiSede()).nome;
+    const [a, m] = mese.split("-").map(Number);
+    const fine = new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10);
+    const nomeMese = new Date(a, m - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+    $m("meseCrea").disabled = true;
+    try {
+      const { data, error } = await db.from("movimenti")
+        .select("id, data_movimento, causale, movimenti_righe(quantita, prezzo, sconto, totale, articoli(id, codice, descrizione, barcode, costo_netto, fornitore_id, aliquote_iva(aliquota)))")
+        .eq("tipo", "vendite_giornaliere").eq("sede_id", ID_SEDI_DB[sede]).in("stato", ["Definitivo", "Evaso"])
+        .gte("data_movimento", mese + "-01").lte("data_movimento", fine).order("data_movimento");
+      if (error) throw error;
+      const giornate = (data || []).filter(g => /^E-?COMMERCE/i.test(g.causale || ""));
+      if (!giornate.length) { avviso(`Nessuna vendita e-commerce di ${sede} in ${nomeMese}`, true); return; }
+      // nomi dei fornitori degli articoli venduti
+      const idForn = [...new Set(giornate.flatMap(g => g.movimenti_righe.map(r => r.articoli && r.articoli.fornitore_id)).filter(Boolean))];
+      const { data: forn } = idForn.length ? await db.from("fornitori").select("id, ragione_sociale").in("id", idForn) : { data: [] };
+      const nomeForn = new Map((forn || []).map(f => [f.id, f.ragione_sociale]));
+      const cent = v => Math.round(v * 100) / 100;
+      const perArticolo = new Map(), perGiorno = [];
+      for (const g of giornate) for (const r of g.movimenti_righe) {
+        const art = r.articoli || {};
+        const x = perArticolo.get(art.id) || { art, qta: 0, venduto: 0 };
+        x.qta += +r.quantita; x.venduto += +r.totale;
+        perArticolo.set(art.id, x);
+        perGiorno.push([dataIt(g.data_movimento), art.codice, art.descrizione, +r.quantita, cent(+r.prezzo), +r.sconto || 0, cent(+r.totale)]);
+      }
+      const articoli = [...perArticolo.values()].sort((p, q) => String(p.art.codice).localeCompare(String(q.art.codice)));
+      const totPezzi = articoli.reduce((s, x) => s + x.qta, 0);
+      const totVenduto = cent(articoli.reduce((s, x) => s + x.venduto, 0));
+      const totCosto = cent(articoli.reduce((s, x) => s + x.qta * (+x.art.costo_netto || 0), 0));
+      const blob = cartellaExcel([
+        { nome: "Riepilogo", intestazione: "colonna", larghezze: [34, 48], formati: [, "euro"], righe: [
+          ["Destinatario", "Sede Centrale Apostolato Liturgico"], ["Sede che ha spedito", sede], ["Mese", nomeMese],
+          ["Giornate di vendita online", String(giornate.length)], ["Articoli diversi", String(articoli.length)],
+          ["Pezzi venduti", String(totPezzi)], ["Totale venduto (IVA inclusa, EURO)", totVenduto], ["Totale costo d'acquisto (EURO)", totCosto],
+          ["Nota", "Costo = costo d'acquisto attuale dell'articolo; la merce è uscita dalla giacenza della sede che ha spedito"]] },
+        { nome: "Articoli", intestazione: "riga", larghezze: [18, 44, 34, 16, 7, 10, 14, 14, 14, 14],
+          formati: [, , , , "intero", "intero", "euro", "euro", "euro", "euro"],
+          righe: [["Codice", "Descrizione", "Fornitore", "Barcode", "IVA %", "Quantità", "Prezzo medio IVA incl.", "Totale venduto", "Costo unitario", "Totale costo"]]
+            .concat(articoli.map(x => [x.art.codice, x.art.descrizione, nomeForn.get(x.art.fornitore_id) || "", x.art.barcode || "",
+              x.art.aliquote_iva ? +x.art.aliquote_iva.aliquota : 22, x.qta, cent(x.venduto / (x.qta || 1)), cent(x.venduto), cent(+x.art.costo_netto || 0), cent(x.qta * (+x.art.costo_netto || 0))]))
+            .concat([["TOTALE", "", "", "", "", totPezzi, "", totVenduto, "", totCosto]]) },
+        { nome: "Per giorno", intestazione: "riga", larghezze: [12, 18, 44, 10, 12, 9, 14], formati: [, , , "intero", "euro", "intero", "euro"],
+          righe: [["Giorno", "Codice", "Descrizione", "Quantità", "Prezzo IVA incl.", "Sconto %", "Totale"]].concat(perGiorno) }
+      ]);
+      scaricaFile(`${sede}_E-commerce_${mese}.xlsx`, blob);
+      $m("finMese").classList.remove("show");
+      avviso(`File creato: ${articoli.length} articoli, ${totPezzi} pezzi venduti online in ${nomeMese}`);
+    } catch (err) { avviso("Errore nel creare il riepilogo: " + err.message, true); }
+    finally { $m("meseCrea").disabled = false; }
+  };
 
   // Dopo l'accesso: le giornate salvate nel database, in cima a quelle di esempio
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoMovimentiDb(db, "vendite_giornaliere", ID_SEDI_DB[trovaSede(leggiSede()).nome], "vendita.html");
+    const tutte = await elencoMovimentiDb(db, "vendite_giornaliere", ID_SEDI_DB[trovaSede(leggiSede()).nome], "vendita.html");
+    const righe = tutte.filter(r => eEcom(r) === ECOM);
     if (righe.length) elenco.aggiungi(righe);
+    // "Vendite e-commerce di oggi": se la giornata di oggi c'è già si apre lì, pronta per aggiungere articoli
+    if (ECOM) {
+      const oggi = righe.find(r => r.data === oggiIso && r.stato !== "Annullato");
+      if (oggi) {
+        const b = document.getElementById("btnCrea");
+        b.onclick = () => location.href = `vendita.html?db=${oggi.id}&modifica=1`;
+        b.lastChild.textContent = " Aggiungi alle vendite di oggi";
+      }
+    }
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>

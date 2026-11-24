@@ -84,7 +84,9 @@
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   // Come nel gestionale attuale: Ordinata resta vuota, la quantità venduta va in Spedita
   // Non si vende più di quanto c'è in giacenza nella sede (limiteGiacenza).
-  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, soloSpedita: true, nelMovimento: "nella giornata", limiteGiacenza: true };
+  // E-commerce: ogni vendita aggiunta durante il giorno è una riga a sé con la sua ora (righeSeparate)
+  const CFG_RIGHE = { etichettaPrezzo: "Prezzo", ivaInclusa: true, spedita: true, soloSpedita: true, nelMovimento: "nella giornata", limiteGiacenza: true, righeSeparate: ECOM };
+  const ELENCO_V = ECOM ? "vendite-giornaliere.html?canale=ecommerce" : "vendite-giornaliere.html";
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
@@ -92,7 +94,7 @@
         <h1 class="page-title">${nuovo ? (ECOM ? "Nuova giornata di vendite e-commerce" : "Nuova giornata di vendite") : `${NOME_G} del <span class="num">${giornoIt(ven.data)}</span>`}${ECOM ? ' <span class="pill" style="background:#7c3aed1f;color:#7c3aed">🛒 e-commerce</span>' : ""} <span class="pill" id="pillStato"></span></h1>
         <div class="crumbs">
           <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
-          <span>-</span><span>Movimenti</span><span>-</span><a href="vendite-giornaliere.html">Vendite Giornaliere</a><span>-</span><span>${nuovo ? "Nuova" : giornoIt(ven.data)}</span>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO_V}">${ECOM ? "Vendite e-commerce" : "Vendite Giornaliere"}</a><span>-</span><span>${nuovo ? "Nuova" : giornoIt(ven.data)}</span>
         </div>
       </div>
       <div class="totale-top">
@@ -263,7 +265,7 @@
   };
   $("btnAnnulla").onclick = () => {
     if (nuovo) {
-      if (!righe.RIGHE.length || confirm("Uscire senza salvare la giornata?")) location.href = "vendite-giornaliere.html";
+      if (!righe.RIGHE.length || confirm("Uscire senza salvare la giornata?")) location.href = ELENCO_V;
       return;
     }
     document.querySelectorAll(".mod").forEach((el, i) => el.value = valoriPrima[i]);
@@ -295,10 +297,14 @@
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
     try {
-      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({ articolo_id: r.articolo.id, quantita: r.sped, prezzo: r.prezzo, sconto: r.sconto || 0 })), ven && ven.dbId);
+      // l'ora di ogni riga si salva solo se la colonna c'è (database/26-ora-righe.sql): si controlla PRIMA, perché salvando
+      // le righe vecchie vengono sostituite e un errore a metà lascerebbe la giornata vuota
+      const { error: senzaOra } = await db.from("movimenti_righe").select("aggiunto_il").limit(1);
+      const id = await salvaMovimentoDb(db, dati, lista.map(r => ({ articolo_id: r.articolo.id, quantita: r.sped, prezzo: r.prezzo, sconto: r.sconto || 0,
+        ...(senzaOra ? {} : { aggiunto_il: r.ora || null }) })), ven && ven.dbId);
       avviso(dati.stato === "Definitivo" ? `Giornata salvata: ${righe.pezzi()} pezzi scaricati dalla giacenza di ${sedeLavoro}`
         : "Giornata salvata come provvisoria: la giacenza non cambia finché non è definitiva");
-      setTimeout(() => location.replace(chiudi ? "vendite-giornaliere.html" : `vendita.html?db=${id}`), 900);
+      setTimeout(() => location.replace(chiudi ? ELENCO_V : `vendita.html?db=${id}`), 900);
     } catch (err) {
       avviso("Errore nel salvare la giornata: " + err.message);
       pulsanti.forEach(b => b.disabled = false);
@@ -306,7 +312,7 @@
   }
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
-  $("btnChiudi").onclick = () => location.href = "vendite-giornaliere.html";
+  $("btnChiudi").onclick = () => location.href = ELENCO_V;
   $("btnExcel").onclick = () => righe.excel({ sede: sedeLavoro, tipo: ECOM ? "Vendite E-commerce" : "Vendite Giornaliere", numero: ven ? ven.id : null,
     riepilogo: [["Giorno", dataIt($("giorno").value || oggi)]], spese: [] });
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
@@ -318,11 +324,18 @@
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // Giornata salvata: se è definitiva i suoi pezzi sono già usciti dalla giacenza (giaScaricati, per il limite in modifica)
-  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo, giaScaricati: movDb.stato === "Definitivo" ? +r.quantita : 0 })));
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo, ora: r.aggiunto_il || null,
+    giaScaricati: movDb.stato === "Definitivo" ? +r.quantita : 0 })));
   // Giornata di esempio: righe con articoli veri dell'anagrafica (il totale torna al centesimo)
   else if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot, giaScaricati: ven.stato === "Definitivo" ? r.qta : 0 })));
   ricalcola();
   modalita(nuovo);
+  // dalla lista e-commerce "Aggiungi alle vendite di oggi" (…&modifica=1): si apre già in modifica, pronta per la pistola
+  if (!nuovo && ven && ven.dbId && ven.stato !== "Annullato" && qs.has("modifica")) {
+    $("btnModifica").click();
+    document.querySelector('.scheda-tab[data-t="articoli"]').click();
+    $("addArt").focus();
+  }
   if (nuovo) $("addArt").focus();
 
   // Giornata (del negozio o e-commerce, come questa) già salvata per quel giorno e non annullata: { id } o null

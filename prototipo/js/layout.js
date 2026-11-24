@@ -302,15 +302,29 @@ function avviso(testo, errore) {
     grid.innerHTML = html || '<p class="empty">Nessuna sede trovata.</p>';
   };
 
+  // Le pagine leggono la sede di lavoro quando si aprono (movimenti, giacenze, fornitori…): se la si cambia con la pagina
+  // aperta, la pagina si ricarica con la sede nuova. Prima un movimento aperto restava sulla sede vecchia e scaricava da lì.
+  const sedeDellaPagina = trovaSede(leggiSede()).nome;
   const scegli = e => {
     const b = e.target.closest("button[data-nome]");
     if (!b) return;
+    const cambia = trovaSede(b.dataset.nome).nome !== sedeDellaPagina;
+    if (cambia && document.body.classList.contains("in-modifica")
+        && !confirm(`Stai modificando una scheda di ${sedeDellaPagina}.\nCambiando sede la pagina si ricarica e le modifiche non salvate si perdono.\n\nCambiare sede lo stesso?`)) {
+      sedeWrap.classList.remove("open");
+      return;
+    }
     salvaSede(b.dataset.nome);
     sedeAttiva = mostraSede(b.dataset.nome);
     sedeWrap.classList.remove("open");
     scelta.classList.remove("show");
     document.dispatchEvent(new CustomEvent("sede-cambiata", { detail: sedeAttiva }));
-    registra("Scelta sede", sedeAttiva.nome);
+    const fatto = registra("Scelta sede", sedeAttiva.nome);
+    if (cambia) {
+      ultimoSalva = Date.now();   // niente seconda domanda del browser: l'utente ha già confermato
+      document.documentElement.style.opacity = "0.5";
+      Promise.race([fatto, new Promise(r => setTimeout(r, 1200))]).then(() => location.reload());
+    }
   };
 
   [sediMenu, scelta].forEach(box => {

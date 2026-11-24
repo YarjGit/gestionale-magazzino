@@ -88,6 +88,8 @@ function avviaRighe(cfg) {
     const d = disponibili(art);
     return `${art.codice}: non si possono ${cfg.verboUscita || "vendere"} ${pezzi === 1 ? "1 pezzo" : `${pezzi} pezzi`}, in giacenza ${d <= 0 ? "non ce n'è nessuno" : d === 1 ? "ce n'è solo 1" : `ce ne sono solo ${d}`}`;
   };
+  // pezzi dello stesso articolo nelle altre righe (con le righe separate delle vendite e-commerce può essere su più righe)
+  const altriPezzi = (art, esclusa) => RIGHE.reduce((s, x) => s + (x !== esclusa && x.articolo === art ? pezziDi(x) : 0), 0);
   // true (con avviso rosso) se i pezzi superano la giacenza; senza giacenza nota non blocca
   function oltreGiacenza(art, pezzi) {
     if (!cfg.limiteGiacenza || art.giac == null || pezzi <= disponibili(art)) return false;
@@ -104,12 +106,14 @@ function avviaRighe(cfg) {
 
   // Mette l'articolo nel movimento: se c'è già, aumenta la quantità della sua riga
   function aggiungi(art, n, { vaiAlCampo = true, silenzioso = false, forza = false } = {}) {
-    let r = RIGHE.find(x => x.articolo === art);
+    // cfg.righeSeparate (vendite e-commerce): ogni vendita è una riga a sé con la sua ora, anche se l'articolo c'è già
+    let r = cfg.righeSeparate ? null : RIGHE.find(x => x.articolo === art);
     if (!r && !forza && cfg.fermaArticolo && cfg.fermaArticolo(art, n, () => aggiungi(art, n, { vaiAlCampo, silenzioso, forza: true }))) return false;
-    if (oltreGiacenza(art, (r ? pezziDi(r) : 0) + n)) return false;
+    if (oltreGiacenza(art, altriPezzi(art, null) + n)) return false;
     if (r) { r.qta += n; if (cfg.spedita) r.sped += n; }
     else {
-      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: ivaDiArticolo(art, estera()), articolo: art, oltreAttesa: forza };
+      r = { pos: nuovaPos(), qta: n, sped: n, prezzo: cfg.prezzoDi(art), sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: ivaDiArticolo(art, estera()), articolo: art, oltreAttesa: forza,
+        ora: new Date().toISOString() };
       RIGHE.push(r);
     }
     r.tot = totRiga(r);
@@ -124,7 +128,7 @@ function avviaRighe(cfg) {
   // Tasto ＋: riga vuota in cui si cerca l'articolo scrivendo il codice (o sparandolo)
   function nuovaRiga() {
     if (!puo()) return;
-    const r = { pos: nuovaPos(), qta: 1, sped: 1, prezzo: 0, sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: "22", articolo: null, tot: 0 };
+    const r = { pos: nuovaPos(), qta: 1, sped: 1, prezzo: 0, sconto: cfg.scontoNuovo ? cfg.scontoNuovo() : 0, iva: "22", articolo: null, tot: 0, ora: new Date().toISOString() };
     RIGHE.push(r);
     ultimaAggiunta = r.pos;
     cambiato();
@@ -136,7 +140,7 @@ function avviaRighe(cfg) {
       aggiungi(art, r.qta, { vaiAlCampo: false });
       return;
     }
-    if (oltreGiacenza(art, pezziDi(r))) return;   // la riga resta vuota: si può scegliere un altro articolo
+    if (oltreGiacenza(art, altriPezzi(art, r) + pezziDi(r))) return;   // la riga resta vuota: si può scegliere un altro articolo
     if (!forza && cfg.fermaArticolo && cfg.fermaArticolo(art, r.qta, () => completaRiga(r, art, true))) return;
     Object.assign(r, { articolo: art, prezzo: cfg.prezzoDi(art), iva: ivaDiArticolo(art, estera()), oltreAttesa: !!forza });
     r.tot = totRiga(r);
@@ -166,7 +170,7 @@ function avviaRighe(cfg) {
         <td colspan="${colonne - 2}"><div class="cerca-riga"><input data-cercariga="${r.pos}" placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off"><div class="suggerimenti" data-suggriga="${r.pos}"></div></div></td></tr>`;
       const fuori = mod && altro(a);
       return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">${comandi}
-        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}${r.oltreAttesa ? '<span class="tag-piu">IN PIÙ</span>' : ""}<b>${esc(a.descr)}</b></td>
+        <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}${r.oltreAttesa ? '<span class="tag-piu">IN PIÙ</span>' : ""}${cfg.righeSeparate && r.ora ? `<span class="nota-art" title="Ora in cui è stata aggiunta la vendita"> · ore ${new Date(r.ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>` : ""}<b>${esc(a.descr)}</b></td>
         <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${cfg.giacenzaAltra && cfg.giacenzaAltra(a) ? `<div class="giac-doppia">${giacSugg(a)}</div>` : a.giac ?? "—"}</td>
@@ -189,7 +193,7 @@ function avviaRighe(cfg) {
     if (campo === "prezzo") r.prezzo = Math.round(num(e.target.value) * 100) / 100;
     else if (campo === "sconto") r.sconto = Math.min(100, Math.max(0, +e.target.value || 0));
     else if (campo === "iva") r.iva = e.target.value;
-    else if ((campo === "sped" || campo === "qta") && oltreGiacenza(r.articolo, Math.max(1, +e.target.value || 0))) { disegna(); return; }   // torna il numero di prima
+    else if ((campo === "sped" || campo === "qta") && oltreGiacenza(r.articolo, altriPezzi(r.articolo, r) + Math.max(1, +e.target.value || 0))) { disegna(); return; }   // torna il numero di prima
     else if (campo === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, +e.target.value || 0); if (cfg.soloSpedita) r.qta = r.sped; }
     else { const prima = r.qta; r.qta = Math.max(1, +e.target.value || 1); if (r.sped === prima) r.sped = r.qta; }
     r.tot = totRiga(r);
@@ -204,7 +208,7 @@ function avviaRighe(cfg) {
     if (!r) return;
     if (b.dataset.togli) RIGHE.splice(RIGHE.indexOf(r), 1);
     else if (b.dataset.passo) {
-      if (+b.dataset.passo > 0 && oltreGiacenza(r.articolo, pezziDi(r) + 1)) return;
+      if (+b.dataset.passo > 0 && oltreGiacenza(r.articolo, altriPezzi(r.articolo, r) + pezziDi(r) + 1)) return;
       // finché Spedita segue Ordinata, i − / + di Ordinata cambiano anche quella
       if (b.dataset.quale === "sped") { r.sped = Math.max(cfg.soloSpedita ? 1 : 0, r.sped + +b.dataset.passo); if (cfg.soloSpedita) r.qta = r.sped; }
       else { const segue = r.sped === r.qta; r.qta = Math.max(1, r.qta + +b.dataset.passo); if (segue) r.sped = r.qta; }
@@ -328,7 +332,7 @@ function avviaRighe(cfg) {
     RIGHE.length = 0;
     giaScaricati.clear();
     righe.forEach((r, i) => {
-      if (r.giaScaricati) giaScaricati.set(r.articolo.codice, r.giaScaricati);
+      if (r.giaScaricati) giaScaricati.set(r.articolo.codice, (giaScaricati.get(r.articolo.codice) || 0) + r.giaScaricati);
       const riga = { pos: i + 1, sped: r.qta, sconto: 0, iva: ivaDiArticolo(r.articolo, estera()), ...r };
       if (riga.tot == null) riga.tot = totRiga(riga);
       RIGHE.push(riga);
@@ -345,8 +349,8 @@ function avviaRighe(cfg) {
     // primo avviso di giacenza superata (es. controllo al salvataggio), oppure ""
     oltreGiacenza: () => {
       if (!cfg.limiteGiacenza) return "";
-      const r = RIGHE.find(r => r.articolo && r.articolo.giac != null && pezziDi(r) > disponibili(r.articolo));
-      return r ? testoOltre(r.articolo, pezziDi(r)) : "";
+      const r = RIGHE.find(r => r.articolo && r.articolo.giac != null && altriPezzi(r.articolo, null) > disponibili(r.articolo));
+      return r ? testoOltre(r.articolo, altriPezzi(r.articolo, null)) : "";
     },
     // copia per Annulla
     fotografia: () => RIGHE.map(r => ({ ...r })),

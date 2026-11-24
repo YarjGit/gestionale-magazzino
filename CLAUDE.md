@@ -41,6 +41,10 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Nel vecchio era un trasferimento mensile alla Sede Centrale riempito per tutto il mese (date sbagliate, giacenza sotto zero). Regole di ogni giornata (negozio o e-commerce):
   una sola per giorno, su una giornata vecchia si chiede prima di aggiungere articoli, spostarla di giorno chiede conferma e mai in un altro anno.
   Trasferimenti: non si manda più della giacenza (blocco, non più solo conferma).
+  Lista a parte `vendite-giornaliere.html?canale=ecommerce` (la lista normale mostra solo il negozio); "Aggiungi alle vendite di oggi" apre `vendita.html?db=N&modifica=1`.
+  Nella giornata e-commerce ogni vendita è una riga a sé con l'ora (`righeSeparate`, colonna `movimenti_righe.aggiunto_il`, `database/26-ora-righe.sql`).
+  Scarica dalla sede di lavoro. "📄 Riepilogo del mese": Excel per la Sede Centrale Apostolato Liturgico (Riepilogo, Articoli con fornitore e costi, Per giorno).
+- **Cambio sede con una pagina aperta**: la pagina si ricarica con la sede nuova (prima un movimento aperto restava sulla sede vecchia); se si sta modificando, chiede conferma.
 - **Ordini → carichi**: in Carichi da Fornitori il riquadro "Ordini a fornitori da caricare" (ordini aperti, esclusi quelli a una sede) apre `carico.html?nuovo=1&ordine=N`:
   fornitore e ordine già collegati, Spedita = quanto manca, poi − / +, sconto per riga e ✕. "Nuovo carico" resta per i carichi senza ordine.
   Allo stesso modo in Trasferimenti da Filiali il riquadro "Ordini alle sedi in attesa" (ordini della sede a un fornitore-sede, es. SMM → Magazzino Centrale):
