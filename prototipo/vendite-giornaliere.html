@@ -101,8 +101,9 @@
   }
 
   // ---------- Stampa del mese: "Trasferimento a Filiale" alla Sede Centrale su carta intestata (stampa-documento.html) ----------
-  // Come la stampa dell'ordine: in alto a sinistra la sede che ha spedito, a destra la Sede Centrale.
-  // Una riga per articolo con i pezzi di tutto il mese; prezzo = costo d'acquisto (come i trasferimenti tra filiali), importo IVA inclusa.
+  // Identica alla stampa dell'ordine a fornitore: in alto a sinistra noi (la sede che ha spedito), a destra il destinatario (Sede Centrale).
+  // Una riga per articolo con i pezzi di tutto il mese; prezzi come nell'ordine: Pr. Unit. = costo d'acquisto, Sconto %, IVA,
+  // importo di riga IVA inclusa arrotondato ai 5 centesimi, totali = somma degli importi arrotondati. Niente note.
   // Data = ultimo giorno del mese (oggi, se il mese non è finito); numero = mese/anno (uno per mese e per sede).
   const SEDE_CENTRALE = ["SEDE CENTRALE APOSTOLATO LITURGICO", "Via Portuense, 739", "00148 Roma (RM)", "Telefono: 0665656224"];
   $m("meseStampa").onclick = async () => {
@@ -121,10 +122,10 @@
       const righeSt = [...perArticolo.values()].filter(y => y.qta).sort((p, q) => String(p.art.codice).localeCompare(String(q.art.codice)))
         .map((y, i) => {
           const costo = cent(+y.art.costo_netto || 0), iva = y.art.aliquote_iva ? +y.art.aliquote_iva.aliquota : 22;
-          const importo = cent(y.qta * costo * (1 + iva / 100));
+          const importo = Math.round(y.qta * costo * (1 + iva / 100) * 20 + 1e-6) / 20;   // ai 5 centesimi, come nell'ordine
           return { n: i + 1, cod: y.art.codice, descr: y.art.descrizione, importoNum: importo,
             qta: y.qta.toLocaleString("it-IT", { maximumFractionDigits: 2 }) + (y.art.unita_misura === "Metri" ? " mt" : ""),
-            prezzo: numero(costo), iva: iva + "%", importo: numero(importo) };
+            prezzo: numero(costo), sconto: "", iva: iva + "%", importo: numero(importo) };
         });
       const tot = cent(righeSt.reduce((s, r) => s + r.importoNum, 0));
       const data = x.fine < oggiIso ? x.fine : oggiIso;
@@ -133,10 +134,9 @@
         info: [["Data", dataIt(data)], ["Numero", `${x.m}/${x.a}`]],
         destinatario: SEDE_CENTRALE,
         colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
-          { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
+          { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
         righe: righeSt,
         totali: [["Totale Articoli", numero(tot)], ["= Totale Complessivo", numero(tot)]],
-        note: `Vendite e-commerce di ${x.nomeMese} (${x.giornate.length} ${x.giornate.length === 1 ? "giornata" : "giornate"})`,
         ritorno: "vendite-giornaliere.html?canale=ecommerce"
       }));
       registra("Stampa trasferimento e-commerce del mese", `${x.sede} – ${x.nomeMese}`);
