@@ -452,6 +452,11 @@
       <td class="num"><span class="freccia-giac">${segno ? `${prima} → ${g}` : ""}</span></td><td class="num virtuale">${segno ? "" : "+" + m.q}</td><td class="num">${m.anno}</td></tr>`;
   }).join("") + `<tr class="riga-inizio"><td colspan="5">Giacenza di oggi</td><td class="num">${g}</td><td></td><td></td></tr>`;
 
+  // Articolo nuovo: non esiste ancora, quindi niente giacenza né movimenti (prima comparivano i numeri di esempio)
+  if (nuovo) {
+    const vuoto = n => `<tr><td colspan="${n}"><div class="vuoto"><b>Articolo non ancora salvato</b><span>Dopo il salvataggio qui compariranno giacenze e movimenti.</span></div></td></tr>`;
+    $("righeGiac").innerHTML = vuoto(9); $("righeAltre").innerHTML = vuoto(7); $("righeMov").innerHTML = vuoto(8);
+  }
   $("storico").innerHTML = nuovo ? '<div class="vuoto"><b>Articolo non ancora salvato</b></div>' : `
     <div class="evento"><div class="quando">01/07/${anno} · 12:46 · Magazzino Centrale</div><div class="cosa">Cambiato il fornitore</div><div class="dett">Laboratorio → fornitore attuale</div></div>
     <div class="evento"><div class="quando">22/01/${anno} · 12:46 · Magazzino Centrale</div><div class="cosa">Aggiornati i prezzi</div><div class="dett">Aggiunte le spese di confezione e imballaggio, ricarico portato al ${percento(art.ricarico)}%</div></div>
