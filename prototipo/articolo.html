@@ -63,6 +63,9 @@
   .freccia-giac { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
   .riga-inizio td { background: #f6f8fb; font-weight: 600; }
   .virtuale { color: #7c4dff; }
+  /* Scheda Materiali: righe scritte a mano */
+  .tab-materiali .in-mat { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; font: inherit; background: #fff; }
+  .tab-materiali .in-mat:focus { outline: 2px solid #cfe0ff; border-color: var(--accent); }
 </style>
 </head>
 <body data-page="articoli">
@@ -111,6 +114,7 @@
   // Valori della scheda (quelli che l'elenco non ha sono proposte del prototipo)
   const art = articoloDa(base || { codice: qs.get("cod") || "", descr: "", costo: 0, prezzo: 0, iva: 22, barcode: "", giac: 0, anno: new Date().getFullYear(), forn: null });
 
+  // (ogni articolo ha anche art.materiali: le righe della scheda Materiali)
   function articoloDa(a) {
     const iva = a.iva === 4 ? "04" : a.iva === 0 ? "0" : "22";
     const perc = ALIQ.find(x => x[0] === iva)[2];
@@ -124,7 +128,7 @@
       categoria: (CATEGORIE.find(c => c.cod === a.codice[0]) || CATEGORIE[0]).cod, sottocategoria: "",
       scaffale: "", varianti: false, listinoExcel: false,
       costoLordo: cent(a.costo), sconto: 0, confezione: 0, imballaggio: 0, accessorie: 0, ricarico, iva,
-      arrotondamento: 0, scorta: a.scorta || 0, annoListino: a.anno || "", annoPrezzo: "", giac: a.giac ?? 0, id: a.id, annotazioni: ""
+      arrotondamento: 0, scorta: a.scorta || 0, annoListino: a.anno || "", annoPrezzo: "", giac: a.giac ?? 0, id: a.id, annotazioni: "", materiali: []
     };
   }
 
@@ -239,12 +243,14 @@
 
       <!-- MATERIALI -->
       <div class="pannello-tab" id="tab-materiali" hidden>
-        <div class="nota-viola">🧵 Solo per i prodotti fatti in laboratorio: i materiali usati per farne uno, con il loro costo.</div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Materiale</th><th>Fornitore</th><th class="num">Quantità</th><th>Info aggiuntive</th><th class="num">Costo</th></tr></thead>
-          <tbody><tr><td colspan="5"><div class="vuoto"><b>Nessun materiale</b><span>Questo articolo non è fatto in laboratorio.</span></div></td></tr></tbody>
-          <tfoot><tr><td colspan="4">Costo totale</td><td class="num">0,00</td></tr></tfoot>
+        <div class="nota-viola">🧵 I materiali usati per fare un pezzo di questo articolo (es. prodotti fatti in laboratorio), con il loro costo.</div>
+        <div class="table-wrap"><table class="tab-materiali">
+          <thead><tr><th style="width:26%">Materiale</th><th style="width:22%">Fornitore</th><th class="num" style="width:10%">Quantità</th><th>Info aggiuntive</th><th class="num" style="width:11%">Costo</th><th class="solo-mod" style="width:40px"></th></tr></thead>
+          <tbody id="righeMat"></tbody>
+          <tfoot><tr><td colspan="4">Costo totale</td><td class="num" id="totMat">0,00</td><td class="solo-mod"></td></tr></tfoot>
         </table></div>
+        <datalist id="elencoFornMat"></datalist>
+        <button class="btn btn-light solo-mod" id="aggMat" style="margin-top:10px">＋ Aggiungi materiale</button>
       </div>
 
       <!-- GIACENZA -->
@@ -286,6 +292,49 @@
   // Fornitori: si cercano scrivendo nome o codice (js/cerca-fornitore.js)
   // un solo fornitore (il secondo del vecchio gestionale non si usa: se c'è resta salvato nel database)
   campiForn = ["forn1"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
+
+  // ---------- Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo), salvate con l'articolo ----------
+  const numIt = v => (+v || 0).toLocaleString("it-IT", { maximumFractionDigits: 3 });
+  function disegnaMateriali() {
+    const mod = document.body.classList.contains("in-modifica");
+    const lista = art.materiali;
+    // fornitori proposti mentre si scrive (si può anche scrivere un nome che non è in elenco)
+    $("elencoFornMat").innerHTML = FORN.map(f => `<option value="${esc(f.nome)}">`).join("");
+    const cella = (i, k, v, extra = "") => mod ? `<input class="in-mat" data-i="${i}" data-k="${k}" value="${esc(v)}" ${extra}>` : esc(v);
+    $("righeMat").innerHTML = lista.length ? lista.map((m, i) => `<tr>
+        <td>${cella(i, "materiale", m.materiale, 'placeholder="es. stoffa di lino"')}</td>
+        <td>${cella(i, "fornitore", m.fornitore, 'list="elencoFornMat" placeholder="scrivi il fornitore"')}</td>
+        <td class="num">${cella(i, "quantita", m.quantita ? numIt(m.quantita) : "", 'style="text-align:right" placeholder="0"')}</td>
+        <td>${cella(i, "info", m.info, 'placeholder="es. metri, colore, misura"')}</td>
+        <td class="num">${cella(i, "costo", m.costo ? numero(m.costo) : "", 'style="text-align:right" placeholder="0,00"')}</td>
+        <td class="solo-mod"><button class="btn-riga cestino" data-togli="${i}" title="Togli il materiale">🗑</button></td>
+      </tr>`).join("")
+      : `<tr><td colspan="6"><div class="vuoto"><b>Nessun materiale</b><span>${mod ? "Usa ＋ Aggiungi materiale qui sotto." : "Per aggiungerne premi Modifica."}</span></div></td></tr>`;
+    $("totMat").textContent = numero(lista.reduce((t, m) => t + (+m.costo || 0), 0));
+  }
+  $("righeMat").addEventListener("change", e => {
+    const el = e.target.closest(".in-mat");
+    if (!el) return;
+    const m = art.materiali[+el.dataset.i], k = el.dataset.k;
+    // quantità con i decimali (es. 0,5 metri); costo sempre al centesimo
+    if (k === "quantita") m.quantita = Math.max(0, +el.value.replace(/\./g, "").replace(",", ".") || 0);
+    else if (k === "costo") m.costo = Math.max(0, cent(num(el.value)));
+    else m[k] = el.value.trim();
+    disegnaMateriali();
+  });
+  $("righeMat").addEventListener("click", e => {
+    const b = e.target.closest("[data-togli]");
+    if (!b) return;
+    art.materiali.splice(+b.dataset.togli, 1);
+    disegnaMateriali();
+  });
+  $("aggMat").onclick = () => {
+    art.materiali.push({ materiale: "", fornitore: "", quantita: 1, info: "", costo: 0 });
+    disegnaMateriali();
+    const campi = document.querySelectorAll('#righeMat .in-mat[data-k="materiale"]');
+    campi[campi.length - 1].focus();
+  };
+  disegnaMateriali();
 
   // ---------- Schede ----------
   $("schede").onclick = e => {
@@ -416,9 +465,10 @@
     ["btnEtichetta", "btnChiudi", "btnModifica"].forEach(id => $(id).hidden = modifica);
     ["btnAnnulla", "btnSalva", "btnSalvaChiudi"].forEach(id => $(id).hidden = !modifica);
     $("bannerModifica").hidden = !modifica || nuovo;
+    disegnaMateriali();
   }
   $("btnModifica").onclick = () => {
-    primaArt = { ...art };
+    primaArt = { ...art, materiali: JSON.parse(JSON.stringify(art.materiali)) };
     primaCampi = [...document.querySelectorAll(".mod")].map(el => el.type === "checkbox" || el.type === "radio" ? el.checked : el.value);
     modalita(true);
   };
@@ -455,7 +505,8 @@
       provenienza: scelto("provenienza"), unita_misura: scelto("unita"),
       categoria: art.categoria || null, sottocategoria: art.sottocategoria || null,
       scaffale: testo("fScaffale"), annotazioni: testo("fAnnotazioni"), ricarico: art.ricarico,
-      spese_confezione: art.confezione, spese_imballaggio: art.imballaggio, spese_accessorie: art.accessorie, arrotondamento: art.arrotondamento
+      spese_confezione: art.confezione, spese_imballaggio: art.imballaggio, spese_accessorie: art.accessorie, arrotondamento: art.arrotondamento,
+      materiali: art.materiali.filter(m => m.materiale || m.fornitore || m.info || m.costo)
     };
     // il fornitore scritto a mano non è più "dedotto"
     if (dati.fornitore_id !== (primaArt && primaArt.forn1)) dati.fornitore_dedotto = false;
@@ -492,7 +543,7 @@
       avviso(`Articolo ${dati.codice} salvato: prezzo in etichetta ${euro(c.etichetta)}`);
       setTimeout(() => location.replace(chiudi ? "articoli.html" : `articolo.html?cod=${encodeURIComponent(dati.codice)}`), 900);
     } catch (err) {
-      avviso(err.code === "PGRST204" || err.code === "42703" ? "Prima va eseguito su Supabase il file database/18-anagrafica-articoli.sql"
+      avviso(err.code === "PGRST204" || err.code === "42703" ? (/materiali/.test(err.message) ? "Prima va eseguito su Supabase il file database/30-materiali-articoli.sql" : "Prima va eseguito su Supabase il file database/18-anagrafica-articoli.sql")
         : err.code === "23505" ? `Esiste già un articolo con il codice ${dati.codice}` : "Errore nel salvare l'articolo: " + err.message);
       pulsanti.forEach(b => b.disabled = false);
     }
@@ -549,6 +600,7 @@
     nuovoArt.sottocategoria = a.sottocategoria || "";
     nuovoArt.scaffale = a.scaffale || "";
     nuovoArt.annotazioni = a.annotazioni || "";
+    nuovoArt.materiali = Array.isArray(a.materiali) ? a.materiali : [];
     nuovoArt.confezione = +a.spese_confezione || 0;
     nuovoArt.imballaggio = +a.spese_imballaggio || 0;
     nuovoArt.accessorie = +a.spese_accessorie || 0;

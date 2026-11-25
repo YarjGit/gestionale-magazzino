@@ -96,6 +96,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   di vendite per giorno (`GIORNATA_ESISTE|id`, salvo nota " – "). In `vendita.html` `unisciAllaGiornata` aggiunge da solo i propri articoli alla giornata dell'altro
   (i colleghi vendono articoli diversi, quindi non si scontrano). Colonna `modificato_da`.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
+  Scheda Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo) salvate in `articoli.materiali` (`database/30-materiali-articoli.sql`).
 
 ## Struttura
 - `prototipo/` – il prototipo HTML/CSS/JS, senza build. Si apre con `Avvia prototipo.bat` (server PowerShell su http://localhost:8080).
