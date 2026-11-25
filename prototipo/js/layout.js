@@ -323,7 +323,10 @@ function avviso(testo, errore) {
     if (cambia) {
       ultimoSalva = Date.now();   // niente seconda domanda del browser: l'utente ha già confermato
       document.documentElement.style.opacity = "0.5";
-      Promise.race([fatto, new Promise(r => setTimeout(r, 1200))]).then(() => location.reload());
+      // Dentro una scheda (es. ordine.html?db=12 di CAL SMM Roma) non si riapre la stessa scheda con la sede nuova:
+      // si torna all'elenco della sezione (data-page) per la sede appena scelta. Le pagine senza parametri si ricaricano.
+      const elenco = location.search && document.body.dataset.page ? `${document.body.dataset.page}.html` : null;
+      Promise.race([fatto, new Promise(r => setTimeout(r, 1200))]).then(() => elenco ? location.replace(elenco) : location.reload());
     }
   };
 
