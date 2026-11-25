@@ -569,7 +569,8 @@
     ]);
     if (error) throw error;
     // solo i fornitori della sede di lavoro (più quello di un ordine già salvato)
-    FORN = (await soloFornitoriSede(db, data, [movDb && movDb.fornitore_id])).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale, piva: f.partita_iva || "", sede: f.sede_collegata === ID_SEDI_DB[sedeLavoro] ? null : f.sede_collegata }));
+    // nessuna sede può fare un ordine a se stessa: il fornitore che è la sede di lavoro non si vede (resta solo negli ordini vecchi già fatti così)
+    FORN = (await soloFornitoriSede(db, data.filter(f => f.sede_collegata !== ID_SEDI_DB[sedeLavoro] || (movDb && f.id === movDb.fornitore_id)), [movDb && movDb.fornitore_id])).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale, piva: f.partita_iva || "", sede: f.sede_collegata === ID_SEDI_DB[sedeLavoro] ? null : f.sede_collegata }));
     // Ordine salvato: lo stesso fornitore, ora con tutti i dati; gli ordini di esempio tengono il loro
     if (movDb) { fornitore = FORN.find(f => f.id === movDb.fornitore_id) || fornitore; mostraFornitore(); aggiornaInAttesa(); return; }
     if (!nuovo) { righe.disegna(); return; }
