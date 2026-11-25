@@ -217,7 +217,7 @@
       <div class="azioni-righe solo-mod" style="margin-top:12px">
         <button class="btn-riga nuova" id="piuRiga" title="Aggiungi un articolo: si scrive il codice o si spara con la pistola">＋</button>
       </div>
-      <div class="azioni-righe solo-mod" ${daOrdine ? "" : "hidden"}>
+      <div class="azioni-righe solo-mod" ${daOrdine && !conInevasi ? "" : "hidden"}>
         <button class="btn btn-light" id="btnTuttoDisp">✔ Manda tutto il disponibile${conInevasi ? " (articoli dell'ordine)" : ""}</button>
         <button class="btn btn-light" id="btnAzzera">↺ Azzera le quantità</button>
       </div>
@@ -258,6 +258,7 @@
         <td class="solo-mod">${r.ordineRigaId ? "" : `<button class="btn-riga cestino" data-togli="${r.pos}" title="Togli">🗑</button>`}</td>
       </tr>`;
   }
+  let vecchiAperti = false;   // inevasi accumulati: chiusi, si aprono con "Mostra elenco"
   const SEZIONI = [
     { k: "A", titolo: `✔ Da preparare: articoli disponibili dell'ordine #${ordineId}`, aiuto: "quello che non mandi diventa un nuovo inevaso", vuoto: "Nessun articolo dell'ordine è disponibile adesso" },
     { k: "nuovo", titolo: "⏳ Nuovi inevasi di questo ordine", aiuto: "qui non ci sono: spunta per mandarli lo stesso", vuoto: "Nessuno: tutti gli articoli dell'ordine sono disponibili" },
@@ -270,8 +271,10 @@
     } else if (conInevasi) {
       $("righe").innerHTML = SEZIONI.map(z => {
         const lista = RIGHE.filter(r => r.sez === z.k);
-        return `<tr class="sez sez-${z.k}"><td colspan="${colonne}">${z.titolo}<span class="n">${lista.length}</span><small>${z.aiuto}</small></td></tr>` +
-          (lista.length ? lista.map(r => rigaHtml(r, mod)).join("") : `<tr class="sez-vuota"><td colspan="${colonne}">${z.vuoto}</td></tr>`);
+        const chiusa = z.k === "vecchio" && !vecchiAperti && lista.length && !lista.some(r => r.scelto);
+        const tasto = z.k === "vecchio" && lista.length ? `<button class="btn btn-light" data-apri="1" style="margin-left:12px;padding:3px 10px;font-size:0.8rem">${vecchiAperti ? "Nascondi elenco" : "Mostra elenco"}</button>` : "";
+        return `<tr class="sez sez-${z.k}"><td colspan="${colonne}">${z.titolo}<span class="n">${lista.length}</span><small>${z.aiuto}</small>${tasto}</td></tr>` + (chiusa ? "" :
+          (lista.length ? lista.map(r => rigaHtml(r, mod)).join("") : `<tr class="sez-vuota"><td colspan="${colonne}">${z.vuoto}</td></tr>`));
       }).join("");
     } else $("righe").innerHTML = RIGHE.map(r => rigaHtml(r, mod)).join("");
     const pezzi = RIGHE.reduce((s, r) => s + r.manda, 0);
@@ -285,6 +288,7 @@
   $("righe").onclick = e => {
     const b = e.target.closest("button");
     if (!b) return;
+    if (b.dataset.apri) { vecchiAperti = !vecchiAperti; disegna(); return; }
     const r = riga(b.dataset.pos || b.dataset.togli);
     if (b.dataset.togli) RIGHE.splice(RIGHE.indexOf(r), 1);
     else if (b.dataset.passo) r.manda = Math.max(0, cent(r.manda + +b.dataset.passo));
@@ -399,27 +403,35 @@
   $("btnStampa").onclick = () => {
     const lista = RIGHE.filter(r => r.manda > 0);
     if (!lista.length) { avviso("Non c'è niente da preparare: metti le quantità da mandare"); return; }
-    const dest = $("fDest").value ? nomeDest($("fDest").value) : "—";
-    const tot = cent(lista.reduce((s, r) => s + cent(r.manda * r.prezzo), 0));
+    // Su carta intestata (stampa-documento.html), come la stampa dell'ordine a fornitore: a sinistra chi manda, a destra la sede che riceve.
+    // Pr. Unit. = costo d'acquisto, IVA dell'articolo (0% per le sedi estere), importo IVA inclusa ai 5 centesimi.
+    // Si apre in una scheda nuova, così le quantità messe qui (anche non salvate) restano.
+    const dest = ricevente ? nomeDest(mov.sede_id) : $("fDest").value ? nomeDest($("fDest").value) : "";
+    const mittente = ricevente ? dest : sedeLavoro, ricevitore = ricevente ? sedeLavoro : dest;
+    const estera = !!(SEDI.find(s => s.nome === ricevitore) || {}).estera;
+    const data = $("fData").value || oggi;
+    const righeSt = lista.map((r, i) => {
+      const iva = estera ? 0 : +r.articolo.iva || 0;
+      const importo = Math.round(r.manda * r.prezzo * (1 + iva / 100) * 20 + 1e-6) / 20;
+      return { n: i + 1, cod: r.articolo.codice, descr: r.articolo.descr + (r.sez === "vecchio" ? ` (inevaso dell'ordine #${r.ordineId} del ${dataIt(r.dataOrdine)})` : ""),
+        qta: (+r.manda).toLocaleString("it-IT", { maximumFractionDigits: 2 }), prezzo: numero(r.prezzo), sconto: "", iva: iva + "%", importo: numero(importo), importoNum: importo };
+    });
+    const tot = cent(righeSt.reduce((s, r) => s + r.importoNum, 0));
     const restano = RIGHE.filter(r => inevasoDi(r) > 0);
-    const titoloNota = salvato ? `Trasferimento #${mov.id}` : ordineId ? `Ordine #${ordineId}` : "Trasferimento a filiale";
-    const causale = $("fCausale").value.trim();
-    $("stampa").innerHTML = `
-      <div class="testa">
-        <div><h1>Nota di preparazione</h1>${titoloNota}${causale && causale !== titoloNota ? ` · ${esc(causale)}` : ""}</div>
-        <div style="text-align:right">Da: <b>${esc(sedeLavoro)}</b><br>A: <b>${esc(dest)}</b><br>Data: ${dataIt($("fData").value || oggi)}</div>
-      </div>
-      <table>
-        <thead><tr><th style="width:24px"></th><th>Codice</th><th>Descrizione</th><th class="n">Quantità</th><th class="n">Prezzo</th><th class="n">Totale</th></tr></thead>
-        <tbody>${lista.map(r => `<tr><td><span class="box"></span></td><td>${esc(r.articolo.codice)}</td>
-          <td>${esc(r.articolo.descr)}${r.sez === "vecchio" ? `<div class="inev">inevaso dell'ordine #${r.ordineId} del ${dataIt(r.dataOrdine)}</div>` : r.sez === "nuovo" ? '<div class="inev">inevaso di questo ordine</div>' : ""}</td>
-          <td class="n">${r.manda}</td><td class="n">${numero(r.prezzo)}</td><td class="n">${numero(cent(r.manda * r.prezzo))}</td></tr>`).join("")}
-          <tr class="tot"><td></td><td colspan="2">Totale: ${lista.length} articoli</td><td class="n">${cent(lista.reduce((s, r) => s + r.manda, 0))}</td><td></td><td class="n">${numero(tot)}</td></tr>
-        </tbody>
-      </table>
-      ${restano.length ? `<p style="margin-top:14px;font-size:9.5pt">Restano inevasi (da mandare più avanti): ${restano.length} articoli, ${cent(restano.reduce((s, r) => s + inevasoDi(r), 0))} pezzi.</p>` : ""}
-      <div class="firme"><div>Preparato da</div><div>Controllato da</div><div>Ricevuto da</div></div>`;
-    window.print();
+    const ordini = [...new Set(lista.filter(r => r.ordineId && r.sez !== "vecchio").map(r => r.ordineId))];
+    sessionStorage.setItem("stampa", JSON.stringify({
+      titolo: "Trasferimento a Filiale", sede: mittente,
+      info: [["Data", dataIt(data)]].concat(salvato ? [["Numero", `${mov.id}/${data.slice(0, 4)}`]] : [], ordini.length ? [["Ordine", ordini.map(o => "#" + o).join(", ")]] : []),
+      destinatario: ricevitore ? intestazioneSede(ricevitore) : [],
+      colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
+        { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
+      righe: righeSt,
+      totali: [["Totale Articoli", numero(tot)], ["= Totale Complessivo", numero(tot)]],
+      note: restano.length ? `Restano inevasi (da mandare più avanti): ${restano.length} articoli, ${cent(restano.reduce((s, r) => s + inevasoDi(r), 0))} pezzi.` : "",
+      nuovaScheda: true
+    }));
+    registra("Stampa nota trasferimento", `${mittente} → ${ricevitore}${salvato ? ` #${mov.id}` : ordini.length ? ` ordine #${ordini.join(", #")}` : ""}`);
+    window.open("stampa-documento.html?auto=1", "_blank");
   };
 
   $("btnSalva").onclick = () => salva(false);

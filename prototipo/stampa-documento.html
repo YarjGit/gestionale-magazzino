@@ -85,7 +85,8 @@
     </div>`;
   }
   $("btnStampa").onclick = () => window.print();
-  $("btnChiudi").onclick = () => dati && dati.ritorno ? location.href = dati.ritorno : history.back();
+  // aperta in una scheda nuova (es. nota del trasferimento): "Chiudi" chiude la scheda e si torna a quella di prima
+  $("btnChiudi").onclick = () => dati && dati.nuovaScheda ? window.close() : dati && dati.ritorno ? location.href = dati.ritorno : history.back();
   if (dati && new URLSearchParams(location.search).has("auto")) setTimeout(() => window.print(), 400);
 </script>
 </body>
