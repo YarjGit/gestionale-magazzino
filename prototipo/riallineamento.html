@@ -361,6 +361,16 @@
     if (!confirm(`Confermare l'inventario di ${sedeLavoro}?\n\n• ${lista.length} articoli contati: la giacenza diventa quella contata, tutta sull'anno ${annoOggi} (${cambiano.length} cambiano)` +
       (ambito === "tutto" ? `\n• ${ns.length - elimina.length} non sparati restano come sono\n• ${elimina.length} non sparati eliminati (giacenza a zero e articolo disattivato)` : "\n• gli articoli non sparati restano come sono") +
       "\n\nDopo la conferma la giacenza cambia davvero.")) return;
+    // Giacenza riletta dal database adesso, un attimo prima di salvare: se nel frattempo qualcuno ha venduto o scaricato,
+    // la riga che toglie la giacenza di prima usa il numero vero e alla fine la giacenza è esattamente quella contata.
+    let fresca;
+    try { fresca = await giacenzeSedeDb(db, sedeId); } catch (err) { avviso("Errore nel rileggere le giacenze: " + err.message, true); return; }
+    const cambiate = [...lista, ...elimina.map(a => ({ articolo: a }))].filter(c => (fresca.get(c.articolo.id) ?? 0) !== (c.articolo.giac ?? 0));
+    if (cambiate.length && !confirm(`Attenzione: mentre contavate la giacenza di ${cambiate.length} articoli è cambiata (vendite o scarichi fatti durante l'inventario):\n` +
+        cambiate.slice(0, 15).map(c => `• ${c.articolo.codice}: era ${q2(c.articolo.giac ?? 0)}, adesso ${q2(fresca.get(c.articolo.id) ?? 0)}`).join("\n") +
+        `\n\nConfermando, la giacenza diventa comunque quella che avete contato. Confermi?`)) return;
+    lista.forEach(c => { c.articolo.giac = fresca.get(c.articolo.id) ?? 0; });
+    elimina.forEach(a => { a.giac = fresca.get(a.id) ?? 0; });
     // per ogni articolo contato: si toglie la giacenza di prima e si mettono i pezzi contati (anno in corso)
     const righe = [];
     lista.forEach(c => {
