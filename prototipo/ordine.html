@@ -103,7 +103,7 @@
   const opz = (lista, scelto) => lista.map(o => `<option${o === scelto ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   const icoCerca = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
-  const CFG_RIGHE = { etichettaPrezzo: "Costo", ivaInclusa: false, spedita: false, nelMovimento: "nell'ordine" };
+  const CFG_RIGHE = { etichettaPrezzo: "Costo", ivaInclusa: false, spedita: false, senzaAnno: true, nelMovimento: "nell'ordine" };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
