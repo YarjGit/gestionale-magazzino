@@ -111,7 +111,7 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 
 ## Idee in prova (si possono togliere)
 - **Etichetta per la scatola** (commit fe553fc): nella pagina etichette casella "🏷️ Doppia etichetta" per riga → per ogni pezzo anche una
-  seconda etichetta (per la scatola) con il codice nel riquadro nero; tolto "Barcode duplicati". Se l'idea non piace: `git revert fe553fc`
+  seconda etichetta (per la scatola) con il codice nel riquadro nero (per ora solo per CAL SMM Roma: DOPPIA_ETICHETTA in etichette.html); tolto "Barcode duplicati". Se l'idea non piace: `git revert fe553fc`
   (lo stato di prima è segnato con il tag `prima-etichette-scatola`).
 
 ## Struttura
