@@ -141,7 +141,6 @@
         <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
         <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
         <span class="spazio"></span>
-        <label class="interr" title="Etichette: acceso = una per ogni pezzo, spento = una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
         <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
       </div>
 
@@ -356,8 +355,8 @@
     $("totEt").textContent = RIGHE.reduce((s, a) => s + a.etichette, 0);
     $("totArt").textContent = numero(RIGHE.reduce((s, a) => s + a.tot, 0));
     const scelti = RIGHE.filter(a => selezionati.has(a.pos));
-    const nEt = $("barcodeDup").checked ? scelti.reduce((s, a) => s + a.etichette, 0) : scelti.length;
-    $("infoEtichette").textContent = `${nEt} etichette da stampare` + ($("barcodeDup").checked ? " (colonna Etichette)" : " (una per articolo)");
+    const nEt = scelti.reduce((s, a) => s + a.etichette, 0);
+    $("infoEtichette").textContent = `${nEt} etichette da stampare (colonna Etichette; quelle per le scatole si aggiungono nella pagina etichette)`;
     $("selTutti").checked = scelti.length === RIGHE.length && RIGHE.length > 0;
     disegnaRiordini();
   }
@@ -583,18 +582,16 @@
   $("selTutti").onchange = e => { RIGHE.forEach(a => e.target.checked ? selezionati.add(a.pos) : selezionati.delete(a.pos)); disegnaArticoli(); };
   $("cercaArt").oninput = disegnaArticoli;
   $("ordinaCodice").onchange = disegnaArticoli;
-  $("barcodeDup").onchange = disegnaArticoli;
   disegnaArticoli();
 
   // ---------- Etichette: apre la pagina di stampa già riempita ----------
   // Le righe del carico passano alla pagina etichette (stessa scheda del browser), con l'anno del carico:
-  // con "Barcode duplicati" un'etichetta per pezzo (colonna Etichette), altrimenti una per articolo
+  // un'etichetta per pezzo (colonna Etichette); quelle per le scatole si scelgono nella pagina etichette ("📦 + scatola")
   const paginaEtichette = solo => {
-    const perPezzo = $("barcodeDup").checked;
     const anno = +car.data.slice(0, 4);
     const righe = RIGHE.filter(r => r.qta > 0 && (!solo || selezionati.has(r.pos))).map(r => ({
       art: { codice: r.cod, descr: r.descr, barcode: r.barcode, costo: r.prezzo, prezzo: r.articolo.prezzo },
-      n: perPezzo ? r.etichette : 1, anno
+      n: r.etichette, anno
     }));
     sessionStorage.setItem("etichette", JSON.stringify({ titolo: car.id ? `Carico #${car.id}` : "Nuovo carico", ritorno: location.pathname.split("/").pop() + location.search, righe }));
     location.href = "etichette.html?da=sessione";

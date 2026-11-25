@@ -92,6 +92,9 @@
   .rotolo .cella { font-size: 10px; padding: 6px 8px; border: none; }
   .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
   .cella .c { font-weight: 400; }
+  /* Etichetta per la scatola: il codice dentro un riquadro nero (prima si sbarrava a penna) */
+  .cella .c.scatola span { display: inline-block; padding: 0 3px; border: 1.5px solid #000; line-height: 1.15; }
+  .scat-riga { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
   /* Anno di carico (lotto) in due cifre, sulla riga del prezzo prima del costo cifrato */
   .cella .anno { margin-right: 1.2em; }
   .anno-riga { width: 64px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font-weight: 600; }
@@ -370,11 +373,11 @@
   const costoCifrato = v => (Math.round((+v || 0) * 100) / 100).toFixed(2).split(".")
     .map(p => [...p].map(c => CIFRARIO[+c]).join("")).join("-");
 
-  function etichettaHtml({ art: a, anno }, o) {
+  function etichettaHtml({ art: a, anno, perScatola }, o) {
     // Come l'etichetta del negozio: codice, descrizione, poi "26  MP-DD ... 45,60" (anno di carico in due cifre,
     // costo cifrato, prezzo di vendita), barcode e cifre
     return `<div class="cella">
-      ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
+      ${o.codice ? (perScatola ? `<div class="c scatola" title="Etichetta per la scatola"><span>${esc(a.codice)}</span></div>` : `<div class="c">${esc(a.codice)}</div>`) : ""}
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
       <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(prezzoDieci(a.prezzo))}</span>` : ""}</div>
       <div class="barre">${barcodeSvg(a.barcode)}${o.numero ? `<span class="n">${a.barcode}</span>` : ""}</div>
@@ -384,7 +387,7 @@
   // perStampa: sul rotolo l'anteprima mostra le prime 30, la stampa le mette tutte
   function disegna(evidenzia, perStampa) {
     const o = opzioni();
-    const totale = righe.reduce((s, r) => s + r.n, 0);
+    const totale = righe.reduce((s, r) => s + r.n * (r.scatola ? 2 : 1), 0);
     const salta = Math.max(0, +$("salta").value || 0);
     $("totale").value = totale;
     $("formatoInfo").textContent = $("formato").selectedOptions[0].textContent;
@@ -397,13 +400,15 @@
         <td><span class="bc">${r.art.barcode}<span class="tipo${eanValido(r.art.barcode) ? "" : " c128"}" title="${eanValido(r.art.barcode) ? "" : "La cifra di controllo non è da EAN-13: stampato come Code 128"}">${tipoBarcode(r.art.barcode)}</span></span></td>
         <td class="num">${numero(r.art.costo)}</td>
         <td class="num"><b>${numero(prezzoDieci(r.art.prezzo))}</b></td>
-        <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div></td>
+        <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div>
+          <label class="scat-riga" title="Con scatola: per ogni pezzo anche l'etichetta della scatola (codice nel riquadro nero)"><input type="checkbox" data-scatola="${i}" ${r.scatola ? "checked" : ""}> 📦 + scatola</label></td>
         <td><button class="icon-btn" data-togli="${i}" title="Togli">✕</button></td>
       </tr>`).join("")
       : `<tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>`;
 
     // celle: prima quelle da saltare (solo sui fogli A4), poi un'etichetta per copia
-    const copie = righe.flatMap(r => Array(r.n).fill(r));
+    // articoli con scatola: per ogni pezzo l'etichetta dell'articolo e subito dopo quella della scatola
+    const copie = righe.flatMap(r => Array(r.n).fill(r)).flatMap(r => r.scatola ? [r, { ...r, perScatola: true }] : [r]);
     if (o.formato === "rotolo") {
       const mostrate = perStampa ? copie : copie.slice(0, 30);
       $("fogli").innerHTML = copie.length ? `<div class="rotolo">${mostrate.map(a => etichettaHtml(a, o)).join("")}</div>` +
@@ -423,6 +428,8 @@
   }
 
   $("righe").oninput = e => {
+    // "📦 + scatola": per ogni pezzo anche l'etichetta della scatola (si decide qui, al momento della stampa)
+    if (e.target.dataset.scatola != null) { righe[e.target.dataset.scatola].scatola = e.target.checked; disegna(); return; }
     if (e.target.dataset.anno != null) { righe[e.target.dataset.anno].anno = +e.target.value || annoInCorso; disegna(); $("righe").querySelector(`input[data-anno="${e.target.dataset.anno}"]`).focus(); return; }
     const i = e.target.dataset.i;
     if (i == null) return;

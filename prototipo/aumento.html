@@ -131,7 +131,6 @@
         <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">0</span></button>
         <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
         <span class="spazio"></span>
-        <label class="interr" title="Etichette: acceso = una per ogni pezzo, spento = una per articolo"><span class="switch"><input type="checkbox" id="barcodeDup" checked><span></span></span> Barcode duplicati</label>
         <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
       </div>
 
@@ -248,11 +247,11 @@
   mostraAnno();
 
   // ---------- Etichette: anno di acquisto scelto, costo cifrato e prezzo ----------
+  // un'etichetta per pezzo; quelle per le scatole si scelgono nella pagina etichette ("📦 + scatola")
   $("btnEtichette").onclick = () => {
-    const perPezzo = $("barcodeDup").checked;
     const lista = righe.RIGHE.filter(r => r.articolo && r.sped > 0).map(r => ({
       art: { codice: r.articolo.codice, descr: r.articolo.descr, barcode: r.articolo.barcode, costo: r.prezzo, prezzo: r.articolo.prezzo },
-      n: perPezzo ? r.sped : 1, anno: anno()
+      n: r.sped, anno: anno()
     }));
     if (!lista.length) { avviso("Non ci sono articoli per le etichette"); return; }
     sessionStorage.setItem("etichette", JSON.stringify({ titolo: mov.id ? `Aumento giacenza #${mov.id}` : "Nuovo aumento", ritorno: location.pathname.split("/").pop() + location.search, righe: lista }));
