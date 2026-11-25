@@ -52,6 +52,10 @@ function righeHtmlAggiungi(conFornitore) {
     </div>`;
 }
 
+// Costo d'acquisto in lettere, come sulle etichette (M=1 A=2 G=3 I=4 S=5 T=6 E=7 R=8 P=9 D=0; 15,00 → MS-DD)
+const costoInLettere = v => (Math.round((+v || 0) * 100) / 100).toFixed(2).split(".")
+  .map(p => [...p].map(c => "DMAGISTERP"[+c]).join("")).join("-");
+
 function righeHtmlTabella(cfg) {
   return `<div class="table-wrap">
       <table>
@@ -180,7 +184,7 @@ function avviaRighe(cfg) {
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${cfg.giacenzaAltra && cfg.giacenzaAltra(a) ? `<div class="giac-doppia">${giacSugg(a)}</div>` : a.giac ?? "—"}</td>
         ${cfg.senzaAnno ? "" : `<td class="num" style="color:var(--muted)">${cfg.annoGiac ? cfg.annoGiac() : a.anno}</td>`}
-        <td class="num">${cfg.costoFisso ? numero(r.prezzo) : `<span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span>`}</td>
+        <td class="num">${cfg.costoFisso ? `<span title="Costo d'acquisto della scheda articolo: non si modifica qui">${numero(r.prezzo)}</span><span class="costo-lettere" title="Costo in lettere, come sulle etichette">${costoInLettere(r.prezzo)}</span>` : `<span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span>`}</td>
         <td>${mod
           ? `<select class="sel-iva${r.iva !== "22" ? " diversa" : ""}" data-campo="iva" data-riga="${r.pos}">${ALIQUOTE_RIGA.map(([k, t]) => `<option value="${k}"${k === r.iva ? " selected" : ""}>${t}</option>`).join("")}</select>`
           : `<span class="sel-iva${r.iva !== "22" ? " diversa" : ""}" style="border-color:transparent">${nomeIva(r.iva)}</span>`}</td>

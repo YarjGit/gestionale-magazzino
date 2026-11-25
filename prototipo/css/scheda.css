@@ -36,6 +36,8 @@
 }
 .scheda-tab:hover { color: var(--text); }
 .scheda-tab[hidden] { display: none; }
+/* Costo d'acquisto in lettere (come sulle etichette) sotto il costo, nelle righe di aumento e diminuzione */
+.costo-lettere { display: block; margin-top: 2px; font-family: "JetBrains Mono", monospace; font-size: 0.74rem; font-weight: 700; color: #5b34c9; letter-spacing: 0.04em; }
 .scheda-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .scheda-tab .n { padding: 0 7px; border-radius: 99px; background: var(--page-bg); font-size: 0.72rem; }
 .scheda-tab.active .n { background: #e8f1ff; }
