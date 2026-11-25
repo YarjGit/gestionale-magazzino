@@ -230,8 +230,8 @@
       <div class="table-wrap">
         <table>
           <thead><tr>${conInevasi ? '<th class="chk solo-mod" title="Spunta gli inevasi da mandare"></th>' : ""}<th>#</th><th>Articolo</th>${conInevasi ? "<th>Ordine</th>" : ""}${daOrdine ? `<th class="num" title="${ricevente ? "Quantità che avete ordinato" : "Quantità ordinata ancora da mandare"}">Ordinata</th>` : ""}<th class="num" title="Giacenza di questa sede">Giac. qui</th>
-            ${/* chi riceve legge "Ricevuto" e "Mancano"; chi prepara "Da mandare" e "Inevaso" */
-              ricevente ? '<th class="num" title="Pezzi che vi hanno mandato in questo trasferimento">Ricevuto</th>' : '<th class="num">Da mandare</th>'}${daOrdine ? (ricevente ? '<th class="num" title="Ordinati ma non mandati questa volta: arriveranno più avanti (inevasi)">Mancano</th>' : '<th class="num" title="Quello che non si manda resta negli inevasi">Inevaso</th>') : ""}<th class="num">Costo</th><th class="num">Totale</th><th class="solo-mod" style="width:40px"></th></tr></thead>
+            ${/* chi riceve legge "Ricevuti" e "Mancano"; chi prepara "Da mandare" e "Inevaso" */
+              ricevente ? '<th class="num" title="Pezzi che vi hanno mandato in questo trasferimento">Ricevuti</th>' : '<th class="num">Da mandare</th>'}${daOrdine ? (ricevente ? '<th class="num" title="Ordinati ma non mandati questa volta: arriveranno più avanti (inevasi)">Mancano</th>' : '<th class="num" title="Quello che non si manda resta negli inevasi">Inevaso</th>') : ""}<th class="num">Costo</th><th class="num">Totale</th><th class="solo-mod" style="width:40px"></th></tr></thead>
           <tbody id="righe"></tbody>
         </table>
       </div>
