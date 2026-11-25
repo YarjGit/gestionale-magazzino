@@ -217,7 +217,7 @@
             <div class="nota-calcolo" id="notaCalcolo"></div>
           </div>
           <div class="det-destra">
-            ${campo("", `Fornitori${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select><div style="height:8px"></div><select class="mod" id="forn2">${opzFornitori(art.forn2)}</select>`)}
+            ${campo("", `Fornitore${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select>`)}
             <div class="det-due">
               ${campo("", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}"><span id="barcodeSvg"></span></div>`, "si può sparare con la pistola")}
             </div>
@@ -284,7 +284,8 @@
   function avvia() {
   disegnaPagina();
   // Fornitori: si cercano scrivendo nome o codice (js/cerca-fornitore.js)
-  campiForn = ["forn1", "forn2"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
+  // un solo fornitore (il secondo del vecchio gestionale non si usa: se c'è resta salvato nel database)
+  campiForn = ["forn1"].map(id => campoCercaFornitore($(id), () => FORN, { vuoto: "Nessuno" }));
 
   // ---------- Schede ----------
   $("schede").onclick = e => {
@@ -447,7 +448,7 @@
     const dati = {
       codice: $("codice").value.trim(), descrizione: $("descr").value.trim(), barcode: testo("barcode"),
       attivo: !$("disattivato").checked, aliquota_iva: art.iva,
-      fornitore_id: uuid($("forn1").value), fornitore2_id: uuid($("forn2").value),
+      fornitore_id: uuid($("forn1").value),
       costo_lordo: art.costoLordo, sconto: art.sconto, costo_netto: c.costoNetto,
       prezzo_vendita: c.prezzoVendita, prezzo_vendita_ivato: c.etichetta,
       scorta_minima: Math.max(0, Math.round(+$("fScorta").value || 0)), anno_listino: +$("fAnnoListino").value || null,
