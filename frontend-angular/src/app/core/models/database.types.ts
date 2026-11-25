@@ -298,6 +298,42 @@ export interface RpcFunzioni {
   salva_movimento: { args: { p_id: number | null; p_mov: MovimentoDaSalvare; p_righe: RigaDaSalvare[] }; ritorno: number };
   /** Ordine da cliente → scarico a cliente (una volta sola). Restituisce l'id dello scarico. */
   scala_ordine_cliente: { args: { p_ordine: number }; ritorno: number };
+
+  // --- database/33-funzioni-sicure.sql ---
+  /** Salva un movimento e mette "Evaso" gli ordini indicati nella stessa transazione (trasferimento da ordine, carico). */
+  salva_movimento_ed_evadi: { args: { p_id: number | null; p_mov: MovimentoDaSalvare; p_righe: RigaDaSalvare[]; p_evadi: number[] }; ritorno: number };
+  /** La sede che riceve conferma l'arrivo di un trasferimento (la merce entra nella sua giacenza). */
+  conferma_ricezione: { args: { p_id: number }; ritorno: null };
+  /** Annulla un movimento; un trasferimento già ricevuto non si annulla; controllo giacenza. */
+  annulla_movimento: { args: { p_id: number }; ritorno: null };
+  /** Cancella in tutto o in parte un inevaso (resta registrato). */
+  annulla_inevaso: { args: { p_riga: number; p_quantita: number; p_motivo: string }; ritorno: null };
+  /** Ordine scalato: si aggiornano solo i dati del documento. */
+  aggiorna_documento_movimento: { args: { p_id: number; p_dati: Partial<Movimento> }; ritorno: null };
+  /** Conferma l'inventario calcolando le differenze nel database. */
+  conferma_inventario: { args: { p_id: number }; ritorno: { contati: number; eliminati: number; non_disattivati: string[] } };
+  salva_articolo: { args: { p_id: string | null; p_dati: Partial<Articolo>; p_versione: string | null }; ritorno: string };
+  salva_fornitore: { args: { p_id: string | null; p_dati: Partial<Fornitore>; p_sedi: SedeId[] | null }; ritorno: string };
+  salva_cliente: { args: { p_id: string | null; p_dati: Partial<Cliente> }; ritorno: string };
+  salva_utente: { args: { p_email: string; p_dati: Partial<Pick<UtenteAutorizzato, 'nome' | 'ruoli' | 'bloccato' | 'sedi'>>; p_nuovo: boolean }; ritorno: null };
+  registra_evento: { args: { p_attivita: string; p_dettagli: string; p_sede: string | null; p_dispositivo: string | null }; ritorno: null };
+  /** Giacenze di una sede, una pagina alla volta (con il totale delle righe in ogni riga). */
+  giacenze_sede: {
+    args: { p_sede: SedeId; p_cerca: string | null; p_solo_presenti: boolean; p_sotto_scorta: boolean; p_da: number; p_quanti: number };
+    ritorno: GiacenzaSedeRiga[];
+  };
+}
+
+export interface GiacenzaSedeRiga {
+  articolo_id: string;
+  codice: string;
+  descrizione: string;
+  barcode: string | null;
+  costo_netto: Numerico;
+  prezzo_vendita_ivato: Numerico;
+  scorta_minima: number;
+  quantita: Numerico;
+  totale: number;
 }
 
 export type NomeRpc = keyof RpcFunzioni;

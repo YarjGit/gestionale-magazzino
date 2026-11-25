@@ -1,8 +1,21 @@
 import type { Routes } from '@angular/router';
+import { authGuard, sedeGuard } from './core/guards/guards';
+import { Shell } from './core/layout/shell';
 
-// Le schermate si aggiungono qui una alla volta (MIGRAZIONE.md). Quelle con dati useranno authGuard e sedeGuard
-// (core/guards/guards.ts) e il caricamento pigro: loadComponent: () => import('./features/…').then(m => m.…).
+// Schermate migrate (MIGRAZIONE.md). Le pagine interne stanno dentro l'ossatura (Shell) e richiedono accesso e sede.
 export const routes: Routes = [
-  { path: '', loadComponent: () => import('./features/avvio/avvio').then(m => m.Avvio) },
+  { path: 'accesso', loadComponent: () => import('./features/accesso/accesso').then(m => m.Accesso) },
+  { path: 'non-autorizzato', loadComponent: () => import('./features/accesso/non-autorizzato').then(m => m.NonAutorizzato) },
+  { path: 'scegli-sede', canActivate: [authGuard], loadComponent: () => import('./features/accesso/scegli-sede').then(m => m.ScegliSede) },
+  {
+    path: '',
+    component: Shell,
+    canActivate: [authGuard, sedeGuard],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: 'caricamento', loadComponent: () => import('./features/vuota').then(m => m.Vuota) },
+      { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard) }
+    ]
+  },
   { path: '**', redirectTo: '' }
 ];

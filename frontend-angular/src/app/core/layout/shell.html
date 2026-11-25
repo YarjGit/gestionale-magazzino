@@ -1,0 +1,99 @@
+<div class="overlay" (click)="menuMobile.set(false)"></div>
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M7 20v-7h10v7"/><path d="M7 16h10"/></svg></div>
+    <span class="brand-name">Gestione Magazzino</span>
+    <button class="collapse-btn" title="Riduci menu" (click)="mini.set(!mini())">«</button>
+  </div>
+  <nav class="nav">
+    @for (s of menu; track s.id) {
+      @if (!s.gruppi) {
+        <div class="nav-item">
+          <a class="nav-link" [class.active]="attiva(s.route)" [routerLink]="s.route" [title]="s.label">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [innerHTML]="icone[s.icona]"></svg>
+            <span class="label">{{ s.label }}</span>
+          </a>
+        </div>
+      } @else {
+        <div class="nav-item" [class.open]="sezioneAperta(s)">
+          <button class="nav-link" [title]="s.label" (click)="apriChiudi(s)">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [innerHTML]="icone[s.icona]"></svg>
+            <span class="label">{{ s.label }}</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="submenu">
+            @for (g of s.gruppi; track $index) {
+              @if (g.titolo) { <div class="sub-group">{{ g.titolo }}</div> }
+              @for (v of g.voci; track v.label) {
+                <a href="#" [class.active]="attiva(v.route)" [class.futuro]="v.futuro || v.inArrivo" (click)="vai(v, $event)" [title]="v.futuro ?? (v.inArrivo ? 'Si farà più avanti' : v.label)">
+                  {{ v.label }}
+                  @if (v.futuro) { <span class="tag-futuro">in futuro</span> }
+                  @if (v.inArrivo) { <span class="tag-futuro">in arrivo</span> }
+                </a>
+              }
+            }
+          </div>
+        </div>
+      }
+    }
+  </nav>
+  <div class="side-foot">Versione Angular · in prova</div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="menu-btn" aria-label="Apri menu" (click)="menuMobile.set(true)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div class="sede-wrap" [class.open]="menuSedi()">
+      <button class="sede" title="Cambia sede" [style.background]="coloreSede()" [style.color]="testoSede()" (click)="menuSedi.set(!menuSedi())">
+        <svg width="16" height="16" style="flex:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+        <span>{{ sede.sede()?.nome ?? 'Scegli la sede' }}</span>
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="sedi-menu">
+        <input class="sedi-search" type="search" placeholder="Cerca sede…" [value]="cercaSede()" (input)="cercaSede.set(testo($event))">
+        <div class="sedi-grid">
+          <div class="sedi-gruppo">Sedi attive</div>
+          @for (s of sediFiltrate(); track s.id) {
+            @if (s.attiva) {
+              <button [class.plain]="!s.colore" [class.current]="s.id === sede.sedeId()" [style.background]="s.colore" [style.color]="coloreTesto(s.colore)" (click)="scegliSede(s)">{{ s.nome }}</button>
+            }
+          }
+          @for (s of sediFiltrate(); track s.id) {
+            @if (!s.attiva) {
+              <span class="sede-spenta" title="Non ancora attiva"><i [style.background]="s.colore ?? '#dfe4ec'"></i>{{ s.nome }}</span>
+            }
+          }
+        </div>
+      </div>
+    </div>
+    <span class="spacer"></span>
+    <div class="user" [class.open]="menuUtente()">
+      <button class="user-btn" (click)="menuUtente.set(!menuUtente())"><span class="avatar">{{ iniziali() }}</span><span class="user-name">{{ nomeUtente() }}</span></button>
+      <div class="user-menu">
+        <a href="#" (click)="$event.preventDefault(); menuUtente.set(false); menuSedi.set(true)">Cambia sede</a>
+        <a href="#" (click)="$event.preventDefault(); esci()">Esci</a>
+      </div>
+    </div>
+  </header>
+  <main class="content"><router-outlet /></main>
+</div>
+
+@if (avvisi.corrente(); as a) {
+  <div class="toast show" [class.errore]="a.errore">{{ a.testo }}</div>
+}
+
+@if (chiedi(); as v) {
+  <div class="modal-bg show">
+    <div class="modal" role="dialog" aria-label="Lavoro non salvato" style="width:min(520px,100%)">
+      <h2>Stai lavorando su questa scheda</h2>
+      <p>Ci sono modifiche non ancora salvate. Come vuoi aprire <b>{{ v.label }}</b>?</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary" (click)="sceltaModifiche('nuova')">↗ Aprila in una scheda nuova (questo lavoro resta qui com'è)</button>
+        <button class="btn btn-light" (click)="sceltaModifiche('vai')">Vai lì e lascia perdere le modifiche non salvate</button>
+        <button class="btn btn-light" (click)="sceltaModifiche('resta')">Resta qui</button>
+      </div>
+    </div>
+  </div>
+}
