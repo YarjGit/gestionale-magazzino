@@ -423,7 +423,8 @@
     pulsanti.forEach(b => b.disabled = true);
     try {
       // numero di bolla progressivo dell'anno, se non è scritto a mano
-      const numBolla = testo("fNumBolla") || await prossimaBollaClienteDb(db, sedeId, dataBolla.slice(0, 4));
+      // numero di bolla vuoto = lo assegna il database (salva_movimento), senza doppioni anche se due sedi salvano insieme
+      const numBolla = testo("fNumBolla");
       const dati = {
         tipo: TIPO, stato: $("selStato").value, sede_id: sedeId, cliente_id: $("fCliente").value, fornitore_id: null,
         data_movimento: $("fData").value || oggi, data_documento: $("fData").value || oggi, numero_documento: numBolla, data_bolla: dataBolla,
@@ -435,7 +436,7 @@
       let id = ord.id;
       if (righeBloccate()) {
         // ordine già scalato: si salvano solo i dati del documento, le righe restano quelle collegate allo scarico
-        const { error } = await db.from("movimenti").update({ ...dati, stato: movDb.stato === "Evaso" && dati.stato !== "Annullato" ? "Evaso" : dati.stato, modificato_il: new Date().toISOString() }).eq("id", id);
+        const { error } = await db.from("movimenti").update({ ...dati, ...(dati.numero_documento ? {} : { numero_documento: movDb.numero_documento }), stato: movDb.stato === "Evaso" && dati.stato !== "Annullato" ? "Evaso" : dati.stato, modificato_il: new Date().toISOString() }).eq("id", id);
         if (error) throw error;
       } else {
         id = await salvaMovimentoDb(db, dati, lista.map(r => ({
@@ -444,7 +445,7 @@
           ...(r.ordineRigaId ? { ordine_riga_id: r.ordineRigaId } : {})
         })), ord.id);
       }
-      avviso(`${SCARICO ? "Scarico" : "Ordine"} salvato · bolla ${numBolla}`);
+      avviso(`${SCARICO ? "Scarico" : "Ordine"} salvato${numBolla ? " · bolla " + numBolla : ": numero di bolla assegnato"}`);
       setTimeout(() => location.replace(chiudi ? ELENCO : `ordine-cliente.html?db=${id}`), 900);
       return;
     } catch (err) {

@@ -85,6 +85,10 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - **Attività Utenti** (`attivita-utenti.html`, `database/24-registro-attivita.sql`): tabella `registro_attivita` (solo lettura e aggiunta).
   Le modifiche a movimenti, articoli, fornitori, clienti, fornitori delle sedi e utenti le annota il database (trigger `registra`, mail dal login);
   accessi (una volta per login), uscite, scelta sede, stampa etichette, DDT ed Excel con `registra(attivita, dettagli)` di `layout.js`.
+- **Regole nel database** (`database/27-funzioni-movimenti.sql`, 25/11/2026): `salva_movimento(id, movimento, righe)` salva tutto o niente, blocca la giacenza
+  sotto zero (o più sotto di prima) nella sede del movimento e dà il numero di bolla "N/anno" con un lucchetto (niente doppioni); `scala_ordine_cliente(ordine)`
+  crea lo scarico una volta sola e mette l'ordine in Evaso. `salvaMovimentoDb` le usa e, se non ci sono ancora, salva come prima.
+  Edge Functions di Supabase: solo quando servono (collegamento e-commerce, email), per ora nessuna.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 
 ## Struttura

@@ -193,8 +193,24 @@ async function leggiMovimentoDb(db, id, sedeId) {
 // Salva un movimento: nuovo (id vuoto) o esistente (le righe vengono sostituite).
 // mov: campi della tabella movimenti; righe: [{ articolo_id, quantita, quantita_ordinata, prezzo, sconto, etichette }]
 // Restituisce l'id del movimento.
+// Di solito salva con la funzione del database salva_movimento (database/27-funzioni-movimenti.sql): tutto o niente,
+// controllo della giacenza e numero di bolla dati dal database. Se la funzione non c'è ancora, salva come prima.
+let funzioniDbAssenti = false;
+const funzioneMancante = e => e && (e.code === "PGRST202" || e.code === "42883" || /Could not find the function/i.test(e.message || ""));
 async function salvaMovimentoDb(db, mov, righe, id) {
+  if (!funzioniDbAssenti) {
+    const { data, error } = await db.rpc("salva_movimento", { p_id: id || null, p_mov: mov, p_righe: righe });
+    if (!error) return data;
+    if (!funzioneMancante(error)) throw error;
+    funzioniDbAssenti = true;
+  }
+  return salvaMovimentoVecchio(db, mov, righe, id);
+}
+async function salvaMovimentoVecchio(db, mov, righe, id) {
   const nuovo = !id;
+  // senza la funzione del database il numero di bolla vuoto lo calcola la pagina
+  if (["ordine_cliente", "scarico_cliente"].includes(mov.tipo) && !mov.numero_documento)
+    mov = { ...mov, numero_documento: await prossimaBollaClienteDb(db, mov.sede_id, String(mov.data_bolla || mov.data_movimento || new Date().toISOString()).slice(0, 4)) };
   if (id) {
     const { error } = await db.from("movimenti").update({ ...mov, modificato_il: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
@@ -239,7 +255,13 @@ async function scaricoDiOrdineDb(db, ordineRigaIds) {
   return s ? s.movimenti.id : null;
 }
 async function scaricaOrdineClienteDb(db, ordine, righe) {
-  return salvaMovimentoDb(db, {
+  // con la funzione del database: scarico + ordine Evaso tutto insieme, e mai due volte
+  if (!funzioniDbAssenti) {
+    const { data, error } = await db.rpc("scala_ordine_cliente", { p_ordine: ordine.id });
+    if (!error) return data;
+    if (!funzioneMancante(error)) throw error;
+  }
+  return salvaMovimentoVecchio(db, {
     tipo: "scarico_cliente", stato: "Definitivo", sede_id: ordine.sede_id, cliente_id: ordine.cliente_id,
     data_movimento: new Date().toISOString().slice(0, 10), data_documento: ordine.data_bolla || ordine.data_movimento,
     numero_documento: ordine.numero_documento, data_bolla: ordine.data_bolla, causale: `Scarico dell'ordine da cliente #${ordine.id}`, spese: 0
