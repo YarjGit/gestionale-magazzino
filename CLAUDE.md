@@ -95,6 +95,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   (`_versione` = `modificato_il` letto, in `VERSIONI_MOV` di `movimenti-db.js`; se un altro ha salvato prima: `CONFLITTO`, niente sovrascrittura) e tiene una sola giornata
   di vendite per giorno (`GIORNATA_ESISTE|id`, salvo nota " – "). In `vendita.html` `unisciAllaGiornata` aggiunge da solo i propri articoli alla giornata dell'altro
   (i colleghi vendono articoli diversi, quindi non si scontrano). Colonna `modificato_da`.
+- `diminuzione.html` (come `aumento.html`): merce che esce senza vendita né trasferimento (rotta, mancante all'inventario, smarrita, uso interno, altro);
+  niente anno (esce dal lotto più vecchio), niente etichette, non più pezzi di quelli in giacenza.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
   Schede Giacenza / Giacenza altre sedi / Movimenti calcolate dai movimenti veri (`caricaGiacenzaVera`): lotti per anno di acquisto,
   le uscite tolgono dal lotto più vecchio; In arrivo (ordini definitivi non caricati + inevasi), Prenotati (ordini clienti), Disponibile previsto.

@@ -54,7 +54,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
 const TIPI_DB = [
   ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
   ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
-  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["diminuzione_giacenza", "Diminuzione Giacenza", "diminuzione.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
 ];
 async function elencoTuttiMovimentiDb(db, sedeId) {
   const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>

@@ -16,11 +16,15 @@
 <script src="js/layout.js"></script>
 <script src="js/elenco.js"></script>
 <script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
 <script>
-  // Rettifica in diminuzione: nessun cliente né fornitore, la causale spiega il motivo
-  avviaElenco({
+  // Rettifica in diminuzione: nessun cliente né fornitore. Merce rotta, mancante all'inventario, smarrita, uso interno.
+  const elenco = avviaElenco({
     titolo: "Diminuzione Giacenza",
     nuovo: "Nuova diminuzione",
+    nota: "➖ Per la merce che esce <b>senza essere venduta né trasferita</b>: rotta, mancante all'inventario, smarrita, usata internamente. Quando è <b>definitiva</b> la merce esce dalla giacenza di questa sede (dal lotto più vecchio).",
+    dettaglio: "diminuzione.html",
     csv: "diminuzione-giacenza",
     stati: [STATO.definitivo, STATO.provvisorio, STATO.annullato],
     statiBarrati: ["Annullato"],
@@ -36,6 +40,13 @@
     ],
     dati: []
   });
+
+  // Dopo l'accesso: le diminuzioni salvate nel database
+  dbPronto.then(async db => {
+    if (!db) return;
+    const righe = await elencoMovimentiDb(db, "diminuzione_giacenza", ID_SEDI_DB[trovaSede(leggiSede()).nome], "diminuzione.html");
+    if (righe.length) elenco.aggiungi(righe);
+  }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
 </body>
 </html>
