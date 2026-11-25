@@ -221,6 +221,8 @@
 
 <script src="js/sedi.js"></script>
 <script>
+  // Il prezzo in etichetta è sempre ai 10 centesimi (fino a 10,04 → 10,00; da 10,05 → 10,10): mai 10,03
+  const prezzoDieci = p => Math.round(Math.round((+p || 0) * 100) / 10) / 10;
   // Arrivando dalla pagina Articoli (?da=articoli o ?cod=…) nel menu resta evidenziato "Articoli"
   if (/[?&](da=articoli|cod=)/.test(location.search)) document.body.dataset.page = "articoli";
 </script>
@@ -374,7 +376,7 @@
     return `<div class="cella">
       ${o.codice ? `<div class="c">${esc(a.codice)}</div>` : ""}
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
-      <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(a.prezzo)}</span>` : ""}</div>
+      <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(prezzoDieci(a.prezzo))}</span>` : ""}</div>
       <div class="barre">${barcodeSvg(a.barcode)}${o.numero ? `<span class="n">${a.barcode}</span>` : ""}</div>
     </div>`;
   }
@@ -394,7 +396,7 @@
         <td><div class="testo-lungo" style="max-width:360px">${esc(r.art.descr)}</div></td>
         <td><span class="bc">${r.art.barcode}<span class="tipo${eanValido(r.art.barcode) ? "" : " c128"}" title="${eanValido(r.art.barcode) ? "" : "La cifra di controllo non è da EAN-13: stampato come Code 128"}">${tipoBarcode(r.art.barcode)}</span></span></td>
         <td class="num">${numero(r.art.costo)}</td>
-        <td class="num"><b>${numero(r.art.prezzo)}</b></td>
+        <td class="num"><b>${numero(prezzoDieci(r.art.prezzo))}</b></td>
         <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div></td>
         <td><button class="icon-btn" data-togli="${i}" title="Togli">✕</button></td>
       </tr>`).join("")

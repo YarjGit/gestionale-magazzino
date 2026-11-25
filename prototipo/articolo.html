@@ -139,6 +139,9 @@
   }
   // Proposta di arrotondamento all'euro superiore (es. 53,91 → 54,00, arrotondamento 0,09)
   const arrotondaEuro = conIva => cent(Math.ceil(conIva - 0.001) - conIva);
+  // Arrotondamento ai 10 centesimi del prezzo finale: fino a 10,04 → 10,00; da 10,05 → 10,10
+  const arrotondaDieci = conIva => cent(Math.round(Math.round(conIva * 100) / 10) / 10 - conIva);
+  const arrotonda = () => { art.arrotondamento = arrotondaDieci(calcola(art).conIva); };
   art.arrotondamento = base ? cent(base.prezzo - calcola(art).conIva) : 0;
 
   // ---------- Pagina ----------
@@ -332,12 +335,14 @@
       $("ricarico").value = percento(art.ricarico);
       const giu = cent(prima.costoIva - calcola(art).costoIva);
       if (giu) avviso(`Prezzo finale invariato (${euro(prima.etichetta)}) · prezzo inventario ${giu > 0 ? "più basso" : "più alto"} di ${euro(Math.abs(giu))}`);
-    }
+    } else arrotonda();   // il prezzo cambia: si arrotonda ai 10 centesimi
     aggiornaCalcolo();
   }));
   // Prezzo finale scritto a mano: la differenza dal prezzo con IVA è l'arrotondamento
   $("finale").addEventListener("change", () => {
-    art.arrotondamento = cent(cent(num($("finale").value)) - calcola(art).conIva);
+    // anche scritto a mano il prezzo va ai 10 centesimi (10,03 → 10,00)
+    const scritto = Math.round(Math.round(num($("finale").value) * 100) / 10) / 10;
+    art.arrotondamento = cent(scritto - calcola(art).conIva);
     aggiornaCalcolo();
   });
   // 🧮 ricalcola il ricarico in modo che il prezzo finale venga senza arrotondamento
@@ -349,7 +354,7 @@
     $("ricarico").value = percento(art.ricarico);
     aggiornaCalcolo();
   };
-  $("iva").onchange = () => { art.iva = $("iva").value; aggiornaCalcolo(); };
+  $("iva").onchange = () => { art.iva = $("iva").value; arrotonda(); aggiornaCalcolo(); };
   $("btnArrot").onclick = () => { art.arrotondamento = cent(art.arrotondamento + arrotondaEuro(calcola(art).etichetta)); aggiornaCalcolo(); };
 
   // Barcode vero (EAN-13 o Code 128) accanto al campo
