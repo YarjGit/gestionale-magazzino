@@ -263,9 +263,9 @@
       <!-- GIACENZA -->
       <div class="pannello-tab" id="tab-giacenza" hidden>
         <div class="nota-viola">📦 La merce è divisa per <b>anno di acquisto</b> (le vendite tolgono prima dal lotto più vecchio).
-          <b>Iniziale</b> = pezzi a inizio ${new Date().getFullYear()}, <b>Caricata</b> e <b>Scaricata</b> = entrati e usciti quest'anno, <b>Finale</b> = pezzi di oggi.</div>
+          <b>Iniziale</b> = pezzi a inizio ${new Date().getFullYear()}, <b>Caricata</b> = entrati quest'anno, <b>Venduta</b> = venduti quest'anno, <b>Finale</b> = pezzi di oggi.</div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Anno di acquisto</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Scaricata</th><th class="num">Finale</th></tr></thead>
+          <thead id="testaGiac"><tr><th>Anno di acquisto</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Venduta</th><th class="num">Finale</th></tr></thead>
           <tbody id="righeGiac"></tbody>
           <tfoot id="totGiac"></tfoot>
         </table></div>
@@ -601,7 +601,7 @@
     const sedeId = ID_SEDI_DB[sedeLavoro];
     const ev = eventi(sedeId);
     const lotti = new Map();
-    const lotto = a => { if (!lotti.has(a)) lotti.set(a, { anno: a, car: 0, sca: 0, rem: 0 }); return lotti.get(a); };
+    const lotto = a => { if (!lotti.has(a)) lotti.set(a, { anno: a, car: 0, ven: 0, alt: 0, rem: 0 }); return lotti.get(a); };
     const inizio = `${anno}-01-01`;
     let g = 0;
     ev.forEach(e => {
@@ -610,24 +610,30 @@
         const quest = e.data >= inizio;
         if (e.q > 0) { const l = lotto(e.lotto); l.rem += e.q; if (quest) l.car += e.q; e.lotti = [e.lotto]; }
         else {
+          // vendite (giornaliere e ai clienti) da una parte, le altre uscite (trasferimenti, diminuzioni, resi) dall'altra
+          const k = ["vendite_giornaliere", "scarico_cliente"].includes(e.m.tipo) ? "ven" : "alt";
           let resta = -e.q; e.lotti = [];
           [...lotti.values()].sort((x, y) => x.anno - y.anno).forEach(l => {
             const x = Math.min(resta, Math.max(0, l.rem));
-            if (x > 0) { l.rem -= x; if (quest) l.sca += x; resta -= x; e.lotti.push(l.anno); }
+            if (x > 0) { l.rem -= x; if (quest) l[k] += x; resta -= x; e.lotti.push(l.anno); }
           });
           // più uscite che entrate (giacenza sotto zero): si toglie dall'anno in corso
-          if (resta > 0) { const l = lotto(anno); l.rem -= resta; if (quest) l.sca += resta; e.lotti.push(anno); }
+          if (resta > 0) { const l = lotto(anno); l.rem -= resta; if (quest) l[k] += resta; e.lotti.push(anno); }
         }
         g += e.q;
       }
       e.dopo = g;
     });
-    const lista = [...lotti.values()].map(l => ({ ...l, ini: l.rem - l.car + l.sca })).filter(l => l.ini || l.car || l.sca || l.rem).sort((x, y) => x.anno - y.anno);
+    const lista = [...lotti.values()].map(l => ({ ...l, ini: l.rem - l.car + l.ven + l.alt })).filter(l => l.ini || l.car || l.ven || l.alt || l.rem).sort((x, y) => x.anno - y.anno);
+    // "Altre uscite" (trasferimenti mandati, diminuzioni…) si vede solo se ce ne sono, così i conti tornano: Finale = Iniziale + Caricata − Venduta − Altre uscite
+    const conAltre = lista.some(l => l.alt);
+    $("testaGiac").innerHTML = `<tr><th>Anno di acquisto</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Venduta</th>${conAltre ? '<th class="num" title="Trasferimenti ad altre sedi, diminuzioni di giacenza, resi">Altre uscite</th>' : ""}<th class="num">Finale</th></tr>`;
+    const meno = v => v ? "−" + q2(v) : 0;
     $("righeGiac").innerHTML = lista.length ? lista.map(l => `<tr><td><b>${l.anno}</b></td><td class="num">${q2(l.ini)}</td>
-        <td class="num piu">${l.car ? "+" + q2(l.car) : 0}</td><td class="num meno">${l.sca ? "−" + q2(l.sca) : 0}</td><td class="num"><b>${q2(l.rem)}</b></td></tr>`).join("")
-      : `<tr><td colspan="5"><div class="vuoto"><b>Mai movimentato in ${esc(sedeLavoro)}</b><span>Nessun carico, vendita o trasferimento di questo articolo qui.</span></div></td></tr>`;
+        <td class="num piu">${l.car ? "+" + q2(l.car) : 0}</td><td class="num meno">${meno(l.ven)}</td>${conAltre ? `<td class="num meno">${meno(l.alt)}</td>` : ""}<td class="num"><b>${q2(l.rem)}</b></td></tr>`).join("")
+      : `<tr><td colspan="6"><div class="vuoto"><b>Mai movimentato in ${esc(sedeLavoro)}</b><span>Nessun carico, vendita o trasferimento di questo articolo qui.</span></div></td></tr>`;
     const somma = k => lista.reduce((t, l) => t + l[k], 0);
-    $("totGiac").innerHTML = lista.length > 1 ? `<tr class="riga-inizio"><td>Totale</td><td class="num">${q2(somma("ini"))}</td><td class="num">+${q2(somma("car"))}</td><td class="num">−${q2(somma("sca"))}</td><td class="num">${q2(somma("rem"))}</td></tr>` : "";
+    $("totGiac").innerHTML = lista.length > 1 ? `<tr class="riga-inizio"><td>Totale</td><td class="num">${q2(somma("ini"))}</td><td class="num">+${q2(somma("car"))}</td><td class="num">${meno(somma("ven"))}</td>${conAltre ? `<td class="num">${meno(somma("alt"))}</td>` : ""}<td class="num">${q2(somma("rem"))}</td></tr>` : "";
     const p = previsti(sedeId, ev);
     $("previsto").innerHTML = `<div><small>Giacenza oggi</small><b>${q2(p.giac)}</b></div>
       <div><small>In arrivo (ordinati, non ancora arrivati)</small><b>${p.inArrivo ? "+" + q2(p.inArrivo) : 0}</b></div>
