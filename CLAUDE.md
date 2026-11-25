@@ -96,6 +96,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   di vendite per giorno (`GIORNATA_ESISTE|id`, salvo nota " – "). In `vendita.html` `unisciAllaGiornata` aggiunge da solo i propri articoli alla giornata dell'altro
   (i colleghi vendono articoli diversi, quindi non si scontrano). Colonna `modificato_da`.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
+  Schede Giacenza / Giacenza altre sedi / Movimenti calcolate dai movimenti veri (`caricaGiacenzaVera`): lotti per anno di acquisto,
+  le uscite tolgono dal lotto più vecchio; In arrivo (ordini definitivi non caricati + inevasi), Prenotati (ordini clienti), Disponibile previsto.
   Scheda Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo) salvate in `articoli.materiali` (`database/30-materiali-articoli.sql`).
 
 ## Struttura
