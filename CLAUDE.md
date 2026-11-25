@@ -98,6 +98,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
   Schede Giacenza / Giacenza altre sedi / Movimenti calcolate dai movimenti veri (`caricaGiacenzaVera`): lotti per anno di acquisto,
   le uscite tolgono dal lotto più vecchio; In arrivo (ordini definitivi non caricati + inevasi), Prenotati (ordini clienti), Disponibile previsto.
+  Barcode: quello del produttore si spara con la pistola; se è vuoto, al salvataggio (o con "Genera") si crea un EAN-13 nuovo e univoco
+  della serie interna 200 + progressivo (da cambiare se si scopre che 8030969 è il codice azienda GS1).
   Scheda Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo) salvate in `articoli.materiali` (`database/30-materiali-articoli.sql`).
 
 ## Struttura

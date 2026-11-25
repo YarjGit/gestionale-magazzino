@@ -232,7 +232,8 @@
           <div class="det-destra">
             ${campo("", `Fornitore${art.fornDedotto ? '<span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span>' : ""}`, `<select class="mod" id="forn1">${opzFornitori(art.forn1)}</select>`)}
             <div class="det-due">
-              ${campo("", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}"><span id="barcodeSvg"></span></div>`, "si può sparare con la pistola")}
+              ${campo("", "Barcode", `<div class="barcode-box"><input class="mod" id="barcode" value="${esc(art.barcode)}" placeholder="vuoto = lo crea il gestionale"><button class="btn btn-light solo-mod" id="btnGeneraBc" type="button" title="Crea un barcode nuovo, mai usato">⚙ Genera</button><span id="barcodeSvg"></span></div>`,
+                "se il prodotto ha già il barcode del produttore, sparalo con la pistola; se no lascia vuoto: al salvataggio il gestionale ne crea uno nuovo, mai usato")}
             </div>
             <div class="det-due">
               ${campo("", "Anno listino", `<input class="mod" id="fAnnoListino" value="${esc(art.annoListino)}" style="text-align:right">`)}
@@ -422,6 +423,10 @@
   // Barcode vero (EAN-13 o Code 128) accanto al campo
   const disegnaBarcode = () => { $("barcodeSvg").innerHTML = $("barcode").value.trim() ? barcodeSvg($("barcode").value.trim(), 38) : ""; };
   $("barcode").oninput = disegnaBarcode;
+  $("btnGeneraBc").onclick = async () => {
+    if ($("barcode").value.trim() && !confirm("C'è già un barcode: sostituirlo con uno nuovo creato dal gestionale?")) return;
+    try { const c = await generaBarcode(); if (c) avviso(`Barcode nuovo: ${c}`); } catch (err) { avviso("Errore nel creare il barcode: " + err.message); }
+  };
   disegnaBarcode(); scriviPrezzi();
 
   // ---------- Giacenza, altre sedi, movimenti: si leggono dal database (caricaGiacenzaVera, più sotto) ----------
@@ -476,6 +481,9 @@
     const scelto = nome => (document.querySelector(`input[name="${nome}"]:checked`) || {}).value || null;
     const testo = id => $(id).value.trim() || null;
     const c = calcola(art);
+    if (!$("barcode").value.trim()) {
+      try { await generaBarcode(); } catch (err) { avviso("Errore nel creare il barcode: " + err.message); return; }
+    }
     const dati = {
       codice: $("codice").value.trim(), descrizione: $("descr").value.trim(), barcode: testo("barcode"),
       attivo: !$("disattivato").checked, aliquota_iva: art.iva,
@@ -660,6 +668,33 @@
         <td class="num ${e.q > 0 ? "piu" : e.q < 0 ? "meno" : ""}">${e.q > 0 ? "+" + q2(e.q) : e.q < 0 ? "−" + q2(-e.q) : ""}</td>
         <td class="num"><span class="freccia-giac">${e.q ? `${q2(e.prima)} → ${q2(e.dopo)}` : ""}</span></td><td class="num virtuale">${inOrd}</td><td class="num">${(e.lotti || []).join(", ")}</td></tr>`;
     }).join("") : `<tr><td colspan="8"><div class="vuoto"><b>Nessun movimento in ${esc(sedeLavoro)}</b></div></td></tr>`;
+  }
+
+  // ---------- Barcode nuovo, univoco ----------
+  // Serie per uso interno (codici che iniziano con 200, riservati ai negozi: non si scontrano mai con i barcode dei produttori):
+  // 200 + numero progressivo di 9 cifre + cifra di controllo = EAN-13 vero, leggibile dalla pistola.
+  const PREFISSO_BARCODE = "200";
+  async function nuovoBarcode(db) {
+    const { data, error } = await db.from("articoli").select("barcode").like("barcode", PREFISSO_BARCODE + "%")
+      .order("barcode", { ascending: false }).limit(50);
+    if (error) throw error;
+    const usati = (data || []).map(x => x.barcode).filter(b => /^\d{13}$/.test(b));
+    let n = usati.length ? +usati[0].slice(3, 12) + 1 : 1;
+    for (;; n++) {
+      const dodici = PREFISSO_BARCODE + String(n).padStart(9, "0");
+      const codice = dodici + cifraControlloEan(dodici);
+      // controllo finale: nessun altro articolo lo ha già
+      const { data: gia } = await db.from("articoli").select("id").eq("barcode", codice).limit(1);
+      if (!gia || !gia.length) return codice;
+    }
+  }
+  async function generaBarcode() {
+    const db = await dbPronto;
+    if (!db) { avviso("Per creare il barcode serve l'accesso al database"); return null; }
+    const codice = await nuovoBarcode(db);
+    $("barcode").value = codice;
+    $("barcode").dispatchEvent(new Event("input"));
+    return codice;
   }
 
   // ---------- Articolo vero dal database ----------
