@@ -225,16 +225,41 @@ function avviso(testo, errore) {
     </div>`;
   document.body.appendChild(scelta);
 
-  // ---------- Ogni voce del menu nella sua scheda del browser ----------
-  // Ogni scheda prende il nome della pagina che mostra ("gm-articoli", "gm-carico"…). Le voci del menu aprono la loro
-  // pagina nella scheda con quel nome: se c'è già si riusa, se no se ne apre una nuova. Così passando da
-  // "Aumento giacenza" a "Ordini a fornitori" la scheda in cui si stava lavorando resta com'era.
-  const nomeScheda = href => "gm-" + (href.split("?")[0].split("/").pop().replace(/\.html$/, "") || "index");
-  try { window.name = nomeScheda(location.pathname); } catch (e) {}
-  sidebar.querySelectorAll("a[href]").forEach(a => {
-    const href = a.getAttribute("href");
+  // ---------- Voci del menu: si aprono nella stessa scheda del browser ----------
+  // Se però si sta creando o modificando qualcosa (pagina "in modifica", es. un ordine non ancora salvato) si chiede:
+  // aprire la voce in una scheda nuova (il lavoro resta com'è), andarci lasciando perdere le modifiche, oppure restare.
+  const chiedi = document.createElement("div");
+  chiedi.className = "modal-bg";
+  chiedi.innerHTML = `
+    <div class="modal" role="dialog" aria-label="Lavoro non salvato" style="width:min(520px,100%)">
+      <h2>Stai lavorando su questa scheda</h2>
+      <p>Ci sono modifiche non ancora salvate. Come vuoi aprire <b id="chiediDove"></b>?</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary" data-scelta="nuova">↗ Aprila in una scheda nuova (questo lavoro resta qui com'è)</button>
+        <button class="btn btn-light" data-scelta="vai">Vai lì e lascia perdere le modifiche non salvate</button>
+        <button class="btn btn-light" data-scelta="resta">Resta qui</button>
+      </div>
+    </div>`;
+  document.body.appendChild(chiedi);
+  let dove = null;
+  sidebar.addEventListener("click", e => {
+    const a = e.target.closest("a[href]");
+    const href = a && a.getAttribute("href");
     if (!href || href === "#" || a.classList.contains("todo") || a.classList.contains("futuro")) return;
-    a.target = nomeScheda(href);
+    if (!document.body.classList.contains("in-modifica") || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    dove = href;
+    chiedi.querySelector("#chiediDove").textContent = a.textContent.trim();
+    chiedi.classList.add("show");
+    chiedi.querySelector('[data-scelta="nuova"]').focus();
+  });
+  chiedi.addEventListener("click", e => {
+    const b = e.target.closest("[data-scelta]");
+    if (!b && e.target !== chiedi) return;
+    chiedi.classList.remove("show");
+    const scelta = b ? b.dataset.scelta : "resta";
+    if (scelta === "nuova") window.open(dove, "_blank");
+    if (scelta === "vai") { ultimoSalva = Date.now(); location.href = dove; }   // niente seconda domanda del browser
   });
 
   // Uscendo (chiudendo la scheda, tornando indietro) da una scheda in modifica il browser chiede conferma.
