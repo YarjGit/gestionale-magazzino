@@ -13,7 +13,7 @@
   /* Righe: chi si può mandare e chi resta inevaso */
   tr.manca td { background: #fff8ec; }
   .inevaso { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 6px; background: #fde4e4; color: var(--ko); font-weight: 700; text-align: center; }
-  .ok-tutto { color: var(--ok); font-weight: 700; }
+  .ok-tutto { color: var(--muted); font-weight: 600; }   /* 0 = non manca niente */
   .giac-poca { color: var(--ko); font-weight: 700; }
   .riepilogo-tr { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); }
   .riepilogo-tr b { color: var(--text); }
@@ -259,7 +259,7 @@
         ${daOrdine ? `<td class="num">${r.ordinata ?? "—"}</td>` : ""}
         <td class="num ${!salvato && giac < (r.ordinata ?? r.manda) ? "giac-poca" : ""}">${!salvato ? giac : !ricevente ? "—" : daRicevere ? `${giac} <span style="color:var(--ok);font-weight:700" title="Giacenza dopo la conferma">→ ${cent(giac + r.manda)}</span>` : giac}${spuntabile && giac > 0 ? ' <span class="disp-si" title="Adesso è in giacenza">● c\'è</span>' : ""}</td>
         <td class="num">${!attiva ? '<span style="color:var(--muted)">—</span>' : mod ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-pos="${r.pos}">−</button><input class="num-mod" data-pos="${r.pos}" value="${r.manda}"><button class="btn-riga" data-passo="1" data-pos="${r.pos}">+</button></span>` : `<b>${r.manda}</b>`}</td>
-        ${daOrdine ? `<td class="num">${r.ordinata == null ? "" : inev > 0 ? `<span class="inevaso">${inev}</span>` : '<span class="ok-tutto">✔</span>'}</td>` : ""}
+        ${daOrdine ? `<td class="num">${r.ordinata == null ? "" : inev > 0 ? `<span class="inevaso">${inev}</span>` : '<span class="ok-tutto" title="Non manca niente: tutto mandato">0</span>'}</td>` : ""}
         <td class="num">${numero(r.prezzo)}</td>
         <td class="num">${attiva ? numero(cent(r.manda * r.prezzo)) : ""}</td>
         <td class="solo-mod">${r.ordineRigaId ? "" : `<button class="btn-riga cestino" data-togli="${r.pos}" title="Togli">🗑</button>`}</td>
