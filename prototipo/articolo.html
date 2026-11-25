@@ -561,7 +561,7 @@
   // In arrivo = ordini ai fornitori definitivi non ancora caricati + ordini alle sedi ancora da mandare (vista "inevasi").
   // Prenotati = ordini dei clienti definitivi non ancora spediti. Disponibile previsto = giacenza + in arrivo − prenotati.
   const PAGINE_MOV = { carico_fornitore: "carico.html", ordine_fornitore: "ordine.html", trasferimento_a_filiale: "trasferimento.html",
-    vendite_giornaliere: "vendita.html", aumento_giacenza: "aumento.html", diminuzione_giacenza: "diminuzione.html", ordine_cliente: "ordine-cliente.html", scarico_cliente: "ordine-cliente.html" };
+    vendite_giornaliere: "vendita.html", aumento_giacenza: "aumento.html", diminuzione_giacenza: "diminuzione.html", riallineamento: "riallineamento.html", ordine_cliente: "ordine-cliente.html", scarico_cliente: "ordine-cliente.html" };
   const q2 = v => (Math.round(v * 100) / 100).toLocaleString("it-IT", { maximumFractionDigits: 2 });
   async function caricaGiacenzaVera(db, articoloId) {
     const anno = new Date().getFullYear();

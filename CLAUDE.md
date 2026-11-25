@@ -97,6 +97,11 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   (i colleghi vendono articoli diversi, quindi non si scontrano). Colonna `modificato_da`.
 - `diminuzione.html` (come `aumento.html`): merce che esce senza vendita né trasferimento (rotta, mancante all'inventario, smarrita, uso interno, altro);
   niente anno (esce dal lotto più vecchio), niente etichette, non più pezzi di quelli in giacenza.
+- **Inventario** `riallineamento.html` (`database/31-inventario.sql`, tipo "riallineamento"): tutto il magazzino o solo una parte; si sparano i pezzi
+  (in corso = Provvisorio, quantita 0 e quantita_contata); non sparati (solo "tutto"): Lascia / Modifica / Elimina (giacenza a zero e articolo
+  disattivato se le altre sedi non ne hanno); alla conferma per ogni articolo una riga −giacenza e una +contati sull'anno in corso.
+  Confermano solo amministratore e responsabile magazzino. Inventario in corso: avviso rosso in vendite, scarichi, diminuzioni, trasferimenti.
+  Gli articoli disattivati non compaiono nella ricerca né con la pistola.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
   Schede Giacenza / Giacenza altre sedi / Movimenti calcolate dai movimenti veri (`caricaGiacenzaVera`): lotti per anno di acquisto,
   le uscite tolgono dal lotto più vecchio; In arrivo (ordini definitivi non caricati + inevasi), Prenotati (ordini clienti), Disponibile previsto.

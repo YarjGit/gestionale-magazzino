@@ -40,9 +40,9 @@
   };
   const stile = a => STILE[a] || ["#f1f3f7", "#475569", "•", "altro"];
   // pagina della scheda di un movimento, dal tipo scritto nei dettagli ("carico_fornitore #12 …")
-  const PAGINA_TIPO = { diminuzione_giacenza: "diminuzione.html", carico_fornitore: "carico.html", ordine_fornitore: "ordine.html", trasferimento_a_filiale: "trasferimento.html",
+  const PAGINA_TIPO = { riallineamento: "riallineamento.html", diminuzione_giacenza: "diminuzione.html", carico_fornitore: "carico.html", ordine_fornitore: "ordine.html", trasferimento_a_filiale: "trasferimento.html",
     vendite_giornaliere: "vendita.html", aumento_giacenza: "aumento.html", ordine_cliente: "ordine-cliente.html", scarico_cliente: "ordine-cliente.html" };
-  const NOMI_TIPO = { diminuzione_giacenza: "Diminuzione giacenza", carico_fornitore: "Carico da fornitore", ordine_fornitore: "Ordine a fornitore", trasferimento_a_filiale: "Trasferimento a filiale",
+  const NOMI_TIPO = { riallineamento: "Inventario", diminuzione_giacenza: "Diminuzione giacenza", carico_fornitore: "Carico da fornitore", ordine_fornitore: "Ordine a fornitore", trasferimento_a_filiale: "Trasferimento a filiale",
     vendite_giornaliere: "Vendite giornaliere", aumento_giacenza: "Aumento giacenza", ordine_cliente: "Ordine da cliente", scarico_cliente: "Scarico a cliente", esistenza: "Giacenza iniziale" };
   const COLORI = ["#2f8bff", "#7c3aed", "#18a058", "#e58a00", "#0891b2", "#db2777", "#64748b"];
   const coloreDi = s => COLORI[[...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORI.length];

@@ -54,7 +54,7 @@ async function elencoMovimentiDb(db, tipo, sedeId, pagina, { inArrivo = false } 
 const TIPI_DB = [
   ["carico_fornitore", "Carico da Fornitore", "carico.html"], ["ordine_fornitore", "Ordine a Fornitore", "ordine.html"],
   ["trasferimento_a_filiale", "Trasferimento a Filiale", "trasferimento.html"], ["vendite_giornaliere", "Vendite Giornaliere", "vendita.html"],
-  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["diminuzione_giacenza", "Diminuzione Giacenza", "diminuzione.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
+  ["aumento_giacenza", "Aumento Giacenza", "aumento.html"], ["diminuzione_giacenza", "Diminuzione Giacenza", "diminuzione.html"], ["riallineamento", "Riallineamento (inventario)", "riallineamento.html"], ["ordine_cliente", "Ordine da Cliente", "ordine-cliente.html"], ["scarico_cliente", "Scarico a Cliente", "ordine-cliente.html"], ["esistenza", "Giacenza iniziale", null]
 ];
 async function elencoTuttiMovimentiDb(db, sedeId) {
   const gruppi = await Promise.all(TIPI_DB.map(([tipo, nome, pagina]) =>
@@ -62,6 +62,16 @@ async function elencoTuttiMovimentiDb(db, sedeId) {
   const arrivi = (await elencoMovimentiDb(db, "trasferimento_a_filiale", sedeId, "trasferimento.html", { inArrivo: true }))
     .map(r => ({ ...r, tipo: "Trasferimento da Filiale", chiave: "arr-" + r.id }));
   return gruppi.flat().concat(arrivi).sort((a, b) => (b.data || "").localeCompare(a.data || "") || b.id - a.id);
+}
+
+// Inventario in corso nella sede (riallineamento provvisorio): le pagine di vendita e scarico lo dicono in alto in rosso
+async function avvisaInventarioInCorso(db, sedeId) {
+  if (!db) return;
+  const { data } = await db.from("movimenti").select("id, data_movimento").eq("tipo", "riallineamento").eq("sede_id", sedeId).eq("stato", "Provvisorio").limit(1);
+  if (!data || !data.length) return;
+  const m = data[0], dove = document.querySelector("main.content");
+  if (dove) dove.insertAdjacentHTML("afterbegin", `<div class="banner ann" style="margin-bottom:12px">📋 <span><b>Inventario in corso</b> in questa sede (aperto il ${dataIt(m.data_movimento)}):
+    non fare vendite né scarichi finché non è confermato. <a href="riallineamento.html?db=${m.id}" style="color:inherit;font-weight:700">Apri l'inventario</a></span></div>`);
 }
 
 // Trasferimento arrivato ma non ancora confermato da chi riceve (ricevuto_il manca solo se la colonna esiste)

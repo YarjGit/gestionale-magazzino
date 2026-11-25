@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario – Gestionale Magazzino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/elenco.css">
+<link rel="stylesheet" href="css/scheda.css">
+<style>
+  /* Tutto il magazzino / solo una parte */
+  .ambiti { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ambito { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 11px; background: #fff; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+  .ambito b { font-size: 0.95rem; }
+  .ambito small { color: var(--muted); font-size: 0.8rem; line-height: 1.35; }
+  .ambito.scelto { border-color: var(--accent); background: #eef5ff; }
+  .ambito:disabled { cursor: default; }
+  .ambito:disabled:not(.scelto) { opacity: 0.45; }
+  /* Campo della pistola, grande */
+  .spara { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 14px; margin-bottom: 14px; border: 2px dashed #9cc3f5; border-radius: 12px; background: #f6faff; }
+  .spara .f { flex: 1; min-width: 260px; position: relative; }
+  .spara input#spara { font-size: 1.05rem; padding: 10px 12px; }
+  .diff-piu { color: var(--ok); font-weight: 700; }
+  .diff-meno { color: var(--ko); font-weight: 700; }
+  .diff-zero { color: var(--muted); }
+  .num-mod { width: 70px; text-align: right; }
+  tr.ultimo td { background: #fffbe6; }
+  .riepilogo-inv { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); }
+  .riepilogo-inv b { color: var(--text); }
+  /* Articoli non sparati: tre scelte per riga */
+  .scelte-ns { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .scelte-ns button { padding: 5px 10px; border: none; border-right: 1px solid var(--line); background: #fff; font: inherit; font-size: 0.8rem; cursor: pointer; color: var(--text); }
+  .scelte-ns button:last-child { border-right: none; }
+  .scelte-ns button.on[data-az="lascia"] { background: #eef1f6; font-weight: 700; }
+  .scelte-ns button.on[data-az="modifica"] { background: #eef5ff; color: var(--accent); font-weight: 700; }
+  .scelte-ns button.on[data-az="elimina"] { background: #fde4e4; color: var(--ko); font-weight: 700; }
+  .scelte-ns button:disabled { cursor: default; }
+  .barra-ns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .barra-ns .spazio { flex: 1; }
+</style>
+</head>
+<body data-page="riallineamenti-giacenza">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" id="btnStampa">🖨️ Stampa differenze</button>
+  <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-light" id="btnAnnullaInv" hidden>⛔ Annulla inventario</button>
+  <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva e continua dopo</button>
+  <button class="btn btn-verde" id="btnConferma" hidden>✔ Conferma inventario</button>
+</template>
+
+<main class="content" id="contenuto"></main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/intestazioni.js"></script>
+<script src="js/elenco.js"></script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
+  // Inventario (riallineamento giacenza) di una sede: database/31-inventario.sql
+  // ?nuovo=1 nuovo · ?db=12 inventario salvato (in corso = Provvisorio, si continua a contare; confermato = Definitivo, solo da guardare).
+  // Si sparano i pezzi (ogni sparo +1, per le quantità alte si scrive il numero). Inventario di tutto il magazzino: gli articoli
+  // con giacenza non sparati vanno in una lista dove si sceglie Lascia / Modifica (li hai dimenticati: scrivi i pezzi) / Elimina
+  // (giacenza a zero qui e articolo disattivato, se le altre sedi non ne hanno). Alla conferma la giacenza diventa quella contata,
+  // tutta sull'anno in corso. Confermano solo amministratore e responsabile magazzino.
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const nuovo = qs.has("nuovo");
+  const dbId = +qs.get("db");
+  const oggi = new Date().toISOString().slice(0, 10);
+  const annoOggi = +oggi.slice(0, 4);
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const sedeId = ID_SEDI_DB[sedeLavoro];
+  const ELENCO = "riallineamenti-giacenza.html";
+  const q2 = v => (Math.round(v * 100) / 100).toLocaleString("it-IT", { maximumFractionDigits: 2 });
+  const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
+
+  const db = await dbPronto;
+  if (!db) { $("contenuto").innerHTML = '<div class="panel"><div class="vuoto"><b>Serve l\'accesso al database</b></div></div>'; throw new Error("senza database"); }
+
+  // ---------- Inventario salvato ----------
+  let mov = null;
+  const CONTATI = new Map();   // articolo id → { articolo, contati, diff (solo confermato), pos }
+  const SCELTE = new Map();    // articolo id → "lascia" | "elimina" (gli articoli "modificati" passano tra i contati)
+  if (dbId) {
+    const { data, error } = await db.from("movimenti")
+      .select(`*, movimenti_righe(id, quantita, quantita_contata, azione, prezzo, articoli(${CAMPI_ARTICOLO}))`).eq("id", dbId).maybeSingle();
+    if (error) { avviso("Errore nel leggere l'inventario: " + error.message); throw error; }
+    if (!data || data.tipo !== "riallineamento") {
+      $("contenuto").innerHTML = `<div class="panel"><div class="vuoto"><b>Inventario #${esc(dbId)} non trovato</b><span><a href="${ELENCO}" style="color:var(--accent)">Torna all'elenco</a></span></div></div>`;
+      throw new Error("inventario non trovato");
+    }
+    mov = data;
+    VERSIONI_MOV[mov.id] = mov.modificato_il;
+  }
+  const confermato = mov && mov.stato === "Definitivo";
+  const annullato = mov && mov.stato === "Annullato";
+  const inCorso = !confermato && !annullato;
+  let ambito = mov ? (mov.motivo === "Solo una parte" ? "parte" : "tutto") : "";
+
+  // Articoli con la giacenza di questa sede (ricerca e pistola) e righe dell'inventario
+  await caricaArticoliDalDb(db, sedeId).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+  let pos = 0;
+  if (mov) {
+    mov.movimenti_righe.sort((a, b) => a.id - b.id).forEach(r => {
+      const a = ARTICOLI.find(x => x.id === r.articoli.id) || articoloDalDb(r.articoli, 0);
+      const c = CONTATI.get(a.id) || { articolo: a, contati: 0, diff: 0, pos: ++pos, prima: null };
+      if (r.azione === "elimina") { SCELTE.set(a.id, "elimina"); return; }
+      if (r.quantita_contata != null) c.contati += +r.quantita_contata;
+      c.diff += +r.quantita;
+      CONTATI.set(a.id, c);
+    });
+  }
+
+  // ---------- Pagina ----------
+  const st = confermato ? STATO.definitivo : annullato ? STATO.annullato : { nome: "In corso", colore: "#e58a00", icona: "◷" };
+  document.title = `${mov ? `Inventario #${mov.id}` : "Nuovo inventario"} – Gestionale Magazzino`;
+  $("contenuto").innerHTML = `
+    <div class="scheda-head">
+      <div>
+        <h1 class="page-title">${mov ? `Inventario <span class="num">#${mov.id}</span>` : "Nuovo inventario"} <span class="pill" style="background:${st.colore}1f;color:${st.colore}">${st.icona} ${st.nome}</span></h1>
+        <div class="crumbs">
+          <a href="dashboard.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></a>
+          <span>-</span><span>Movimenti</span><span>-</span><a href="${ELENCO}">Riallineamenti Giacenza</a><span>-</span><span>${mov ? "#" + mov.id : "Nuovo"}</span>
+        </div>
+      </div>
+      <div class="totale-top">
+        <div class="t">Inventario di</div>
+        <div class="v">${esc(sedeLavoro)}</div>
+        <div class="p" id="topPezzi"></div>
+      </div>
+    </div>
+    ${inCorso ? `<div class="banner provv"><span>◷</span><span><b>Inventario in corso</b>: la giacenza non cambia finché non lo confermi. Intanto in questa sede <b>non fare vendite né scarichi</b>. Puoi salvare e continuare a contare un altro giorno.</span></div>` : ""}
+    ${confermato ? `<div class="banner" style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Inventario <b>confermato</b> il ${dataIt(mov.data_movimento)}: la giacenza degli articoli contati è diventata quella contata, tutta sull'anno ${mov.anno_acquisto || mov.data_movimento.slice(0, 4)}.</span></div>` : ""}
+    ${annullato ? '<div class="banner ann">✕ Inventario annullato: la giacenza non è stata toccata.</div>' : ""}
+
+    <section class="panel">
+      <div class="gruppo" style="margin-bottom:14px">
+        <h3>📋 Cosa si conta</h3>
+        <div class="ambiti" id="ambiti">
+          <button type="button" class="ambito${ambito === "tutto" ? " scelto" : ""}" data-ambito="tutto" ${mov ? "disabled" : ""}><b>🏬 Tutto il magazzino</b><small>Gli articoli con giacenza che non vengono sparati finiscono in una lista: per ognuno scegli se lasciarlo, scrivere i pezzi o eliminarlo.</small></button>
+          <button type="button" class="ambito${ambito === "parte" ? " scelto" : ""}" data-ambito="parte" ${mov ? "disabled" : ""}><b>🗂️ Solo una parte</b><small>Es. uno scaffale o una categoria: cambia solo la giacenza degli articoli sparati, gli altri restano come sono.</small></button>
+        </div>
+        <div class="campi" style="margin-top:12px">
+          <div class="f s3"><label>Note</label><input id="fNote" value="${esc(mov ? mov.causale || "" : "")}" placeholder="es. inventario di fine anno, scaffali A-C" ${inCorso ? "" : "disabled"}></div>
+        </div>
+      </div>
+
+      ${inCorso ? `<div class="spara">
+        <div class="f"><label for="spara">Spara il barcode <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
+          <input id="spara" placeholder="Spara o scrivi codice / descrizione…" autocomplete="off"><div class="suggerimenti" id="suggSpara"></div></div>
+        <div class="f" style="flex:0 0 110px;min-width:110px"><label for="quanti">Pezzi</label><input id="quanti" type="number" min="1" value="1" style="text-align:right"><span class="aiuto">per le quantità alte</span></div>
+      </div>` : ""}
+
+      <div class="schede" id="schede">
+        <button class="scheda-tab active" data-t="contati">✔ Contati <span class="n" id="nContati">0</span></button>
+        <button class="scheda-tab" data-t="nonsparati" id="tabNs">❔ Non sparati <span class="n" id="nNs">0</span></button>
+      </div>
+      <div class="pannello-tab" id="tab-contati">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Articolo</th><th class="num">Contati</th><th class="num">${confermato ? "Giacenza prima" : "Giacenza nel gestionale"}</th><th class="num">Differenza</th><th class="num">Costo</th><th class="num">Valore differenza</th>${inCorso ? '<th style="width:40px"></th>' : ""}</tr></thead>
+          <tbody id="righeContati"></tbody>
+        </table></div>
+        <div class="riepilogo-inv" id="riepilogo"></div>
+      </div>
+      <div class="pannello-tab" id="tab-nonsparati" hidden></div>
+    </section>`;
+
+  $("schede").onclick = e => {
+    const b = e.target.closest(".scheda-tab");
+    if (!b) return;
+    document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
+    document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+  $("ambiti").onclick = e => {
+    const b = e.target.closest("[data-ambito]");
+    if (!b || b.disabled) return;
+    ambito = b.dataset.ambito;
+    document.querySelectorAll(".ambito").forEach(x => x.classList.toggle("scelto", x === b));
+    disegna();
+  };
+
+  // ---------- Disegno ----------
+  const diffHtml = d => `<span class="${d > 0 ? "diff-piu" : d < 0 ? "diff-meno" : "diff-zero"}">${d > 0 ? "+" : d < 0 ? "−" : ""}${q2(Math.abs(d))}</span>`;
+  // giacenza nel gestionale: quella di oggi (in corso) o quella di prima della conferma
+  const prima = c => confermato ? c.contati - c.diff : (c.articolo.giac ?? 0);
+  const differenza = c => confermato ? c.diff : c.contati - (c.articolo.giac ?? 0);
+  // Articoli con giacenza in questa sede che non sono stati sparati (solo inventario di tutto il magazzino, in corso)
+  const nonSparati = () => ambito !== "tutto" || !inCorso ? [] : ARTICOLI.filter(a => a.giac && !CONTATI.has(a.id)).sort((x, y) => x.codice.localeCompare(y.codice));
+  let ultimo = null;
+  function disegna() {
+    const lista = [...CONTATI.values()].sort((a, b) => b.pos - a.pos);
+    $("righeContati").innerHTML = lista.length ? lista.map(c => {
+      const a = c.articolo, d = differenza(c);
+      return `<tr class="${a.id === ultimo ? "ultimo" : ""}">
+        <td class="art-cella"><span class="codice">${esc(a.codice)}</span><b>${esc(a.descr)}</b></td>
+        <td class="num">${inCorso ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-id="${a.id}">−</button><input class="num-mod" data-id="${a.id}" value="${q2(c.contati)}"><button class="btn-riga" data-passo="1" data-id="${a.id}">+</button></span>` : `<b>${q2(c.contati)}</b>`}</td>
+        <td class="num">${q2(prima(c))}</td>
+        <td class="num">${diffHtml(d)}</td>
+        <td class="num">${numero(a.costo || 0)}</td>
+        <td class="num">${d ? diffHtml(Math.round(d * (a.costo || 0) * 100) / 100) : ""}</td>
+        ${inCorso ? `<td><button class="btn-riga cestino" data-togli="${a.id}" title="Togli dal conteggio">🗑</button></td>` : ""}
+      </tr>`;
+    }).join("") : `<tr><td colspan="7"><div class="vuoto"><b>Nessun articolo contato</b><span>${inCorso ? "Spara il primo barcode qui sopra." : ""}</span></div></td></tr>`;
+    const pezzi = lista.reduce((t, c) => t + c.contati, 0);
+    const piu = lista.reduce((t, c) => t + Math.max(0, differenza(c)), 0), meno = lista.reduce((t, c) => t + Math.max(0, -differenza(c)), 0);
+    const valore = lista.reduce((t, c) => t + differenza(c) * (c.articolo.costo || 0), 0);
+    $("nContati").textContent = lista.length;
+    $("topPezzi").textContent = `${lista.length} articoli · ${q2(pezzi)} pezzi contati`;
+    $("riepilogo").innerHTML = `<span>Articoli contati: <b>${lista.length}</b></span><span>Pezzi contati: <b>${q2(pezzi)}</b></span>
+      <span>Trovati in più: <b class="diff-piu">+${q2(piu)}</b></span><span>Mancanti: <b class="diff-meno">−${q2(meno)}</b></span>
+      <span>Valore della differenza (a costo): <b>${euro(Math.round(valore * 100) / 100)}</b></span>`;
+    disegnaNonSparati();
+  }
+  function disegnaNonSparati() {
+    const ns = nonSparati();
+    const eliminati = confermato || annullato ? [...SCELTE.keys()].map(id => ARTICOLI.find(a => a.id === id)).filter(Boolean) : [];
+    $("tabNs").hidden = ambito !== "tutto" && !eliminati.length;
+    $("nNs").textContent = ns.length || eliminati.length;
+    if (!inCorso) {
+      $("tab-nonsparati").innerHTML = eliminati.length ? `<p style="color:var(--muted)">Articoli non sparati eliminati con questo inventario (giacenza a zero, articolo disattivato):</p>
+        <div class="table-wrap"><table><tbody>${eliminati.map(a => `<tr><td class="art-cella"><span class="codice">${esc(a.codice)}</span><b>${esc(a.descr)}</b></td></tr>`).join("")}</tbody></table></div>`
+        : '<div class="vuoto"><b>Nessun articolo eliminato</b><span>Gli articoli non sparati sono rimasti come erano.</span></div>';
+      return;
+    }
+    const conta = az => ns.filter(a => (SCELTE.get(a.id) || "lascia") === az).length;
+    $("tab-nonsparati").innerHTML = ns.length ? `
+      <div class="nota-viola" style="margin-bottom:10px">❔ Questi articoli hanno giacenza in ${esc(sedeLavoro)} ma <b>non sono stati sparati</b>. Per ognuno scegli:
+        <b>Lascia</b> (resta con la sua giacenza), <b>Modifica</b> (te lo eri dimenticato: scrivi i pezzi) o <b>Elimina</b> (giacenza a zero e articolo disattivato).</div>
+      <div class="barra-ns"><button class="btn btn-light" data-tutti="lascia">Tutti: lascia</button><button class="btn btn-light" data-tutti="elimina">Tutti: elimina</button>
+        <span class="spazio"></span><span style="color:var(--muted)">Lascia <b>${conta("lascia")}</b> · Elimina <b style="color:var(--ko)">${conta("elimina")}</b></span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Articolo</th><th class="num">Giacenza nel gestionale</th><th>Cosa fare</th><th class="num">Pezzi (se modifichi)</th></tr></thead>
+        <tbody>${ns.map(a => { const s = SCELTE.get(a.id) || "lascia"; return `<tr>
+          <td class="art-cella"><span class="codice">${esc(a.codice)}</span><b>${esc(a.descr)}</b></td>
+          <td class="num">${q2(a.giac)}</td>
+          <td><span class="scelte-ns">${["lascia", "modifica", "elimina"].map(az => `<button type="button" data-az="${az}" data-id="${a.id}" class="${s === az ? "on" : ""}">${{ lascia: "Lascia", modifica: "Modifica", elimina: "🗑 Elimina" }[az]}</button>`).join("")}</span></td>
+          <td class="num">${s === "modifica" ? `<input class="num-mod" data-mod="${a.id}" placeholder="pezzi" autofocus>` : ""}</td>
+        </tr>`; }).join("")}</tbody></table></div>`
+      : `<div class="vuoto"><b>${ambito === "tutto" ? "Tutti gli articoli con giacenza sono stati sparati" : "Inventario di una parte"}</b><span>${ambito === "tutto" ? "" : "Gli articoli non sparati restano come sono."}</span></div>`;
+  }
+
+  // ---------- Conteggio ----------
+  function conta(a, n, assoluto) {
+    const c = CONTATI.get(a.id) || { articolo: a, contati: 0, diff: 0, pos: ++pos };
+    c.contati = Math.max(0, Math.round((assoluto ? n : c.contati + n) * 100) / 100);
+    c.pos = ++pos;
+    CONTATI.set(a.id, c);
+    SCELTE.delete(a.id);
+    ultimo = a.id;
+    disegna();
+  }
+  if (inCorso) {
+    let attivo = 0;
+    const trova = t => cercaArticoli(t);
+    const sugg = () => {
+      const lista = trova($("spara").value);
+      attivo = Math.min(attivo, Math.max(0, lista.length - 1));
+      $("suggSpara").innerHTML = lista.length ? lista.map((a, i) => `<div class="sugg${i === attivo ? " attivo" : ""}" data-cod="${esc(a.codice)}"><span class="codice">${esc(a.codice)}</span>${esc(a.descr)}<small>giac. ${q2(a.giac ?? 0)}</small></div>`).join("")
+        : `<div class="sugg" style="cursor:default;color:var(--muted)">${testoNessunArticolo()}</div>`;
+      $("suggSpara").classList.toggle("show", !!$("spara").value.trim());
+    };
+    const prendi = a => {
+      const n = Math.max(1, num($("quanti").value) || 1);
+      conta(a, n);
+      avviso(`${a.codice}: ${q2(CONTATI.get(a.id).contati)} contati`);
+      $("spara").value = ""; $("quanti").value = 1; $("suggSpara").classList.remove("show"); $("spara").focus();
+    };
+    $("spara").oninput = () => { attivo = 0; sugg(); };
+    $("spara").onkeydown = e => {
+      const lista = trova($("spara").value);
+      if (e.key === "ArrowDown") { attivo = Math.min(attivo + 1, lista.length - 1); sugg(); e.preventDefault(); }
+      if (e.key === "ArrowUp") { attivo = Math.max(attivo - 1, 0); sugg(); e.preventDefault(); }
+      if (e.key === "Escape") $("suggSpara").classList.remove("show");
+      if (e.key === "Enter") { e.preventDefault(); if (lista[attivo]) prendi(lista[attivo]); else if ($("spara").value.trim()) avviso(testoNessunArticolo(), true); }
+    };
+    $("suggSpara").onclick = e => { const s = e.target.closest(".sugg[data-cod]"); if (s) prendi(ARTICOLI.find(a => a.codice === s.dataset.cod)); };
+    document.addEventListener("click", e => { if (!e.target.closest(".spara")) $("suggSpara").classList.remove("show"); });
+
+    $("righeContati").onclick = e => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.togli) { CONTATI.delete(b.dataset.togli); disegna(); return; }
+      const c = CONTATI.get(b.dataset.id);
+      if (c && b.dataset.passo) conta(c.articolo, +b.dataset.passo);
+    };
+    $("righeContati").onchange = e => {
+      const c = CONTATI.get(e.target.dataset.id);
+      if (c) conta(c.articolo, num(e.target.value), true);
+    };
+    $("tab-nonsparati").onclick = e => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.tutti) nonSparati().forEach(a => SCELTE.set(a.id, b.dataset.tutti));
+      else if (b.dataset.az) SCELTE.set(b.dataset.id, b.dataset.az);
+      disegnaNonSparati();
+      const inp = document.querySelector(`[data-mod="${b.dataset.id}"]`);
+      if (inp) inp.focus();
+    };
+    // "Modifica": scritti i pezzi, l'articolo passa tra i contati
+    $("tab-nonsparati").onchange = e => {
+      const id = e.target.dataset.mod;
+      if (!id) return;
+      const a = ARTICOLI.find(x => x.id === id);
+      conta(a, num(e.target.value), true);
+      avviso(`${a.codice}: ${q2(CONTATI.get(id).contati)} contati (aggiunto tra i contati)`);
+    };
+  }
+
+  // ---------- Salvataggio ----------
+  document.body.classList.toggle("in-modifica", inCorso);   // il menu chiede prima di lasciare un inventario in corso
+  $("btnSalva").hidden = $("btnConferma").hidden = !inCorso;
+  $("btnAnnullaInv").hidden = !(mov && inCorso);
+  $("btnChiudi").onclick = () => location.href = ELENCO;
+  const datiMov = stato => ({
+    tipo: "riallineamento", stato, sede_id: sedeId, data_movimento: oggi, anno_acquisto: annoOggi,
+    motivo: ambito === "parte" ? "Solo una parte" : "Tutto il magazzino",
+    causale: $("fNote").value.trim() || `Inventario ${ambito === "parte" ? "di una parte" : "di tutto il magazzino"} di ${sedeLavoro}`, spese: 0
+  });
+  const controlla = () => {
+    if (!ambito) { avviso("Scegli prima cosa si conta: tutto il magazzino o solo una parte"); return false; }
+    if (!CONTATI.size && ![...SCELTE.values()].includes("elimina")) { avviso("Non hai ancora contato nessun articolo"); return false; }
+    return true;
+  };
+  // In corso: si salvano i pezzi contati (quantita = 0: la giacenza non cambia) e gli articoli da eliminare
+  async function salvaInCorso() {
+    if (!controlla()) return;
+    const righe = [...CONTATI.values()].map(c => ({ articolo_id: c.articolo.id, quantita: 0, quantita_contata: c.contati, prezzo: c.articolo.costo || 0, etichette: 0 }))
+      .concat(nonSparati().filter(a => SCELTE.get(a.id) === "elimina").map(a => ({ articolo_id: a.id, quantita: 0, quantita_contata: 0, azione: "elimina", prezzo: a.costo || 0, etichette: 0 })));
+    try {
+      const id = await salvaMovimentoDb(db, datiMov("Provvisorio"), righe, mov && mov.id);
+      avviso("Inventario salvato: puoi continuare a contare quando vuoi");
+      document.body.classList.remove("in-modifica");
+      setTimeout(() => location.replace(`riallineamento.html?db=${id}`), 800);
+    } catch (err) {
+      avviso((err.code === "PGRST204" || err.code === "42703" || /quantita_contata|azione|riallineamento/.test(err.message || "")) ? "Prima va eseguito su Supabase il file database/31-inventario.sql" : "Errore nel salvare: " + err.message, true);
+    }
+  }
+  $("btnSalva").onclick = salvaInCorso;
+
+  // Conferma: solo amministratore o responsabile magazzino
+  async function puoConfermare() {
+    const { data: { session } } = await db.auth.getSession();
+    const email = session ? session.user.email : "";
+    const { data } = await db.from("utenti_autorizzati").select("email, ruoli").ilike("email", email);
+    const ruoli = (data && data[0] && data[0].ruoli) || [];
+    return ruoli.includes("amministratore") || ruoli.includes("responsabile_magazzino");
+  }
+  $("btnConferma").onclick = async () => {
+    if (!controlla()) return;
+    if (!await puoConfermare()) { avviso("Solo l'amministratore o il responsabile magazzino possono confermare l'inventario. Salvalo e chiedi a loro.", true); return; }
+    const ns = nonSparati(), elimina = ns.filter(a => SCELTE.get(a.id) === "elimina");
+    const lista = [...CONTATI.values()];
+    const cambiano = lista.filter(c => differenza(c));
+    if (!confirm(`Confermare l'inventario di ${sedeLavoro}?\n\n• ${lista.length} articoli contati: la giacenza diventa quella contata, tutta sull'anno ${annoOggi} (${cambiano.length} cambiano)` +
+      (ambito === "tutto" ? `\n• ${ns.length - elimina.length} non sparati restano come sono\n• ${elimina.length} non sparati eliminati (giacenza a zero e articolo disattivato)` : "\n• gli articoli non sparati restano come sono") +
+      "\n\nDopo la conferma la giacenza cambia davvero.")) return;
+    // per ogni articolo contato: si toglie la giacenza di prima e si mettono i pezzi contati (anno in corso)
+    const righe = [];
+    lista.forEach(c => {
+      const g = c.articolo.giac ?? 0, a = c.articolo;
+      if (g) righe.push({ articolo_id: a.id, quantita: -g, quantita_contata: c.contati, prezzo: a.costo || 0, etichette: 0 });
+      if (c.contati) righe.push({ articolo_id: a.id, quantita: c.contati, quantita_contata: g ? null : c.contati, prezzo: a.costo || 0, etichette: 0 });
+      if (!g && !c.contati) righe.push({ articolo_id: a.id, quantita: 0, quantita_contata: 0, prezzo: a.costo || 0, etichette: 0 });
+    });
+    elimina.forEach(a => righe.push({ articolo_id: a.id, quantita: -(a.giac || 0), quantita_contata: 0, azione: "elimina", prezzo: a.costo || 0, etichette: 0 }));
+    $("btnConferma").disabled = true;
+    try {
+      const id = await salvaMovimentoDb(db, datiMov("Definitivo"), righe, mov && mov.id);
+      // Eliminati: articolo disattivato solo se nelle altre sedi non ce n'è
+      let tenuti = [];
+      if (elimina.length) {
+        const ids = elimina.map(a => a.id);
+        const { data: altrove } = await db.from("giacenze").select("articolo_id, sede_id, quantita").in("articolo_id", ids).neq("sede_id", sedeId);
+        const conAltrove = new Set((altrove || []).filter(g => +g.quantita !== 0).map(g => g.articolo_id));
+        const daDisattivare = ids.filter(x => !conAltrove.has(x));
+        tenuti = elimina.filter(a => conAltrove.has(a.id)).map(a => a.codice);
+        if (daDisattivare.length) {
+          const { error } = await db.from("articoli").update({ attivo: false }).in("id", daDisattivare);
+          if (error) throw error;
+        }
+      }
+      avviso(`Inventario confermato: giacenze aggiornate${tenuti.length ? ` · non disattivati perché presenti in altre sedi: ${tenuti.join(", ")}` : ""}`, !!tenuti.length);
+      document.body.classList.remove("in-modifica");
+      setTimeout(() => location.replace(`riallineamento.html?db=${id}`), tenuti.length ? 3500 : 1200);
+    } catch (err) {
+      avviso("Errore nel confermare: " + err.message, true);
+      $("btnConferma").disabled = false;
+    }
+  };
+  $("btnAnnullaInv").onclick = async () => {
+    if (!confirm("Annullare questo inventario? I conteggi restano registrati ma la giacenza non cambia.")) return;
+    const { error } = await db.from("movimenti").update({ stato: "Annullato", modificato_il: new Date().toISOString() }).eq("id", mov.id);
+    if (error) { avviso("Errore: " + error.message); return; }
+    document.body.classList.remove("in-modifica");
+    location.reload();
+  };
+
+  // ---------- Stampa delle differenze (carta intestata) ----------
+  $("btnStampa").onclick = () => {
+    const lista = [...CONTATI.values()].sort((a, b) => a.articolo.codice.localeCompare(b.articolo.codice));
+    if (!lista.length) { avviso("Non ci sono articoli contati da stampare"); return; }
+    const valore = lista.reduce((t, c) => t + differenza(c) * (c.articolo.costo || 0), 0);
+    sessionStorage.setItem("stampa", JSON.stringify({
+      titolo: "Inventario – differenze", sede: sedeLavoro,
+      info: [["Data", dataIt(mov ? mov.data_movimento : oggi)], ["Stato", st.nome], ["Ambito", ambito === "parte" ? "Solo una parte" : "Tutto il magazzino"]].concat(mov ? [["Numero", `${mov.id}`]] : []),
+      destinatario: [],
+      colonne: [{ k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "prima", t: "Gestionale", num: true }, { k: "contati", t: "Contati", num: true }, { k: "diff", t: "Differenza", num: true }, { k: "valore", t: "Valore diff.", num: true }],
+      righe: lista.map(c => { const d = differenza(c); return { cod: c.articolo.codice, descr: c.articolo.descr, prima: q2(prima(c)), contati: q2(c.contati), diff: (d > 0 ? "+" : "") + q2(d), valore: numero(Math.round(d * (c.articolo.costo || 0) * 100) / 100) }; }),
+      totali: [["Articoli contati", String(lista.length)], ["Valore della differenza", numero(Math.round(valore * 100) / 100)]],
+      note: $("fNote").value.trim(), nuovaScheda: true
+    }));
+    window.open("stampa-documento.html?auto=1", "_blank");
+  };
+
+  disegna();
+  if (inCorso && $("spara")) $("spara").focus();
+</script>
+</body>
+</html>

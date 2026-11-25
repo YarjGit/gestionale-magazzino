@@ -69,11 +69,12 @@ async function caricaArticoliDalDb(db, sedeId) {
   const giacenza = await giacenzeSedeDb(db, sedeId);
   ARTICOLI.length = 0;
   // un articolo che in questa sede non ha mai avuto movimenti ha giacenza 0
-  letti.forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.get(a.id) ?? 0)));
+  // gli articoli disattivati (es. eliminati con l'inventario) non si cercano e non si sparano più
+  letti.filter(a => a.attivo !== false).forEach(a => ARTICOLI.push(articoloDalDb(a, giacenza.get(a.id) ?? 0)));
   return ARTICOLI.length;
 }
 // Campi da leggere per un articolo, e come diventa un articolo del prototipo (stessa forma di ARTICOLI)
-const CAMPI_ARTICOLO = "id, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, sconto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)";
+const CAMPI_ARTICOLO = "id, attivo, codice, descrizione, barcode, fornitore_id, fornitore_dedotto, sconto, costo_netto, prezzo_vendita_ivato, anno_listino, scorta_minima, aliquote_iva(aliquota)";
 const articoloDalDb = (a, giac) => ({
   id: a.id, codice: a.codice, descr: a.descrizione, barcode: a.barcode || "",
   costo: +a.costo_netto, prezzo: +a.prezzo_vendita_ivato, giac, sconto: +a.sconto || 0,

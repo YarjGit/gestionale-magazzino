@@ -313,6 +313,8 @@
   // Dopo l'accesso la ricerca articoli (e la pistola) usa gli articoli del database, con la giacenza della sede
   dbPronto.then(db => db && caricaArticoliDalDb(db, ID_SEDI_DB[sedeLavoro]))
     .catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+  // Inventario in corso in questa sede: avviso in alto (non fare vendite né scarichi)
+  dbPronto.then(db => avvisaInventarioInCorso(db, ID_SEDI_DB[trovaSede(leggiSede()).nome])).catch(() => {});
 </script>
 </body>
 </html>

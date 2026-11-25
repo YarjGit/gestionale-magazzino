@@ -505,6 +505,8 @@
 
   // Ricerca e pistola sugli articoli del database (giacenza di questa sede)
   if (db && !salvato) caricaArticoliDalDb(db, sedeId).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
+  // Inventario in corso in questa sede: avviso in alto (non fare vendite né scarichi)
+  dbPronto.then(db => avvisaInventarioInCorso(db, ID_SEDI_DB[trovaSede(leggiSede()).nome])).catch(() => {});
 </script>
 </body>
 </html>

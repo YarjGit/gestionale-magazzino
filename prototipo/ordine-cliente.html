@@ -490,6 +490,8 @@
     // dall'elenco "Stampa DDT" (…&ddt=1): si stampa subito (con la domanda sullo scarico, se è un ordine)
     if (movDb && qs.has("ddt")) ddtConScarico();
   }).catch(err => avviso("Errore nel leggere clienti e articoli: " + err.message));
+  // Inventario in corso in questa sede: avviso in alto (non fare vendite né scarichi)
+  dbPronto.then(db => avvisaInventarioInCorso(db, ID_SEDI_DB[trovaSede(leggiSede()).nome])).catch(() => {});
 </script>
 </body>
 </html>
