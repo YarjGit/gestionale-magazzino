@@ -3,6 +3,9 @@
 -- (scheda articolo, import, etichette, vendite) anche se una pagina se ne dimenticasse.
 -- Si può rieseguire.
 
+-- 0) La colonna dell'arrotondamento (script 18), se non c'è ancora
+alter table articoli add column if not exists arrotondamento numeric(12,2) not null default 0;
+
 -- 1) Copia di sicurezza dei prezzi di oggi (per tornare indietro, se servisse)
 create table if not exists copia_prezzi_20261125 as
 select id, codice, prezzo_vendita_ivato, arrotondamento from articoli;
@@ -11,26 +14,26 @@ alter table copia_prezzi_20261125 enable row level security;
 
 -- 2) I prezzi già salvati diventano ai 10 centesimi. L'arrotondamento della scheda segue la stessa differenza,
 --    così il calcolo (costo, ricarico, IVA) continua a tornare con il prezzo nuovo.
---    Il registro attività resta pulito: una riga sola invece di una per articolo.
-do $$ begin
+--    Funziona anche senza il registro attività (script 24 non ancora eseguito).
+do $$
+declare n int;
+begin
+  -- se c'è il registro attività (script 24), una riga sola invece di una per articolo
   if exists (select 1 from pg_trigger where tgname = 'registra' and tgrelid = 'articoli'::regclass) then
     alter table articoli disable trigger registra;
   end if;
-end $$;
-with cambiati as (
   update articoli
   set arrotondamento = arrotondamento + (round(prezzo_vendita_ivato, 1) - prezzo_vendita_ivato),
       prezzo_vendita_ivato = round(prezzo_vendita_ivato, 1)
-  where prezzo_vendita_ivato <> round(prezzo_vendita_ivato, 1)
-  returning id
-)
-insert into registro_attivita (email, sede, attivita, dettagli, tabella, riferimento)
-select 'SQL Editor (Supabase)', null, 'Prezzi ai 10 centesimi',
-       count(*) || ' articoli arrotondati (fino a ,04 in giù, da ,05 in su). Copia dei prezzi di prima: copia_prezzi_20261125', 'articoli', null
-from cambiati;
-do $$ begin
+  where prezzo_vendita_ivato <> round(prezzo_vendita_ivato, 1);
+  get diagnostics n = row_count;
   if exists (select 1 from pg_trigger where tgname = 'registra' and tgrelid = 'articoli'::regclass) then
     alter table articoli enable trigger registra;
+  end if;
+  if n > 0 and to_regclass('public.registro_attivita') is not null then
+    execute 'insert into registro_attivita (email, attivita, dettagli, tabella) values ($1, $2, $3, $4)'
+      using 'SQL Editor (Supabase)', 'Prezzi ai 10 centesimi',
+            n || ' articoli arrotondati (fino a ,04 in giù, da ,05 in su). Copia dei prezzi di prima: copia_prezzi_20261125', 'articoli';
   end if;
 end $$;
 
