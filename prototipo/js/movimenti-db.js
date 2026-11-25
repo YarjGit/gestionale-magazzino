@@ -183,6 +183,7 @@ async function leggiMovimentoDb(db, id, sedeId) {
   if (error && (error.code === "42703" || /aggiunto_il/.test(error.message))) ({ data: m, error } = await leggi(""));
   if (error) throw error;
   if (!m) return null;
+  VERSIONI_MOV[m.id] = m.modificato_il;
   const ids = m.movimenti_righe.map(r => r.articoli.id);
   const { data: giac } = ids.length ? await db.from("giacenze").select("articolo_id, quantita").eq("sede_id", sedeId).in("articolo_id", ids) : { data: [] };
   const giacenza = new Map((giac || []).map(g => [g.articolo_id, +g.quantita]));
@@ -197,17 +198,32 @@ async function leggiMovimentoDb(db, id, sedeId) {
 // controllo della giacenza e numero di bolla dati dal database. Se la funzione non c'è ancora, salva come prima.
 let funzioniDbAssenti = false;
 const funzioneMancante = e => e && (e.code === "PGRST202" || e.code === "42883" || /Could not find the function/i.test(e.message || ""));
+// Versione di ogni movimento aperto (modificato_il letto da leggiMovimentoDb): salvando, il database controlla che nessun altro
+// computer l'abbia cambiato nel frattempo (database/28-lavoro-in-contemporanea.sql)
+const VERSIONI_MOV = {};
+// Risposte del database quando si lavora da più computer insieme → errori con un codice e un messaggio chiaro
+function erroreLavoroInsieme(error) {
+  const [codice, a, b] = String(error.message || "").split("|");
+  let e = null;
+  if (codice === "CONFLITTO") e = Object.assign(new Error(`Questa scheda è stata cambiata da ${a} (${b}) mentre la stavi modificando: per non cancellare il suo lavoro le tue modifiche non sono state salvate. Ricarica la pagina e rifalle.`), { code: "CONFLITTO", chi: a, quando: b });
+  if (codice === "GIORNATA_ESISTE") e = Object.assign(new Error(`Un altro computer ha appena creato la giornata di questo giorno (#${a}).`), { code: "GIORNATA_ESISTE", idAltra: +a });
+  if (codice === "ORDINE_GIA_PREPARATO") e = Object.assign(new Error(`Nel frattempo un altro computer ha già mandato questi articoli dell'ordine: ${a}. Ricarica la pagina per vedere quanto resta da mandare.`), { code: "ORDINE_GIA_PREPARATO" });
+  return e || error;
+}
 async function salvaMovimentoDb(db, mov, righe, id) {
   if (!funzioniDbAssenti) {
-    const { data, error } = await db.rpc("salva_movimento", { p_id: id || null, p_mov: mov, p_righe: righe });
+    const conVersione = id && VERSIONI_MOV[id] ? { ...mov, _versione: VERSIONI_MOV[id] } : mov;
+    const { data, error } = await db.rpc("salva_movimento", { p_id: id || null, p_mov: conVersione, p_righe: righe });
     if (!error) return data;
-    if (!funzioneMancante(error)) throw error;
+    if (!funzioneMancante(error)) throw erroreLavoroInsieme(error);
     funzioniDbAssenti = true;
   }
   return salvaMovimentoVecchio(db, mov, righe, id);
 }
 async function salvaMovimentoVecchio(db, mov, righe, id) {
   const nuovo = !id;
+  // le indicazioni per il database (_versione, _oltre_ok…) non sono colonne
+  mov = Object.fromEntries(Object.entries(mov).filter(([k]) => !k.startsWith("_")));
   // senza la funzione del database il numero di bolla vuoto lo calcola la pagina
   if (["ordine_cliente", "scarico_cliente"].includes(mov.tipo) && !mov.numero_documento)
     mov = { ...mov, numero_documento: await prossimaBollaClienteDb(db, mov.sede_id, String(mov.data_bolla || mov.data_movimento || new Date().toISOString()).slice(0, 4)) };

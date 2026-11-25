@@ -89,6 +89,11 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   sotto zero (o più sotto di prima) nella sede del movimento e dà il numero di bolla "N/anno" con un lucchetto (niente doppioni); `scala_ordine_cliente(ordine)`
   crea lo scarico una volta sola e mette l'ordine in Evaso. `salvaMovimentoDb` le usa e, se non ci sono ancora, salva come prima.
   Edge Functions di Supabase: solo quando servono (collegamento e-commerce, email), per ora nessuna.
+- **Lavoro da più computer insieme** (`database/28-lavoro-in-contemporanea.sql`, 25/11/2026): `salva_movimento` mette lucchetti per sede+articolo e per riga d'ordine
+  (ultimo pezzo non venduto due volte, ordine di una filiale non preparato due volte: `ORDINE_GIA_PREPARATO`, salvo `_oltre_ok`), controlla la versione della scheda
+  (`_versione` = `modificato_il` letto, in `VERSIONI_MOV` di `movimenti-db.js`; se un altro ha salvato prima: `CONFLITTO`, niente sovrascrittura) e tiene una sola giornata
+  di vendite per giorno (`GIORNATA_ESISTE|id`, salvo nota " – "). In `vendita.html` `unisciAllaGiornata` aggiunge da solo i propri articoli alla giornata dell'altro
+  (i colleghi vendono articoli diversi, quindi non si scontrano). Colonna `modificato_da`.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
 
 ## Struttura

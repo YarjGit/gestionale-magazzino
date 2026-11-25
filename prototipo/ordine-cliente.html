@@ -365,6 +365,9 @@
         const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).eq("id", movDb.id);
         if (!error) { movDb.stato = "Evaso"; $("selStato").value = "Evaso"; mostraStato(); }
       }
+      // l'ordine è appena cambiato (Evaso): la pagina prende la versione nuova, così salvandolo dopo non risulta "cambiato da un altro"
+      const { data: v } = await db.from("movimenti").select("modificato_il").eq("id", movDb.id).maybeSingle();
+      if (v) VERSIONI_MOV[movDb.id] = v.modificato_il;
       mostraScarico();
       avviso(`Merce scalata dalla giacenza (scarico #${scaricoId})`);
       $("finScarico").classList.remove("show");

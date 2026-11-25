@@ -309,6 +309,11 @@
       const doppia = await giornataDelGiornoDb(db, dati.data_movimento);
       if (doppia && !haNotaDistinta()) {
         const scelta = await chiediDoppione(doppia, dati.data_movimento, true);
+        // Sì al salvataggio: i miei articoli si aggiungono alla giornata già creata (un solo giorno, anche con più colleghi)
+        if (scelta === "unisci") {
+          try { await unisciAllaGiornata(db, doppia.id, chiudi, { code: "GIORNATA_ESISTE" }); } catch (e) { avviso("Errore nel salvare: " + e.message, true); }
+          return;
+        }
         if (scelta !== "nuova") return;
         dati.causale = $("causale").value.trim() || null;
         dati.annotazioni = $("annotazioni").value.trim() || null;
@@ -326,9 +331,32 @@
         : "Giornata salvata come provvisoria: la giacenza non cambia finché non è definitiva");
       setTimeout(() => location.replace(chiudi ? ELENCO_V : `vendita.html?db=${id}`), 900);
     } catch (err) {
-      avviso("Errore nel salvare la giornata: " + err.message);
+      // Due computer sulla stessa giornata (CONFLITTO) o due giornate di oggi create insieme (GIORNATA_ESISTE):
+      // invece di perdere il lavoro, gli articoli aggiunti qui vanno nella giornata salvata dall'altro computer
+      if (err.code === "CONFLITTO" || err.code === "GIORNATA_ESISTE") {
+        try { await unisciAllaGiornata(db, err.code === "GIORNATA_ESISTE" ? err.idAltra : ven.dbId, chiudi, err); return; }
+        catch (e2) { err = e2; }
+      }
+      avviso("Errore nel salvare la giornata: " + err.message, true);
       pulsanti.forEach(b => b.disabled = false);
     }
+  }
+  // Rilegge la giornata com'è ora nel database (con quello che ha salvato l'altro computer), ci aggiunge gli articoli
+  // inseriti in questa pagina e la salva. Le modifiche fatte qui a righe che c'erano già (quantità, cancellazioni) non si riportano.
+  async function unisciAllaGiornata(db, idGiornata, chiudi, motivo) {
+    const altra = await leggiMovimentoDb(db, idGiornata, ID_SEDI_DB[sedeLavoro]);
+    if (!altra) throw new Error(`Giornata #${idGiornata} non trovata`);
+    // articoli aggiunti in questa pagina: le righe nuove, più i pezzi in più messi su righe che c'erano già (stesso articolo sparato di nuovo)
+    const nuove = righe.RIGHE.filter(r => r.articolo && r.sped > 0 && !r.daDb).map(r => ({ r, quantita: r.sped }))
+      .concat(righe.RIGHE.filter(r => r.articolo && r.daDb && r.sped > (r.qtaDb || 0)).map(r => ({ r, quantita: r.sped - (r.qtaDb || 0) })));
+    const riga = r => ({ articolo_id: r.articolo_id, quantita: r.quantita, prezzo: r.prezzo, sconto: r.sconto, aggiunto_il: r.aggiunto_il });
+    const tutte = altra.righe.map(r => riga({ articolo_id: r.articoli.id, quantita: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto || 0, aggiunto_il: r.aggiunto_il || null }))
+      .concat(nuove.map(({ r, quantita }) => riga({ articolo_id: r.articolo.id, quantita, prezzo: r.prezzo, sconto: r.sconto || 0, aggiunto_il: r.ora || new Date().toISOString() })));
+    const id = await salvaMovimentoDb(db, { tipo: altra.tipo, stato: altra.stato, sede_id: altra.sede_id, data_movimento: altra.data_movimento,
+      causale: altra.causale, annotazioni: altra.annotazioni, spese: +altra.spese || 0 }, tutte, altra.id);
+    avviso(`${motivo.code === "CONFLITTO" ? `Anche ${motivo.chi} stava lavorando su questa giornata` : "Un altro computer aveva appena creato la giornata"}: `
+      + `ho aggiunto i tuoi ${nuove.length} articoli alla giornata #${id}${motivo.code === "CONFLITTO" ? " (controlla eventuali modifiche fatte a righe già salvate)" : ""}.`);
+    setTimeout(() => location.replace(chiudi ? ELENCO_V : `vendita.html?db=${id}`), 2200);
   }
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
@@ -344,7 +372,8 @@
   document.addEventListener("click", () => $("menuStampa").classList.remove("show"));
 
   // Giornata salvata: se è definitiva i suoi pezzi sono già usciti dalla giacenza (giaScaricati, per il limite in modifica)
-  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo, ora: r.aggiunto_il || null,
+  // daDb: riga già salvata (serve a capire quali articoli sono stati aggiunti in questa pagina)
+  if (movDb) righe.carica(movDb.righe.map(r => ({ qta: +r.quantita, prezzo: +r.prezzo, sconto: +r.sconto, articolo: r.articolo, ora: r.aggiunto_il || null, daDb: true, qtaDb: +r.quantita,
     giaScaricati: movDb.stato === "Definitivo" ? +r.quantita : 0 })));
   // Giornata di esempio: righe con articoli veri dell'anagrafica (il totale torna al centesimo)
   else if (ven) righe.carica(righeCarico(ven).map(r => ({ qta: r.qta, prezzo: r.prezzo, articolo: r.articolo, tot: r.tot, giaScaricati: ven.stato === "Definitivo" ? r.qta : 0 })));
@@ -373,16 +402,18 @@
   // No = si scrive la nota obbligatoria e si continua con questa. Restituisce "riapri", "nuova" o "annulla".
   function chiediDoppione(g, giorno, salvando) {
     const oggiS = giorno === oggi;
+    // al salvataggio con articoli già inseriti, il Sì li aggiunge alla giornata esistente ("unisci") invece di perderli
+    const unire = salvando && righe.RIGHE.some(r => r.articolo);
     $("doppiaTitolo").textContent = `${ECOM ? "Vendite e-commerce" : "Vendite giornaliere"} ${oggiS ? "di oggi" : "del " + giornoIt(giorno)} già create`;
     $("doppiaTesto").innerHTML = `Vuoi riaprire quelle ${oggiS ? "di oggi" : "del " + giornoIt(giorno)} (#${g.id}) e aggiungere lì gli articoli?`
-      + (salvando && righe.RIGHE.some(r => r.articolo) ? "<br><small>Se scegli Sì, gli articoli scritti in questa pagina non vengono salvati.</small>" : "");
-    $("doppiaSi").textContent = `Sì, riapri quelle ${oggiS ? "di oggi" : "del " + giornoIt(giorno)}`;
+      + (unire ? "<br><small>Se scegli Sì, gli articoli che hai inserito qui vengono aggiunti a quella giornata.</small>" : "");
+    $("doppiaSi").textContent = unire ? "Sì, aggiungi i miei articoli a quella" : `Sì, riapri quelle ${oggiS ? "di oggi" : "del " + giornoIt(giorno)}`;
     $("doppiaNotaBox").hidden = true; $("doppiaCrea").hidden = true; $("doppiaSi").hidden = false; $("doppiaNo").textContent = "No";
     $("doppiaNota").value = "";
     $("finDoppia").style.display = "flex";
     return new Promise(fine => {
       const chiudi = v => { $("finDoppia").style.display = "none"; fine(v); };
-      $("doppiaSi").onclick = () => { ultimaUscitaOk(); location.href = `vendita.html?db=${g.id}&modifica=1`; chiudi("riapri"); };
+      $("doppiaSi").onclick = () => { if (unire) { chiudi("unisci"); return; } ultimaUscitaOk(); location.href = `vendita.html?db=${g.id}&modifica=1`; chiudi("riapri"); };
       $("doppiaNo").onclick = () => {
         if (!$("doppiaNotaBox").hidden) { chiudi("annulla"); return; }   // secondo clic su "Annulla"
         $("doppiaNotaBox").hidden = false; $("doppiaCrea").hidden = false; $("doppiaSi").hidden = true; $("doppiaNo").textContent = "Annulla";

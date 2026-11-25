@@ -366,6 +366,8 @@
     try {
       const id = await salvaMovimentoDb(db, {
         tipo: "trasferimento_a_filiale", stato, sede_id: sedeId, sede_altra_id: dest,
+        // mandare più di quanto resta dell'ordine solo se confermato qui sopra (il database controlla, anche con più computer insieme)
+        _oltre_ok: sopra.length > 0,
         data_movimento: $("fData").value || oggi, causale: $("fCausale").value.trim() || null
       }, daMandare.map(r => ({
         articolo_id: r.articolo.id, quantita: r.manda, quantita_ordinata: r.ordinata, prezzo: r.prezzo, sconto: 0, etichette: r.manda, ordine_riga_id: r.ordineRigaId
