@@ -162,3 +162,10 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   "Session pooler" con la password, salvato cifrato da Windows in `%LOCALAPPDATA%\GestionaleMagazzino`) e attiva il backup giornaliero alle 13:00
   (Utilità di pianificazione, "Backup gestionale magazzino"); `Backup gestionale - adesso.bat` per farlo subito. Script in `strumenti/backup-database.ps1`
   (pg_dump di PostgreSQL 17 Command Line Tools), copie in `Documenti\Backup gestionale` (60 giorni, almeno 10), registro `backup.log`.
+
+## Nuova versione in Angular (`frontend-angular/`)
+- Si sta rifacendo il gestionale in Angular (21, standalone, Signals, TypeScript strict) + `@supabase/supabase-js`, nella sottocartella
+  `frontend-angular/`. Il prototipo `prototipo/` **resta com'è e funziona**: è il riferimento funzionale, non va modificato.
+- Regole architetturali obbligatorie: `frontend-angular/CLAUDE.md` (scritture solo tramite RPC/transazioni PostgreSQL, mai calcoli di
+  giacenza solo lato client, paginazione e ricerca lato server, tipi allineati allo schema, `core/` `features/` `shared/`).
+- Analisi, punti da mettere in sicurezza e checklist della migrazione (una schermata alla volta, `ng build` senza errori): `frontend-angular/MIGRAZIONE.md`.
