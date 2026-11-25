@@ -26,6 +26,7 @@
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
 //   senzaOrdinata / senzaSconto  tolgono le colonne Ordinata e Sconto % (es. aumento e diminuzione giacenza)
 //   costoFisso          il costo è sempre quello della scheda articolo: non si scrive e non c'è ↻
+//   perPezzo            l'ultima colonna è il costo di UN pezzo con l'IVA (non pezzi × costo) e in fondo niente totale
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
 
@@ -61,7 +62,7 @@ function righeHtmlTabella(cfg) {
       <table>
         <thead><tr><th class="solo-mod richiede-forn" style="width:96px"><button class="btn-riga nuova" id="nuovaRiga" title="Nuova riga: cerca l'articolo scrivendo il codice">＋</button></th><th>#</th><th>Articolo</th>
           ${cfg.senzaOrdinata ? "" : '<th class="num">Ordinata</th>'}${cfg.spedita ? '<th class="num" title="Quanto è uscito davvero">Spedita</th>' : ""}<th class="num" title="Giacenza attuale nella sede">Giac.</th>${cfg.senzaAnno ? "" : '<th class="num">Anno giac.</th>'}
-          <th class="num">${cfg.etichettaPrezzo}</th><th>IVA</th>${cfg.senzaSconto ? "" : '<th class="num">Sconto %</th>'}<th class="num">Prezzo totale</th></tr></thead>
+          <th class="num">${cfg.etichettaPrezzo}</th><th>IVA</th>${cfg.senzaSconto ? "" : '<th class="num">Sconto %</th>'}${cfg.perPezzo ? '<th class="num" title="Costo di un pezzo, IVA compresa">Costo + IVA (1 pezzo)</th>' : '<th class="num">Prezzo totale</th>'}</tr></thead>
         <tbody id="righeArt"></tbody>
         <tfoot><tr><td class="solo-mod"></td><td colspan="2">Totale</td>${cfg.senzaOrdinata ? "" : '<td class="num" id="totOrd"></td>'}${cfg.spedita ? '<td class="num" id="totSped"></td>' : ""}<td colspan="${(cfg.senzaAnno ? 4 : 5) - (cfg.senzaSconto ? 1 : 0)}"></td><td class="num" id="totArt"></td></tr></tfoot>
       </table>
@@ -110,7 +111,7 @@ function avviaRighe(cfg) {
     const conArt = RIGHE.filter(r => r.articolo);
     if ($("totOrd")) $("totOrd").textContent = cfg.soloSpedita ? "" : conArt.reduce((s, r) => s + r.qta, 0);
     if (cfg.spedita) $("totSped").textContent = conArt.reduce((s, r) => s + r.sped, 0);
-    $("totArt").textContent = numero(RIGHE.reduce((s, r) => s + r.tot, 0));
+    $("totArt").textContent = cfg.perPezzo ? "" : numero(RIGHE.reduce((s, r) => s + r.tot, 0));
   }
 
   // Mette l'articolo nel movimento: se c'è già, aumenta la quantità della sua riga
@@ -189,7 +190,7 @@ function avviaRighe(cfg) {
           ? `<select class="sel-iva${r.iva !== "22" ? " diversa" : ""}" data-campo="iva" data-riga="${r.pos}">${ALIQUOTE_RIGA.map(([k, t]) => `<option value="${k}"${k === r.iva ? " selected" : ""}>${t}</option>`).join("")}</select>`
           : `<span class="sel-iva${r.iva !== "22" ? " diversa" : ""}" style="border-color:transparent">${nomeIva(r.iva)}</span>`}</td>
         ${cfg.senzaSconto ? "" : `<td class="num">${inp(r, "sconto", r.sconto)}</td>`}
-        <td class="num"><b>${numero(r.tot)}</b></td>
+        <td class="num"><b>${cfg.perPezzo ? numero(Math.round(r.prezzo * (1 + percIva(r.iva) / 100) * 100) / 100) : numero(r.tot)}</b></td>
       </tr>`;
     }).join("") : `<tr><td colspan="${colonne}"><div class="vuoto"><b>Nessun articolo</b><span>${cfg.testoVuoto ? cfg.testoVuoto() : "Aggiungi gli articoli con il tasto ＋ o sparandoli con la pistola."}</span></div></td></tr>`;
   }

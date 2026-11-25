@@ -95,7 +95,7 @@
   const opz = (lista, scelto) => lista.map(o => `<option${String(o) === String(scelto) ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   // non si tolgono più pezzi di quelli in giacenza (come nelle vendite)
-  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nella diminuzione", limiteGiacenza: true, verboUscita: "togliere", senzaOrdinata: true, senzaSconto: true, costoFisso: true, senzaAnno: true };
+  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nella diminuzione", limiteGiacenza: true, verboUscita: "togliere", senzaOrdinata: true, senzaSconto: true, costoFisso: true, senzaAnno: true, perPezzo: true };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
@@ -107,8 +107,8 @@
         </div>
       </div>
       <div class="totale-top">
-        <div class="t">Valore a costo</div>
-        <div class="v" id="topTotale">${euro(0)}</div>
+        <div class="t">Pezzi che escono</div>
+        <div class="v" id="topTotale">0</div>
         <div class="p" id="topPezzi">0 pezzi · 0 righe</div>
       </div>
     </div>
@@ -156,8 +156,6 @@
           <aside class="riepilogo">
             <h3>Riepilogo</h3>
             <div class="voce-imp fissa"><label>Pezzi che escono</label><input id="impPezzi" value="0" disabled></div>
-            <div class="voce-imp fissa"><label>Valore a costo <small>IVA escl.</small></label><input id="impNetto" value="0,00" disabled></div>
-            <div class="totale-compl"><span>= Valore IVA inclusa</span><span class="v" id="totCompl">0,00</span></div>
           </aside>
         </div>
       </div>
@@ -226,13 +224,10 @@
     cambiato: () => ricalcola()
   });
   function ricalcola() {
-    const ivato = righe.totale();
-    const netto = Math.round(righe.RIGHE.reduce((s, r) => s + (r.articolo ? r.sped * r.prezzo * (1 - (r.sconto || 0) / 100) : 0), 0) * 100) / 100;
     $("impPezzi").value = righe.pezzi();
-    $("impNetto").value = numero(netto);
-    $("totCompl").textContent = numero(ivato);
-    $("topTotale").textContent = euro(netto);
-    $("topPezzi").textContent = `${righe.pezzi()} pezzi · ${righe.RIGHE.length} righe`;
+    // niente somme di valore (deciso con l'utente): solo i pezzi
+    $("topTotale").textContent = righe.pezzi();
+    $("topPezzi").textContent = `${righe.RIGHE.length} ${righe.RIGHE.length === 1 ? "articolo" : "articoli"}`;
     $("nRigheTab").textContent = righe.RIGHE.length;
   }
   // ---------- Etichette: non servono (la merce esce) ----------
