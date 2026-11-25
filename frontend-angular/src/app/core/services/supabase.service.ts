@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { createClient, type PostgrestError, type SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import type { NomeRpc, Pagina, RpcFunzioni } from '../models/database.types';
+import { anteprimaAttiva, fetchFinto } from '../anteprima/anteprima';
 
 /** Errore del database con il messaggio già tradotto per l'utente. */
 export class ErroreDatabase extends Error {
@@ -50,7 +51,9 @@ export interface OpzioniPagina {
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
   readonly client: SupabaseClient = createClient(environment.supabaseUrl, environment.supabasePublishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    // solo sviluppo: risposte finte per vedere le schermate senza accesso (core/anteprima)
+    ...(anteprimaAttiva() ? { global: { fetch: fetchFinto } } : {})
   });
 
   /** Chiama una funzione del database tipizzata (transazioni e controlli stanno lì). */

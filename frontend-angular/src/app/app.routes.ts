@@ -14,7 +14,8 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'caricamento', loadComponent: () => import('./features/vuota').then(m => m.Vuota) },
-      { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard) }
+      { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard) },
+      { path: 'articoli', loadComponent: () => import('./features/articoli/elenco-articoli').then(m => m.ElencoArticoli) }
     ]
   },
   { path: '**', redirectTo: '' }

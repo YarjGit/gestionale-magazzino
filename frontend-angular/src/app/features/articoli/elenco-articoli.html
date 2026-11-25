@@ -1,0 +1,118 @@
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Articoli</h1>
+    <div class="crumbs"><span>Magazzino</span><span>-</span><span>Articoli</span></div>
+  </div>
+  <div class="tabs">
+    @for (s of schede; track s.k) {
+      <button class="tab" [class.active]="scheda() === s.k" (click)="scegliScheda(s.k)">
+        @if (s.colore) { <span class="dot" [style.background]="s.colore"></span> }{{ s.t }}<span class="n">{{ s.n() }}</span>
+      </button>
+    }
+  </div>
+  <span class="spacer"></span>
+  <button class="btn btn-light" (click)="etichette()">🏷️ Etichette</button>
+  <button class="btn btn-primary" (click)="nuovo()">＋ Nuovo articolo</button>
+</div>
+
+<section class="panel filtri" [class.chiusi]="!filtriAperti()">
+  <div class="filtri-head" (click)="filtriAperti.set(!filtriAperti())">
+    <h2>Filtri di ricerca</h2>
+    @if (nFiltri()) { <span class="badge">{{ nFiltri() === 1 ? '1 attivo' : nFiltri() + ' attivi' }}</span> }
+  </div>
+  <div class="filtri-body">
+    <div class="grid-filtri">
+      <div class="f c4"><label>Fornitore</label>
+        <app-cerca-fornitore [fornitori]="fornitori()" [valore]="filtri().fornitore" vuoto="Tutti" (cambiato)="cambiaFiltro('fornitore', $event)" />
+      </div>
+      <div class="f c2"><label>Da codice – a</label>
+        <div class="coppia">
+          <input placeholder="da" [value]="filtri().codDa" (input)="cambiaFiltro('codDa', testo($event))">
+          <input placeholder="a" [value]="filtri().codA" (input)="cambiaFiltro('codA', testo($event))">
+        </div>
+      </div>
+      <div class="f c3"><label>Codice, nome o barcode</label><input placeholder="Anche solo una parte…" [value]="filtri().cod" (input)="cambiaFiltro('cod', testo($event))"></div>
+      <div class="f c2"><label>Anno listino</label><input type="number" placeholder="es. 2026" [value]="filtri().anno" (input)="cambiaFiltro('anno', testo($event))"></div>
+      <div class="f c2"><label>Prezzo min – max</label>
+        <div class="coppia">
+          <input type="number" placeholder="min" [value]="filtri().prezzoMin" (input)="cambiaFiltro('prezzoMin', testo($event))">
+          <input type="number" placeholder="max" [value]="filtri().prezzoMax" (input)="cambiaFiltro('prezzoMax', testo($event))">
+        </div>
+      </div>
+      <div class="f c2"><label>Aliquota IVA</label>
+        <select [value]="filtri().iva" (change)="cambiaFiltro('iva', testo($event))">
+          <option value="">Tutte</option><option value="22">22</option><option value="4">4</option><option value="0">0</option>
+        </select>
+      </div>
+      <div class="f c2"><label>Solo con giacenza</label>
+        <label class="interr"><span class="switch"><input type="checkbox" [checked]="filtri().soloGiacenza" (change)="cambiaFiltro('soloGiacenza', spuntato($event))"><span></span></span></label>
+      </div>
+    </div>
+    <div class="filtri-azioni"><button class="btn btn-ghost" (click)="azzera()">Azzera filtri</button></div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="toolbar">
+    <div class="tool-group">
+      <button title="Aggiorna" (click)="aggiorna()">↻</button>
+      <button title="Esporta per Excel" (click)="esporta()">⤓</button>
+    </div>
+    <div class="cerca">
+      <input type="search" placeholder="Cerca codice, nome o barcode (anche più parole)…" [value]="cerca()" (input)="cercaCambiata(testo($event))">
+    </div>
+  </div>
+
+  @if (selezionati().size) {
+    <div class="barra-sel">
+      <b>{{ selezionati().size }} selezionati</b>
+      <button class="btn btn-light" (click)="etichette()">🏷️ Stampa etichette dei selezionati</button>
+      <button class="btn btn-ghost" (click)="togliSelezione()">Togli la selezione</button>
+    </div>
+  }
+
+  @if (errore()) {
+    <div class="avviso-accesso">⚠ {{ errore() }} <button class="btn btn-light" (click)="aggiorna()">Riprova</button></div>
+  }
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="chk"><input type="checkbox" title="Seleziona la pagina" [checked]="tuttiSelezionati()" (change)="selezionaPagina(spuntato($event))"></th>
+          @for (c of colonne; track c.t) {
+            <th [class.num]="c.num" [class.sort]="!!c.k" (click)="ordinaPer(c.k)">
+              {{ c.t }}@if (c.k && ordina().k === c.k) { <span class="freccia">{{ ordina().crescente ? '▲' : '▼' }}</span> }
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @if (caricamento() && !righe().length) {
+          <tr><td colspan="8"><div class="vuoto"><b>Caricamento articoli…</b></div></td></tr>
+        }
+        @for (a of righe(); track a.id) {
+          <tr class="cliccabile" (click)="apri(a, $event)">
+            <td class="chk"><input type="checkbox" [checked]="selezionati().has(a.codice)" (change)="seleziona(a.codice, spuntato($event))" [attr.aria-label]="'Seleziona ' + a.codice"></td>
+            <td><span class="codice">{{ a.codice }}</span></td>
+            <td><div class="descr" [title]="a.descrizione">{{ a.descrizione }}</div></td>
+            <td class="num"><span [class]="'giac ' + classeGiac(a.quantita)" [title]="a.quantita == null ? 'Mai movimentato' : ''">{{ a.quantita == null ? '–' : quantita(toNumber(a.quantita)) }}</span></td>
+            <td class="num prezzi"><div class="costo">{{ numero(toNumber(a.costo_netto)) }}</div><div class="prezzo">{{ numero(toNumber(a.prezzo_vendita_ivato)) }}</div></td>
+            <td class="num">{{ ricarico(a) }}</td>
+            <td><span class="barcode">{{ a.barcode }}</span></td>
+            <td class="num">{{ toNumber(a.iva) }}%</td>
+          </tr>
+        } @empty {
+          @if (!caricamento() && !errore()) {
+            <tr><td colspan="8"><div class="vuoto"><b>Nessun articolo con questi filtri</b><span>Prova a cambiare o azzerare i filtri.</span></div></td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="piede">
+    <div class="totali"><span>Articoli: <b>{{ totale() }}</b></span>@if (caricamento()) { <span>⏳ aggiornamento…</span> }</div>
+    <app-paginatore [pagina]="pagina()" [perPagina]="perPagina()" [totale]="totale()" [caricamento]="caricamento()"
+                    (paginaCambiata)="pagina.set($event)" (perPaginaCambiata)="perPagina.set($event); pagina.set(0)" />
+  </div>
+</section>

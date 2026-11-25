@@ -349,6 +349,66 @@ language sql stable security invoker set search_path = public as $$
   from base order by codice limit greatest(1, least(p_quanti, 200)) offset greatest(0, p_da);
 $$;
 
+-- Elenco Articoli (pagina articoli): filtri, ricerca a più parole (codice, descrizione, barcode), schede per giacenza,
+-- ordinamento e paginazione nel database, con la giacenza della sede di lavoro. Righe con il totale per la paginazione.
+create or replace function articoli_elenco(
+  p_sede text, p_cerca text default null, p_fornitore uuid default null, p_cod_da text default null, p_cod_a text default null,
+  p_anno int default null, p_prezzo_min numeric default null, p_prezzo_max numeric default null, p_iva numeric default null,
+  p_scheda text default '', p_solo_giacenza boolean default false, p_ordina text default 'codice', p_crescente boolean default true,
+  p_da int default 0, p_quanti int default 25)
+returns table (id uuid, codice text, descrizione text, barcode text, costo_netto numeric, prezzo_vendita_ivato numeric, iva numeric,
+               fornitore_id uuid, anno_listino int, quantita numeric, totale bigint)
+language plpgsql stable security invoker set search_path = public as $$
+declare v_parole text[] := array(select p from unnest(string_to_array(lower(coalesce(trim(p_cerca), '')), ' ')) p where p <> '');
+begin
+  return query
+  with base as (
+    select a.id, a.codice, a.descrizione, a.barcode, a.costo_netto, a.prezzo_vendita_ivato, coalesce(i.aliquota, 22) as iva,
+           a.fornitore_id, a.anno_listino, g.quantita
+    from articoli a
+    left join aliquote_iva i on i.codice = a.aliquota_iva
+    left join giacenze g on g.articolo_id = a.id and g.sede_id = p_sede
+    where a.attivo
+      and (cardinality(v_parole) = 0 or not exists (select 1 from unnest(v_parole) w
+             where (lower(a.codice) || ' ' || lower(a.descrizione) || ' ' || coalesce(a.barcode, '')) not like '%' || w || '%'))
+      and (p_fornitore is null or a.fornitore_id = p_fornitore)
+      and (p_cod_da is null or p_cod_da = '' or lower(a.codice) >= lower(p_cod_da))
+      and (p_cod_a is null or p_cod_a = '' or lower(a.codice) <= lower(p_cod_a) || chr(65535))
+      and (p_anno is null or a.anno_listino = p_anno)
+      and (p_prezzo_min is null or a.prezzo_vendita_ivato >= p_prezzo_min)
+      and (p_prezzo_max is null or a.prezzo_vendita_ivato <= p_prezzo_max)
+      and (p_iva is null or coalesce(i.aliquota, 22) = p_iva)
+      and (not p_solo_giacenza or coalesce(g.quantita, 0) > 0)
+      and (p_scheda = '' or (p_scheda = 'disp' and coalesce(g.quantita, 0) > 0) or (p_scheda = 'esauriti' and coalesce(g.quantita, 0) = 0)
+           or (p_scheda = 'neg' and coalesce(g.quantita, 0) < 0))
+  )
+  select b.id, b.codice, b.descrizione, b.barcode, b.costo_netto, b.prezzo_vendita_ivato, b.iva, b.fornitore_id, b.anno_listino, b.quantita,
+         count(*) over () as totale
+  from base b
+  order by
+    case when p_ordina = 'codice' and p_crescente then b.codice end asc, case when p_ordina = 'codice' and not p_crescente then b.codice end desc,
+    case when p_ordina = 'descrizione' and p_crescente then b.descrizione end asc, case when p_ordina = 'descrizione' and not p_crescente then b.descrizione end desc,
+    case when p_ordina = 'giacenza' and p_crescente then coalesce(b.quantita, -999999) end asc, case when p_ordina = 'giacenza' and not p_crescente then coalesce(b.quantita, -999999) end desc,
+    case when p_ordina = 'prezzo' and p_crescente then b.prezzo_vendita_ivato end asc, case when p_ordina = 'prezzo' and not p_crescente then b.prezzo_vendita_ivato end desc,
+    case when p_ordina = 'barcode' and p_crescente then b.barcode end asc, case when p_ordina = 'barcode' and not p_crescente then b.barcode end desc,
+    case when p_ordina = 'iva' and p_crescente then b.iva end asc, case when p_ordina = 'iva' and not p_crescente then b.iva end desc,
+    b.codice
+  limit greatest(1, least(p_quanti, 500)) offset greatest(0, p_da);
+end $$;
+
+-- Conteggi delle schede dell'elenco Articoli (Tutti, Disponibili, Esauriti, Negativi) nella sede
+create or replace function articoli_conteggi(p_sede text)
+returns table (tutti bigint, disponibili bigint, esauriti bigint, negativi bigint)
+language sql stable security invoker set search_path = public as $$
+  select count(*), count(*) filter (where coalesce(g.quantita, 0) > 0), count(*) filter (where coalesce(g.quantita, 0) = 0),
+         count(*) filter (where coalesce(g.quantita, 0) < 0)
+  from articoli a left join giacenze g on g.articolo_id = a.id and g.sede_id = p_sede
+  where a.attivo;
+$$;
+
+grant execute on function articoli_elenco(text, text, uuid, text, text, int, numeric, numeric, numeric, text, boolean, text, boolean, int, int),
+  articoli_conteggi(text) to authenticated;
+
 grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimento_ed_evadi(bigint, jsonb, jsonb, bigint[]),
   conferma_ricezione(bigint), annulla_movimento(bigint), annulla_inevaso(bigint, numeric, text), aggiorna_documento_movimento(bigint, jsonb),
   conferma_inventario(bigint), nuovo_barcode(), salva_articolo(uuid, jsonb, timestamptz), salva_fornitore(uuid, jsonb, text[]),
@@ -357,8 +417,8 @@ grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimen
 -- funzioni di servizio: non si chiamano dalle pagine
 revoke execute on function _scrivi_anagrafica(text, text, jsonb, text[]), controlla_giacenza(text, uuid[]), blocca_articoli(text, uuid[]) from public, anon, authenticated;
 
--- Controllo: deve dare 15
+-- Controllo: deve dare 17
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in (
   'puo_scrivere_sede', 'ha_ruolo', 'salva_movimento_ed_evadi', 'conferma_ricezione', 'annulla_movimento', 'annulla_inevaso',
   'aggiorna_documento_movimento', 'conferma_inventario', 'nuovo_barcode', 'salva_articolo', 'salva_fornitore', 'salva_cliente',
-  'salva_utente', 'registra_evento', 'giacenze_sede');
+  'salva_utente', 'registra_evento', 'giacenze_sede', 'articoli_elenco', 'articoli_conteggi');

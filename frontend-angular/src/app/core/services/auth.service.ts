@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import type { Session } from '@supabase/supabase-js';
 import { ErroreDatabase, SupabaseService } from './supabase.service';
+import { anteprimaAttiva, SESSIONE_FINTA } from '../anteprima/anteprima';
 
 /**
  * Sessione e autorizzazione (come il prototipo: login.html e layout.js).
@@ -23,6 +24,7 @@ export class AuthService {
   constructor() {
     this.avvio = this.inizializza();
     this.supabase.client.auth.onAuthStateChange((_evento, sessione) => {
+      if (anteprimaAttiva()) return;
       this.sessione.set(sessione);
       if (!sessione) {
         this.autorizzato.set(null);
@@ -37,6 +39,12 @@ export class AuthService {
   }
 
   private async inizializza(): Promise<void> {
+    if (anteprimaAttiva()) {   // solo sviluppo: utente finto già dentro
+      this.sessione.set(SESSIONE_FINTA as unknown as Session);
+      this.autorizzato.set(true);
+      this.amministratore.set(true);
+      return;
+    }
     const { data } = await this.supabase.client.auth.getSession();
     this.sessione.set(data.session);
     if (data.session) await this.verificaAutorizzazione();

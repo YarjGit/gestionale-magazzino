@@ -322,6 +322,45 @@ export interface RpcFunzioni {
     args: { p_sede: SedeId; p_cerca: string | null; p_solo_presenti: boolean; p_sotto_scorta: boolean; p_da: number; p_quanti: number };
     ritorno: GiacenzaSedeRiga[];
   };
+  /** Elenco Articoli: una pagina con filtri, ricerca, schede e giacenza della sede. */
+  articoli_elenco: { args: ArticoliElencoArgs; ritorno: ArticoloElencoRiga[] };
+  articoli_conteggi: { args: { p_sede: SedeId }; ritorno: { tutti: number; disponibili: number; esauriti: number; negativi: number }[] };
+}
+
+export type SchedaArticoli = '' | 'disp' | 'esauriti' | 'neg';
+export type OrdinaArticoli = 'codice' | 'descrizione' | 'giacenza' | 'prezzo' | 'barcode' | 'iva';
+
+export interface ArticoliElencoArgs {
+  p_sede: SedeId;
+  p_cerca: string | null;
+  p_fornitore: string | null;
+  p_cod_da: string | null;
+  p_cod_a: string | null;
+  p_anno: number | null;
+  p_prezzo_min: number | null;
+  p_prezzo_max: number | null;
+  p_iva: number | null;
+  p_scheda: SchedaArticoli;
+  p_solo_giacenza: boolean;
+  p_ordina: OrdinaArticoli;
+  p_crescente: boolean;
+  p_da: number;
+  p_quanti: number;
+}
+
+export interface ArticoloElencoRiga {
+  id: string;
+  codice: string;
+  descrizione: string;
+  barcode: string | null;
+  costo_netto: Numerico;
+  prezzo_vendita_ivato: Numerico;
+  iva: Numerico;
+  fornitore_id: string | null;
+  anno_listino: number | null;
+  /** null = mai movimentato in questa sede */
+  quantita: Numerico | null;
+  totale: number;
 }
 
 export interface GiacenzaSedeRiga {
