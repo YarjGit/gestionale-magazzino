@@ -35,6 +35,7 @@
   cursor: pointer;
 }
 .scheda-tab:hover { color: var(--text); }
+.scheda-tab[hidden] { display: none; }
 .scheda-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .scheda-tab .n { padding: 0 7px; border-radius: 99px; background: var(--page-bg); font-size: 0.72rem; }
 .scheda-tab.active .n { background: #e8f1ff; }

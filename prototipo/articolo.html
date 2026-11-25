@@ -188,12 +188,13 @@
 
     <section class="panel">
       <div class="schede" id="schede">
+        <!-- articolo nuovo: solo Dettagli e Materiali (giacenze, movimenti e storico arrivano dopo il salvataggio) -->
         <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
         <button class="scheda-tab" data-t="materiali">🧵 Materiali</button>
-        <button class="scheda-tab" data-t="giacenza">📦 Giacenza</button>
-        <button class="scheda-tab" data-t="altre">🏬 Giacenza altre sedi</button>
-        <button class="scheda-tab" data-t="movimenti">🔁 Movimenti</button>
-        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <button class="scheda-tab" data-t="giacenza" ${nuovo ? "hidden" : ""}>📦 Giacenza</button>
+        <button class="scheda-tab" data-t="altre" ${nuovo ? "hidden" : ""}>🏬 Giacenza altre sedi</button>
+        <button class="scheda-tab" data-t="movimenti" ${nuovo ? "hidden" : ""}>🔁 Movimenti</button>
+        <button class="scheda-tab" data-t="storico" ${nuovo ? "hidden" : ""}>🕑 Storico modifiche</button>
       </div>
 
       <!-- DETTAGLI: disposizione come nel gestionale attuale (prezzi a sinistra, fornitori e barcode a destra) -->
