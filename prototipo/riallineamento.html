@@ -164,7 +164,7 @@
       </div>
       <div class="pannello-tab" id="tab-contati">
         <div class="table-wrap"><table>
-          <thead><tr><th>Articolo</th><th class="num">Contati</th><th class="num">${confermato ? "Giacenza prima" : "Giacenza nel gestionale"}</th><th class="num">Differenza</th><th class="num">Costo</th><th class="num">Valore differenza</th>${inCorso ? '<th style="width:40px"></th>' : ""}</tr></thead>
+          <thead><tr><th>Articolo</th><th class="num">Contati</th><th class="num">${confermato ? "Giacenza prima" : "Giacenza nel gestionale"}</th><th class="num">Differenza</th>${inCorso ? '<th style="width:40px"></th>' : ""}</tr></thead>
           <tbody id="righeContati"></tbody>
         </table></div>
         <div class="riepilogo-inv" id="riepilogo"></div>
@@ -187,8 +187,6 @@
   };
 
   // ---------- Disegno ----------
-  // valori in euro sempre con due decimali (−105,00)
-  const euroDiff = v => `<span class="${v > 0 ? "diff-piu" : v < 0 ? "diff-meno" : "diff-zero"}">${v > 0 ? "+" : v < 0 ? "−" : ""}${numero(Math.abs(v))}</span>`;
   const diffHtml = d => `<span class="${d > 0 ? "diff-piu" : d < 0 ? "diff-meno" : "diff-zero"}">${d > 0 ? "+" : d < 0 ? "−" : ""}${q2(Math.abs(d))}</span>`;
   // giacenza nel gestionale: quella di oggi (in corso) o quella di prima della conferma
   const prima = c => confermato ? c.contati - c.diff : (c.articolo.giac ?? 0);
@@ -205,19 +203,15 @@
         <td class="num">${inCorso ? `<span class="passo"><button class="btn-riga" data-passo="-1" data-id="${a.id}">−</button><input class="num-mod" data-id="${a.id}" value="${q2(c.contati)}"><button class="btn-riga" data-passo="1" data-id="${a.id}">+</button></span>` : `<b>${q2(c.contati)}</b>`}</td>
         <td class="num">${q2(prima(c))}</td>
         <td class="num">${diffHtml(d)}</td>
-        <td class="num">${numero(a.costo || 0)}</td>
-        <td class="num">${d ? euroDiff(Math.round(d * (a.costo || 0) * 100) / 100) : ""}</td>
         ${inCorso ? `<td><button class="btn-riga cestino" data-togli="${a.id}" title="Togli dal conteggio">🗑</button></td>` : ""}
       </tr>`;
-    }).join("") : `<tr><td colspan="7"><div class="vuoto"><b>Nessun articolo contato</b><span>${inCorso ? "Spara il primo barcode qui sopra." : ""}</span></div></td></tr>`;
+    }).join("") : `<tr><td colspan="5"><div class="vuoto"><b>Nessun articolo contato</b><span>${inCorso ? "Spara il primo barcode qui sopra." : ""}</span></div></td></tr>`;
     const pezzi = lista.reduce((t, c) => t + c.contati, 0);
     const piu = lista.reduce((t, c) => t + Math.max(0, differenza(c)), 0), meno = lista.reduce((t, c) => t + Math.max(0, -differenza(c)), 0);
-    const valore = lista.reduce((t, c) => t + differenza(c) * (c.articolo.costo || 0), 0);
     $("nContati").textContent = lista.length;
     $("topPezzi").textContent = `${lista.length} articoli · ${q2(pezzi)} pezzi contati`;
     $("riepilogo").innerHTML = `<span>Articoli contati: <b>${lista.length}</b></span><span>Pezzi contati: <b>${q2(pezzi)}</b></span>
-      <span>Trovati in più: <b class="diff-piu">+${q2(piu)}</b></span><span>Mancanti: <b class="diff-meno">−${q2(meno)}</b></span>
-      <span>Valore della differenza (a costo): <b>${euro(Math.round(valore * 100) / 100)}</b></span>`;
+      <span>Trovati in più: <b class="diff-piu">+${q2(piu)}</b></span><span>Mancanti: <b class="diff-meno">−${q2(meno)}</b></span>`;
     disegnaNonSparati();
   }
   function disegnaNonSparati() {
@@ -418,14 +412,13 @@
   $("btnStampa").onclick = () => {
     const lista = [...CONTATI.values()].sort((a, b) => a.articolo.codice.localeCompare(b.articolo.codice));
     if (!lista.length) { avviso("Non ci sono articoli contati da stampare"); return; }
-    const valore = lista.reduce((t, c) => t + differenza(c) * (c.articolo.costo || 0), 0);
     sessionStorage.setItem("stampa", JSON.stringify({
       titolo: "Inventario – differenze", sede: sedeLavoro,
       info: [["Data", dataIt(mov ? mov.data_movimento : oggi)], ["Stato", st.nome], ["Ambito", ambito === "parte" ? "Solo una parte" : "Tutto il magazzino"]].concat(mov ? [["Numero", `${mov.id}`]] : []),
       destinatario: [],
-      colonne: [{ k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "prima", t: "Gestionale", num: true }, { k: "contati", t: "Contati", num: true }, { k: "diff", t: "Differenza", num: true }, { k: "valore", t: "Valore diff.", num: true }],
-      righe: lista.map(c => { const d = differenza(c); return { cod: c.articolo.codice, descr: c.articolo.descr, prima: q2(prima(c)), contati: q2(c.contati), diff: (d > 0 ? "+" : "") + q2(d), valore: numero(Math.round(d * (c.articolo.costo || 0) * 100) / 100) }; }),
-      totali: [["Articoli contati", String(lista.length)], ["Valore della differenza", numero(Math.round(valore * 100) / 100)]],
+      colonne: [{ k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "prima", t: "Gestionale", num: true }, { k: "contati", t: "Contati", num: true }, { k: "diff", t: "Differenza", num: true }],
+      righe: lista.map(c => { const d = differenza(c); return { cod: c.articolo.codice, descr: c.articolo.descr, prima: q2(prima(c)), contati: q2(c.contati), diff: (d > 0 ? "+" : "") + q2(d) }; }),
+      totali: [["Articoli contati", String(lista.length)], ["Pezzi contati", q2(lista.reduce((t, c) => t + c.contati, 0))]],
       note: $("fNote").value.trim(), nuovaScheda: true
     }));
     window.open("stampa-documento.html?auto=1", "_blank");
