@@ -268,3 +268,7 @@ body:not(.in-modifica) .solo-mod { display: none !important; }
 
 /* Campo fisso (es. sede che riceve presa dall'ordine): non sembra una scelta */
 select[data-fisso]:disabled { appearance: none; -webkit-appearance: none; background-image: none; cursor: default; opacity: 1; color: inherit; font-weight: 600; }
+
+/* Scheda ordine a fornitore: campi tenuti solo nel codice (non servono all'utente) e niente riepilogo importi */
+.f.nasc { display: none; }
+.dettagli.senza-riepilogo { grid-template-columns: minmax(0, 1fr); }

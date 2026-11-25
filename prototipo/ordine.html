@@ -137,36 +137,36 @@
 
       <!-- DETTAGLI -->
       <div class="pannello-tab" id="tab-dettagli">
-        <div class="dettagli">
+        <div class="dettagli senza-riepilogo">
           <div>
             <div class="gruppo">
               <h3>📄 Documento</h3>
               <div class="campi">
                 ${campo("s2", "Tipo di movimento", `<select disabled><option>Ordine a fornitore</option></select>`)}
                 ${campo("s4", "Stato movimento", `<div class="stato-sel"><span class="dot" id="dotStato"></span><select class="mod" id="selStato">${opz(statiScelta, ord ? ord.stato : "Definitivo")}</select><button class="btn" id="btnProvv" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"></button></div>`, "provvisorio = ancora da completare nei prossimi giorni")}
-                ${campo("s2", "Aliquota IVA", `<select class="mod">${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
+                ${campo("s2 nasc", "Aliquota IVA", `<select class="mod">${opz(["22% (A.22)", "10% (A.10)", "4% (A.04)", "Esente (C.--)"], "22% (A.22)")}</select>`)}
                 ${campo("s2", "Data ordine", `<input class="mod" id="fData" type="date" value="${ord ? ord.data : oggi}">`)}
                 ${campo("s2", "Progressivo", `<input disabled value="${ord && ord.prot ? ord.prot : ""}" placeholder="assegnato al salvataggio">`)}
-                ${campo("s2", "Data bolla", `<input class="mod" id="fDataBolla" type="date" value="${ord && ord.dataBolla || ""}">`)}
-                ${campo("s2", "Numero bolla", `<input class="mod" id="fNumBolla" value="${esc(ord && ord.numBolla || "")}">`)}
-                ${campo("s1", "Porto", `<select class="mod" id="fPorto">${opz(["Franco", "Assegnato"], (ord && ord.porto) || "Franco")}</select>`)}
-                ${campo("s1", "Anno", `<input value="${(ord ? ord.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
-                ${campo("s4", "Riferimento fattura", `<input class="mod">`)}
-                ${campo("s2", "ID", `<input value="${ord ? ord.id : ""}" placeholder="nuovo" disabled style="text-align:right">`)}
+                ${campo("s2 nasc", "Data bolla", `<input class="mod" id="fDataBolla" type="date" value="${ord && ord.dataBolla || ""}">`)}
+                ${campo("s2", "Numero ordine", `<input class="mod" id="fNumBolla" value="${esc(ord && ord.numBolla || "")}">`)}
+                ${campo("s1 nasc", "Porto", `<select class="mod" id="fPorto">${opz(["Franco", "Assegnato"], (ord && ord.porto) || "Franco")}</select>`)}
+                ${campo("s1 nasc", "Anno", `<input value="${(ord ? ord.data : oggi).slice(0, 4)}" disabled style="text-align:right">`)}
+                ${campo("s4 nasc", "Riferimento fattura", `<input class="mod">`)}
+                ${campo("s2 nasc", "ID", `<input value="${ord ? ord.id : ""}" placeholder="nuovo" disabled style="text-align:right">`)}
               </div>
             </div>
             <div class="gruppo">
-              <h3>🏭 Fornitore e pagamento</h3>
+              <h3>🏭 Fornitore</h3>
               <div class="campi">
                 ${campo("s4 cerca-forn", 'Fornitore <span style="color:var(--ko)">*</span>', `<div style="position:relative"><input class="mod" id="fornDettagli" placeholder="Obbligatorio: scrivi nome, codice o partita IVA…" autocomplete="off"><div class="suggerimenti" id="suggFornDett"></div></div>`, "senza fornitore l'ordine non va avanti")}
-                ${campo("s1", "Sconto %", `<input class="mod" type="number" min="0" max="100" style="text-align:right">`)}
+                ${campo("s1 nasc", "Sconto %", `<input class="mod" type="number" min="0" max="100" style="text-align:right">`)}
                 ${campo("s1", "Parz. evaso", `<label class="interr" style="margin:6px 0 0"><span class="switch"><input class="mod" type="checkbox" id="parzEvaso" ${ord && ord.ricevuti && ord.ricevuti < ord.nArt ? "checked" : ""}><span></span></span></label>`)}
-                ${campo("s3", "Ordine padre", `<select disabled><option>— nessuno —</option></select>`, "l'ordine da cui nasce questo (es. un riordino)")}
-                ${campo("s3", "Condizione di pagamento", `<select class="mod" id="fCondPag"><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], ord && ord.condPag)}</select>`)}
+                ${campo("s3 nasc", "Ordine padre", `<select disabled><option>— nessuno —</option></select>`, "l'ordine da cui nasce questo (es. un riordino)")}
+                ${campo("s3 nasc", "Condizione di pagamento", `<select class="mod" id="fCondPag"><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], ord && ord.condPag)}</select>`)}
                 ${campo("s3", "Sede che ordina", `<input value="${esc(sedeLavoro)}" disabled>`)}
               </div>
             </div>
-            <div class="gruppo">
+            <div class="gruppo" style="display:none">
               <h3>🚚 Spedizione</h3>
               <div class="campi">
                 ${campo("s2", "Spedizioniere", `<select class="mod"><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"])}</select>`)}
@@ -182,7 +182,7 @@
               </div>
             </div>
           </div>
-          <aside class="riepilogo">
+          <aside class="riepilogo" style="display:none">
             <h3>Riepilogo importi</h3>
             <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input id="impArticoli" value="0,00" disabled></div>
             ${["Spese", "Spese trasporto", "Spese fisse corriere", "Spese % corriere", "Spese accessorie", "Spese volo"].map((s, i) =>
@@ -281,7 +281,7 @@
   }
   // Fornitore che è una sede (es. Magazzino Centrale): si leggono gli articoli ancora in attesa (inevasi)
   // dei nostri ordini precedenti, così non si riordinano per sbaglio
-  let dbConn = null, attesaAperta = true, inAttesaRighe = [];
+  let dbConn = null, attesaAperta = false, inAttesaRighe = [];
   // Giacenza del fornitore quando è una sede (es. Magazzino Centrale), per vederla accanto alla nostra
   let giacFornitore = null;
   const nomeSedeFornitore = () => (SEDI.find(s => ID_SEDI_DB[s.nome] === fornitore.sede) || { nome: fornitore.nome }).nome;
@@ -311,7 +311,8 @@
               <td style="white-space:nowrap">#${r.ordine_id} <small style="color:var(--muted)">del ${dataIt(r.data_ordine)}${r.stato_ordine === "Definitivo" ? " · non ancora preparato" : ""}</small></td>
               <td class="num"><span class="q-attesa">${r.residuo}</span></td></tr>`).join("")}</tbody></table></div>`;
         $("notaInevasi").hidden = false;
-        $("apriAttesa").onclick = () => { attesaAperta = !attesaAperta; aggiornaInAttesa(); };
+        // si apre e si chiude senza rileggere il database
+        $("apriAttesa").onclick = () => { attesaAperta = !attesaAperta; $("elencoAttesa").hidden = !attesaAperta; $("apriAttesa").textContent = attesaAperta ? "Nascondi elenco" : "Mostra elenco"; };
       }
     } catch (err) { avviso("Errore nel leggere gli inevasi: " + err.message); }
     righe.disegna();
@@ -357,7 +358,7 @@
       chiediAttesa(art, n, procedi);
       return true;
     },
-    testoVuoto: () => fornitore ? "Scrivi almeno 2 caratteri in \"Aggiungi articolo\" e scegli tra i suggerimenti, oppure spara il barcode con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
+    testoVuoto: () => fornitore ? "Usa il tasto ＋ e scrivi il codice, oppure spara il barcode con la pistola." : "Scegli prima il fornitore: compariranno i suoi articoli.",
     cambiato: () => ricalcola()
   });
 
@@ -490,7 +491,7 @@
   $("btnEtichette").onclick = () => avviso("Etichette dell'ordine: le definiamo insieme (di solito si stampano al carico della merce)");
   // Excel come quello del gestionale attuale: Riepilogo (documento, fornitore, spese) e Dettaglio (articoli)
   $("btnExcel").onclick = async () => righe.excel({ sede: sedeLavoro, tipo: "Ordine a Fornitore", numero: ord ? ord.id : null,
-    riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero Bolla", $("fNumBolla").value], ["Data Bolla", $("fDataBolla").value ? dataIt($("fDataBolla").value) : ""],
+    riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero ordine", $("fNumBolla").value],
       ...riepilogoFornitore(fornitore && await fornitoreDb(fornitore.id), fornitore && fornitore.nome)], spese: speseDallaPagina() });
   $("btnStampa").onclick = e => { e.stopPropagation(); $("menuStampa").classList.toggle("show"); };
   $("menuStampa").onclick = e => {
@@ -523,7 +524,7 @@
     const numeroOrd = ord && ord.prot ? (/^\d{4}-0*(\d+)$/.test(ord.prot) ? ord.prot.replace(/^(\d{4})-0*(\d+)$/, "$2/$1") : ord.prot) : ord ? `${ord.id}/${anno}` : "";
     const dati = {
       titolo: "Ordine a Fornitore", sede: sedeLavoro,
-      info: [["Data", dataIt(data)]].concat(numeroOrd ? [["Numero", numeroOrd]] : [], $("fNumBolla").value ? [["N. Bolla", $("fNumBolla").value]] : [],
+      info: [["Data", dataIt(data)]].concat(numeroOrd ? [["Numero", numeroOrd]] : [], $("fNumBolla").value ? [["N. ordine", $("fNumBolla").value]] : [],
         $("fDataBolla").value ? [["Data Bolla", dataIt($("fDataBolla").value)]] : []),
       destinatario: [forn ? forn.ragione_sociale : fornitore.nome].concat(forn ? [forn.indirizzo, [forn.cap, forn.citta, forn.provincia ? `(${forn.provincia})` : ""].filter(Boolean).join(" "),
         forn.telefono ? "Telefono: " + forn.telefono : ""].filter(Boolean) : []),
