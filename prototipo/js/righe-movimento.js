@@ -24,6 +24,8 @@
 //   annoGiac()          facoltativa: anno da mostrare in "Anno giac." al posto di quello dell'articolo (es. Aumento giacenza)
 //   senzaAnno           facoltativa: true = niente colonna "Anno giac." (es. Ordine a fornitore)
 //   sedeEstera()        true se il movimento è di una sede estera: le righe partono con IVA 0%
+//   senzaOrdinata / senzaSconto  tolgono le colonne Ordinata e Sconto % (es. aumento e diminuzione giacenza)
+//   costoFisso          il costo è sempre quello della scheda articolo: non si scrive e non c'è ↻
 //   limiteGiacenza      true per le vendite: non si possono scaricare più pezzi di quelli in giacenza nella sede
 //                       (le righe caricate con giaScaricati: n restituiscono quei pezzi, già tolti dalla giacenza)
 
@@ -54,10 +56,10 @@ function righeHtmlTabella(cfg) {
   return `<div class="table-wrap">
       <table>
         <thead><tr><th class="solo-mod richiede-forn" style="width:96px"><button class="btn-riga nuova" id="nuovaRiga" title="Nuova riga: cerca l'articolo scrivendo il codice">＋</button></th><th>#</th><th>Articolo</th>
-          <th class="num">Ordinata</th>${cfg.spedita ? '<th class="num" title="Quanto è uscito davvero">Spedita</th>' : ""}<th class="num" title="Giacenza attuale nella sede">Giac.</th>${cfg.senzaAnno ? "" : '<th class="num">Anno giac.</th>'}
-          <th class="num">${cfg.etichettaPrezzo}</th><th>IVA</th><th class="num">Sconto %</th><th class="num">Prezzo totale</th></tr></thead>
+          ${cfg.senzaOrdinata ? "" : '<th class="num">Ordinata</th>'}${cfg.spedita ? '<th class="num" title="Quanto è uscito davvero">Spedita</th>' : ""}<th class="num" title="Giacenza attuale nella sede">Giac.</th>${cfg.senzaAnno ? "" : '<th class="num">Anno giac.</th>'}
+          <th class="num">${cfg.etichettaPrezzo}</th><th>IVA</th>${cfg.senzaSconto ? "" : '<th class="num">Sconto %</th>'}<th class="num">Prezzo totale</th></tr></thead>
         <tbody id="righeArt"></tbody>
-        <tfoot><tr><td class="solo-mod"></td><td colspan="2">Totale</td><td class="num" id="totOrd"></td>${cfg.spedita ? '<td class="num" id="totSped"></td>' : ""}<td colspan="${cfg.senzaAnno ? 4 : 5}"></td><td class="num" id="totArt"></td></tr></tfoot>
+        <tfoot><tr><td class="solo-mod"></td><td colspan="2">Totale</td>${cfg.senzaOrdinata ? "" : '<td class="num" id="totOrd"></td>'}${cfg.spedita ? '<td class="num" id="totSped"></td>' : ""}<td colspan="${(cfg.senzaAnno ? 4 : 5) - (cfg.senzaSconto ? 1 : 0)}"></td><td class="num" id="totArt"></td></tr></tfoot>
       </table>
     </div>`;
 }
@@ -70,7 +72,7 @@ function avviaRighe(cfg) {
   const estera = () => !!(cfg.sedeEstera && cfg.sedeEstera());
   const altro = art => !!(cfg.altroFornitore && cfg.altroFornitore(art));
   const num = s => +String(s).replace(/\./g, "").replace(",", ".") || 0;
-  const colonne = (cfg.spedita ? 11 : 10) - (cfg.senzaAnno ? 1 : 0);
+  const colonne = (cfg.spedita ? 11 : 10) - (cfg.senzaAnno ? 1 : 0) - (cfg.senzaOrdinata ? 1 : 0) - (cfg.senzaSconto ? 1 : 0);
 
   // Prezzo totale della riga, sempre al centesimo. Acquisti: IVA aggiunta (3 × 18,50 al 22% = 67,71);
   // vendite: il prezzo è già IVA inclusa. Se c'è la colonna Spedita conta quella.
@@ -102,7 +104,7 @@ function avviaRighe(cfg) {
 
   function totali() {
     const conArt = RIGHE.filter(r => r.articolo);
-    $("totOrd").textContent = cfg.soloSpedita ? "" : conArt.reduce((s, r) => s + r.qta, 0);
+    if ($("totOrd")) $("totOrd").textContent = cfg.soloSpedita ? "" : conArt.reduce((s, r) => s + r.qta, 0);
     if (cfg.spedita) $("totSped").textContent = conArt.reduce((s, r) => s + r.sped, 0);
     $("totArt").textContent = numero(RIGHE.reduce((s, r) => s + r.tot, 0));
   }
@@ -174,15 +176,15 @@ function avviaRighe(cfg) {
       const fuori = mod && altro(a);
       return `<tr class="${r.pos === ultimaAggiunta ? "lampeggia" : ""}">${comandi}
         <td class="art-cella" title="Barcode ${esc(a.barcode)}"><span class="codice">${esc(a.codice)}</span><button class="apri-art solo-mod" data-cambia="${r.pos}" title="Cambia articolo">✎</button>${fuori ? '<span class="altro-forn"> · di un altro fornitore</span>' : ""}${cfg.notaArticolo && cfg.notaArticolo(a) ? `<span class="nota-art"> · ${esc(cfg.notaArticolo(a))}</span>` : ""}${r.oltreAttesa ? '<span class="tag-piu">IN PIÙ</span>' : ""}${cfg.righeSeparate && r.ora ? `<span class="nota-art" title="Ora in cui è stata aggiunta la vendita"> · ore ${new Date(r.ora).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>` : ""}<b>${esc(a.descr)}</b></td>
-        <td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>
+        ${cfg.senzaOrdinata ? "" : `<td class="num">${cfg.soloSpedita ? '<span style="color:var(--muted)">—</span>' : passo(r, "qta")}</td>`}
         ${cfg.spedita ? `<td class="num">${passo(r, "sped")}</td>` : ""}
         <td class="num">${cfg.giacenzaAltra && cfg.giacenzaAltra(a) ? `<div class="giac-doppia">${giacSugg(a)}</div>` : a.giac ?? "—"}</td>
         ${cfg.senzaAnno ? "" : `<td class="num" style="color:var(--muted)">${cfg.annoGiac ? cfg.annoGiac() : a.anno}</td>`}
-        <td class="num"><span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span></td>
+        <td class="num">${cfg.costoFisso ? numero(r.prezzo) : `<span class="costo-riga">${inp(r, "prezzo", numero(r.prezzo), "largo")}<button class="btn-riga solo-mod" data-riprezzo="${r.pos}" title="Riprendi il prezzo dall'anagrafica articolo (${numero(cfg.prezzoDi(a))})">↻</button></span>`}</td>
         <td>${mod
           ? `<select class="sel-iva${r.iva !== "22" ? " diversa" : ""}" data-campo="iva" data-riga="${r.pos}">${ALIQUOTE_RIGA.map(([k, t]) => `<option value="${k}"${k === r.iva ? " selected" : ""}>${t}</option>`).join("")}</select>`
           : `<span class="sel-iva${r.iva !== "22" ? " diversa" : ""}" style="border-color:transparent">${nomeIva(r.iva)}</span>`}</td>
-        <td class="num">${inp(r, "sconto", r.sconto)}</td>
+        ${cfg.senzaSconto ? "" : `<td class="num">${inp(r, "sconto", r.sconto)}</td>`}
         <td class="num"><b>${numero(r.tot)}</b></td>
       </tr>`;
     }).join("") : `<tr><td colspan="${colonne}"><div class="vuoto"><b>Nessun articolo</b><span>${cfg.testoVuoto ? cfg.testoVuoto() : "Aggiungi gli articoli con il tasto ＋ o sparandoli con la pistola."}</span></div></td></tr>`;

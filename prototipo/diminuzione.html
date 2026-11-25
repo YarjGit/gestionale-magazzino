@@ -95,7 +95,7 @@
   const opz = (lista, scelto) => lista.map(o => `<option${String(o) === String(scelto) ? " selected" : ""}>${esc(o)}</option>`).join("");
   const campo = (cls, label, html, aiuto) => `<div class="f ${cls}"><label>${label}</label>${html}${aiuto ? `<span class="aiuto">${aiuto}</span>` : ""}</div>`;
   // non si tolgono più pezzi di quelli in giacenza (come nelle vendite)
-  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nella diminuzione", limiteGiacenza: true, verboUscita: "togliere" };
+  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nella diminuzione", limiteGiacenza: true, verboUscita: "togliere", senzaOrdinata: true, senzaSconto: true, costoFisso: true, senzaAnno: true };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
@@ -166,7 +166,7 @@
       <div class="pannello-tab" id="tab-articoli" hidden>
         ${righeHtmlAggiungi()}
         <div class="art-toolbar">
-          <div class="nota-viola" style="flex:1">💶 In questa scheda si indicano i <b>prezzi di acquisto</b> (costo). La quantità che esce va in <b>Esce</b>: non più di quella in giacenza.</div>
+          <div class="nota-viola" style="flex:1">💶 Il <b>costo</b> è quello della scheda articolo. La quantità che esce va in <b>Esce</b>: non più di quella in giacenza.</div>
           <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
         </div>
         ${righeHtmlTabella(CFG_RIGHE).replace('title="Quanto è uscito davvero">Spedita', 'title="Pezzi che escono dalla giacenza">Esce')}

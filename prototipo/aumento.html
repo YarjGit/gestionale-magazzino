@@ -102,7 +102,8 @@
   const annoOggi = +oggi.slice(0, 4);
   const anni = Array.from({ length: 12 }, (_, i) => annoOggi - i);
   if (!anni.includes(mov.anno)) anni.push(mov.anno);
-  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nell'aumento" };
+  // il costo è quello della scheda articolo (non si cambia qui); niente Ordinata e Sconto
+  const CFG_RIGHE = { etichettaPrezzo: "Costo", spedita: true, soloSpedita: true, nelMovimento: "nell'aumento", senzaOrdinata: true, senzaSconto: true, costoFisso: true };
 
   $("contenuto").innerHTML = `
     <div class="scheda-head">
@@ -176,7 +177,7 @@
       <div class="pannello-tab" id="tab-articoli" hidden>
         ${righeHtmlAggiungi()}
         <div class="art-toolbar">
-          <div class="nota-viola" style="flex:1">💶 In questa scheda si indicano i <b>prezzi di acquisto</b> (costo). La quantità che entra va in <b>Arrivata</b>.</div>
+          <div class="nota-viola" style="flex:1">💶 Il <b>costo</b> è quello della scheda articolo. La quantità che entra va in <b>Arrivata</b>.</div>
           <label class="interr"><span class="switch"><input type="checkbox" id="nuoviInAlto" checked><span></span></span> Nuovi articoli in alto</label>
         </div>
         ${righeHtmlTabella(CFG_RIGHE).replace('title="Quanto è uscito davvero">Spedita', 'title="Pezzi che entrano in giacenza">Arrivata')}
