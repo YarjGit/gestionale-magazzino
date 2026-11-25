@@ -61,6 +61,7 @@
   /* Movimenti dell'articolo */
   .piu { color: var(--ok); font-weight: 700; } .meno { color: var(--ko); font-weight: 700; }
   .freccia-giac { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
+  .f.nascosto { display: none; }
   .riga-inizio td { background: #f6f8fb; font-weight: 600; }
   /* Giacenza prevista: oggi, in arrivo, prenotati, disponibile previsto */
   .previsto { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
@@ -234,7 +235,8 @@
             </div>
             <div class="det-due">
               ${campo("", "Anno listino", `<input class="mod" id="fAnnoListino" value="${esc(art.annoListino)}" style="text-align:right">`)}
-              ${campo("", "Scaffale", `<input class="mod" id="fScaffale" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
+              ${/* lo scaffale serve solo al Magazzino Centrale: nelle altre sedi il campo è nascosto (il valore resta salvato) */
+                campo(sedeLavoro === "Magazzino Centrale" ? "" : "nascosto", "Scaffale", `<input class="mod" id="fScaffale" value="${esc(art.scaffale)}" placeholder="es. B3">`)}
             </div>
           </div>
         </div>
