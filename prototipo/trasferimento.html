@@ -117,9 +117,18 @@
         RIGHE = mov.righe.map((r, i) => ({ pos: i + 1, articolo: r.articolo, ordinata: r.quantita_ordinata == null ? null : +r.quantita_ordinata, manda: +r.quantita, prezzo: +r.prezzo, ordineRigaId: r.ordine_riga_id }));
       }
     } else if (db && (ordineId || righeInevasi.length)) {
+      // Ordine di una filiale: la sede che riceve è quella che ha fatto l'ordine (automatica, niente scelta);
+      // la prepara la sede fornitrice: se la pagina è aperta con un'altra sede di lavoro, si passa da soli a quella giusta
+      if (ordineId) {
+        const { data: o } = await db.from("movimenti").select("sede_id, fornitori(sede_collegata)").eq("id", ordineId).maybeSingle();
+        const fornitrice = o && o.fornitori && o.fornitori.sede_collegata;
+        const nomeF = fornitrice && Object.keys(ID_SEDI_DB).find(n => ID_SEDI_DB[n] === fornitrice);
+        if (nomeF && fornitrice !== sedeId) { salvaSede(nomeF); location.reload(); await new Promise(() => {}); }
+        if (o) destinazione = o.sede_id;
+      }
       const filtro = ordineId ? { sede_fornitrice: sedeId, ordine_id: ordineId } : { sede_fornitrice: sedeId, ordine_riga_id: righeInevasi };
       const lista = await inevasiDb(db, filtro);
-      destinazione = lista[0] ? lista[0].sede_richiedente : "";
+      if (lista[0]) destinazione = lista[0].sede_richiedente;
       if (lista.some(r => r.sede_richiedente !== destinazione)) avviso("Attenzione: gli inevasi scelti sono di filiali diverse; qui c'è solo la prima");
       const rigaDa = (r, sez) => ({
         articolo: r.articolo, ordinata: r.residuo, ordineRigaId: r.ordine_riga_id, ordineId: r.ordine_id, dataOrdine: r.data_ordine, prezzo: r.articolo.costo, sez,
@@ -187,7 +196,7 @@
       <div class="gruppo" style="margin-bottom:14px">
         <h3>🚚 Trasferimento</h3>
         <div class="campi">
-          <div class="f s2"><label>Sede che riceve <span style="color:var(--ko)">*</span></label><select class="mod" id="fDest" ${daOrdine ? "disabled data-fisso" : ""}><option value="">— scegli la sede —</option>${opzSedi}</select></div>
+          <div class="f s2"><label>Sede che riceve <span style="color:var(--ko)">*</span></label><select class="mod" id="fDest" ${daOrdine || (ordineId && destinazione) ? "disabled data-fisso title=\"Automatica: è la sede che ha fatto l'ordine\"" : ""}><option value="">— scegli la sede —</option>${opzSedi}</select></div>
           <div class="f s1"><label>Data</label><input class="mod" id="fData" type="date" value="${mov ? mov.data_movimento : oggi}"></div>
           <div class="f s1"><label>Stato</label><select class="mod" id="fStato">${["Definitivo", "Provvisorio"].map(s => `<option${s === stato ? " selected" : ""}>${s}</option>`).join("")}</select><span class="aiuto">provvisorio = in preparazione, la merce non esce</span></div>
           <div class="f s2"><label>Causale</label><input class="mod" id="fCausale" value="${esc(mov ? mov.causale || "" : ordineId ? `Ordine #${ordineId}` : righeInevasi.length ? "Inevasi" : "")}"></div>
