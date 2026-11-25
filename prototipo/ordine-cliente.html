@@ -242,7 +242,7 @@
 
   // ---------- Cliente: si cerca scrivendo; sotto si vede come uscirà nel DDT ----------
   const campoCliente = campoCercaFornitore($("fCliente"), elencoClienti, { cosa: "cliente" });
-  const righeCliente = c => [c.nome, c.indirizzo, [c.cap, c.citta, c.provincia ? `(${c.provincia})` : ""].filter(Boolean).join(" "), c.telefono ? "Telefono: " + c.telefono : ""].filter(Boolean);
+  const righeCliente = c => righeDestinatario(c, c.nome);
   function mostraCliente() {
     const c = clienteScelto();
     $("clienteDdt").classList.toggle("manca", !c);

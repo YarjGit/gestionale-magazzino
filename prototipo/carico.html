@@ -657,8 +657,7 @@
       titolo: "Carico da Fornitore", sede: sedeLavoro,
       info: [["Data", dataIt(dataDoc)], ["Anno", ($("fDataCarico").value || car.data).slice(0, 4)]]
         .concat($("fNumBolla").value ? [["N. Bolla", $("fNumBolla").value]] : [], $("fDataBolla").value ? [["Data Bolla", dataIt($("fDataBolla").value)]] : []),
-      destinatario: [nomeForn].concat(forn ? [forn.indirizzo, [forn.cap, forn.citta, forn.provincia ? `(${forn.provincia})` : ""].filter(Boolean).join(" "),
-        forn.telefono ? "Telefono: " + forn.telefono : ""].filter(Boolean) : []),
+      destinatario: righeDestinatario(forn, nomeForn),
       colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
         { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
       righe: righe.map((r, i) => ({ n: i + 1, cod: r.cod, descr: r.descr, qta: quantita(r), prezzo: numero(r.prezzo),

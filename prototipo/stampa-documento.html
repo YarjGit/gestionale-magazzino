@@ -53,7 +53,7 @@
 <script src="js/intestazioni.js"></script>
 <script>
   // I dati arrivano dalla scheda del movimento (sessionStorage "stampa"):
-  // { titolo, sede, info: [[etichetta, valore]], destinatario: [righe], colonne: [{ k, t, num?, cod? }], righe: [{…}], totali: [[etichetta, valore]], ritorno }
+  // { titolo, sede, mittente?: [righe] (se no la carta intestata della sede), info: [[etichetta, valore]], destinatario: [righe], colonne: [{ k, t, num?, cod? }], righe: [{…}], totali: [[etichetta, valore]], ritorno }
   // ?auto=1 apre subito la finestra di stampa, come il gestionale attuale.
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const dati = (() => { try { return JSON.parse(sessionStorage.getItem("stampa") || "null"); } catch { return null; } })();
@@ -68,7 +68,7 @@
     $("titoloBarra").textContent = dati.titolo;
     $("fogli").innerHTML = `<div class="foglio">
       <div class="testa">
-        <div class="mittente">${intestazioneSede(dati.sede).map(r => `<div>${esc(r)}</div>`).join("")}</div>
+        <div class="mittente">${(dati.mittente || intestazioneSede(dati.sede)).map(r => `<div>${esc(r)}</div>`).join("")}</div>
         ${LOGO}
       </div>
       <div class="seconda">

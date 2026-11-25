@@ -108,6 +108,12 @@
 
   // ---------- Dati: dal database (ordine da preparare, inevasi scelti, o trasferimento salvato) ----------
   const db = await dbPronto;
+  // Dati completi delle sedi per la stampa (via, partita IVA, telefono…): sono quelli del fornitore collegato alla sede
+  const fornitoriSede = new Map();
+  if (db) {
+    const { data } = await db.from("fornitori").select("*").not("sede_collegata", "is", null);
+    (data || []).forEach(f => fornitoriSede.set(f.sede_collegata, f));
+  }
   let mov = null, RIGHE = [], destinazione = "", info = "";
   try {
     if (db && dbId) {
@@ -421,8 +427,10 @@
     const ordini = [...new Set(lista.filter(r => r.ordineId && r.sez !== "vecchio").map(r => r.ordineId))];
     sessionStorage.setItem("stampa", JSON.stringify({
       titolo: "Trasferimento a Filiale", sede: mittente,
+      // sede senza carta intestata scritta in intestazioni.js: i dati del suo fornitore collegato
+      mittente: INTESTAZIONI[mittente] || !fornitoriSede.get(ID_SEDI_DB[mittente]) ? null : [ENTE].concat(destinatarioSede(mittente, fornitoriSede.get(ID_SEDI_DB[mittente]))),
       info: [["Data", dataIt(data)]].concat(salvato ? [["Numero", `${mov.id}/${data.slice(0, 4)}`]] : [], ordini.length ? [["Ordine", ordini.map(o => "#" + o).join(", ")]] : []),
-      destinatario: ricevitore ? intestazioneSede(ricevitore) : [],
+      destinatario: ricevitore ? destinatarioSede(ricevitore, fornitoriSede.get(ID_SEDI_DB[ricevitore])) : [],
       colonne: [{ k: "n", t: "#" }, { k: "cod", t: "Codice", cod: true }, { k: "descr", t: "Descrizione" }, { k: "qta", t: "Quantità", num: true },
         { k: "prezzo", t: "Pr. Unit.", num: true }, { k: "sconto", t: "Sconto %", num: true }, { k: "iva", t: "IVA", num: true }, { k: "importo", t: "Importo", num: true }],
       righe: righeSt,
