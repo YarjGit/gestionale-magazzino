@@ -110,8 +110,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   Scheda Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo) salvate in `articoli.materiali` (`database/30-materiali-articoli.sql`).
 
 ## Idee in prova (si possono togliere)
-- **Etichetta per la scatola** (commit fe553fc): nella pagina etichette casella "📦 + scatola" per riga → per ogni pezzo anche l'etichetta
-  della scatola con il codice nel riquadro nero; tolto "Barcode duplicati". Se l'idea non piace: `git revert fe553fc`
+- **Etichetta per la scatola** (commit fe553fc): nella pagina etichette casella "🏷️ Doppia etichetta" per riga → per ogni pezzo anche una
+  seconda etichetta (per la scatola) con il codice nel riquadro nero; tolto "Barcode duplicati". Se l'idea non piace: `git revert fe553fc`
   (lo stato di prima è segnato con il tag `prima-etichette-scatola`).
 
 ## Struttura

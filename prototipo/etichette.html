@@ -377,7 +377,7 @@
     // Come l'etichetta del negozio: codice, descrizione, poi "26  MP-DD ... 45,60" (anno di carico in due cifre,
     // costo cifrato, prezzo di vendita), barcode e cifre
     return `<div class="cella">
-      ${o.codice ? (perScatola ? `<div class="c scatola" title="Etichetta per la scatola"><span>${esc(a.codice)}</span></div>` : `<div class="c">${esc(a.codice)}</div>`) : ""}
+      ${o.codice ? (perScatola ? `<div class="c scatola" title="Seconda etichetta (doppia)"><span>${esc(a.codice)}</span></div>` : `<div class="c">${esc(a.codice)}</div>`) : ""}
       ${o.descr ? `<div class="d">${esc(a.descr)}</div>` : ""}
       <div class="riga-prezzo"><span><span class="anno" title="Anno di carico ${anno}">${String(anno).slice(-2)}</span>${o.cifrato ? `<span class="cifrato" title="Costo d'acquisto cifrato">${costoCifrato(a.costo)}</span>` : ""}</span>${o.prezzo ? `<span class="p">${numero(prezzoDieci(a.prezzo))}</span>` : ""}</div>
       <div class="barre">${barcodeSvg(a.barcode)}${o.numero ? `<span class="n">${a.barcode}</span>` : ""}</div>
@@ -401,7 +401,7 @@
         <td class="num">${numero(r.art.costo)}</td>
         <td class="num"><b>${numero(prezzoDieci(r.art.prezzo))}</b></td>
         <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div>
-          <label class="scat-riga" title="Con scatola: per ogni pezzo anche l'etichetta della scatola (codice nel riquadro nero)"><input type="checkbox" data-scatola="${i}" ${r.scatola ? "checked" : ""}> 📦 + scatola</label></td>
+          <label class="scat-riga" title="Doppia etichetta: per ogni pezzo anche una seconda etichetta, con il codice nel riquadro nero"><input type="checkbox" data-scatola="${i}" ${r.scatola ? "checked" : ""}> 🏷️ Doppia etichetta</label></td>
         <td><button class="icon-btn" data-togli="${i}" title="Togli">✕</button></td>
       </tr>`).join("")
       : `<tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>`;
