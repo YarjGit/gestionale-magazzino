@@ -225,6 +225,8 @@
 <script src="js/sedi.js"></script>
 <script>
   // Il prezzo in etichetta è sempre ai 10 centesimi (fino a 10,04 → 10,00; da 10,05 → 10,10): mai 10,03
+  // "Doppia etichetta" per ora solo per CAL SMM Roma (idea in prova)
+  const DOPPIA_ETICHETTA = trovaSede(leggiSede()).nome === "CAL SMM Roma";
   const prezzoDieci = p => Math.round(Math.round((+p || 0) * 100) / 10) / 10;
   // Arrivando dalla pagina Articoli (?da=articoli o ?cod=…) nel menu resta evidenziato "Articoli"
   if (/[?&](da=articoli|cod=)/.test(location.search)) document.body.dataset.page = "articoli";
@@ -387,7 +389,7 @@
   // perStampa: sul rotolo l'anteprima mostra le prime 30, la stampa le mette tutte
   function disegna(evidenzia, perStampa) {
     const o = opzioni();
-    const totale = righe.reduce((s, r) => s + r.n * (r.scatola ? 2 : 1), 0);
+    const totale = righe.reduce((s, r) => s + r.n * (r.scatola && DOPPIA_ETICHETTA ? 2 : 1), 0);
     const salta = Math.max(0, +$("salta").value || 0);
     $("totale").value = totale;
     $("formatoInfo").textContent = $("formato").selectedOptions[0].textContent;
@@ -401,14 +403,14 @@
         <td class="num">${numero(r.art.costo)}</td>
         <td class="num"><b>${numero(prezzoDieci(r.art.prezzo))}</b></td>
         <td><div class="n-et"><input type="number" min="0" value="${r.n}" data-i="${i}" aria-label="Etichette per ${esc(r.art.codice)}"></div>
-          <label class="scat-riga" title="Doppia etichetta: per ogni pezzo anche una seconda etichetta, con il codice nel riquadro nero"><input type="checkbox" data-scatola="${i}" ${r.scatola ? "checked" : ""}> 🏷️ Doppia etichetta</label></td>
+          ${DOPPIA_ETICHETTA ? "" : "<!--"}<label class="scat-riga" title="Doppia etichetta: per ogni pezzo anche una seconda etichetta, con il codice nel riquadro nero"><input type="checkbox" data-scatola="${i}" ${r.scatola ? "checked" : ""}> 🏷️ Doppia etichetta</label>${DOPPIA_ETICHETTA ? "" : "-->"}</td>
         <td><button class="icon-btn" data-togli="${i}" title="Togli">✕</button></td>
       </tr>`).join("")
       : `<tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>`;
 
     // celle: prima quelle da saltare (solo sui fogli A4), poi un'etichetta per copia
     // articoli con scatola: per ogni pezzo l'etichetta dell'articolo e subito dopo quella della scatola
-    const copie = righe.flatMap(r => Array(r.n).fill(r)).flatMap(r => r.scatola ? [r, { ...r, perScatola: true }] : [r]);
+    const copie = righe.flatMap(r => Array(r.n).fill(r)).flatMap(r => r.scatola && DOPPIA_ETICHETTA ? [r, { ...r, perScatola: true }] : [r]);
     if (o.formato === "rotolo") {
       const mostrate = perStampa ? copie : copie.slice(0, 30);
       $("fogli").innerHTML = copie.length ? `<div class="rotolo">${mostrate.map(a => etichettaHtml(a, o)).join("")}</div>` +
