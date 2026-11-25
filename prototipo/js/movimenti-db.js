@@ -96,7 +96,8 @@ async function inevasiDb(db, filtro, { soloResiduo = true } = {}) {
   Object.entries(filtro).forEach(([k, v]) => { q = Array.isArray(v) ? q.in(k, v) : q.eq(k, v); });
   const { data, error } = await q.order("data_ordine", { ascending: true }).order("ordine_riga_id", { ascending: true });
   if (error) throw error;
-  const righe = data.filter(r => !soloResiduo || +r.residuo > 0);
+  // un ordine di una sede al fornitore che è lei stessa (es. Magazzino Centrale → "MAGAZZINO CENTRALE") non è un ordine di una filiale
+  const righe = data.filter(r => r.sede_richiedente !== r.sede_fornitrice && (!soloResiduo || +r.residuo > 0));
   if (!righe.length) return [];
   const ids = [...new Set(righe.map(r => r.articolo_id))];
   const { data: art, error: e2 } = await db.from("articoli").select(CAMPI_ARTICOLO).in("id", ids);
@@ -126,7 +127,7 @@ async function ordiniDaCaricareDb(db, fornitoreId, sedeId) {
   if (fornitoreId) q = q.eq("fornitore_id", fornitoreId);
   let { data, error } = await q;
   if (error) throw error;
-  if (!fornitoreId) data = data.filter(m => !(m.fornitori && m.fornitori.sede_collegata));
+  if (!fornitoreId) data = data.filter(m => !(m.fornitori && m.fornitori.sede_collegata && m.fornitori.sede_collegata !== sedeId));
   const ids = data.flatMap(m => m.movimenti_righe.map(r => r.id));
   const arrivate = new Map();
   if (ids.length) {
