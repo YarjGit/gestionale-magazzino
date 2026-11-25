@@ -109,6 +109,11 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   senza barcode si crea un EAN-13 nuovo e univoco della serie interna 200 + progressivo (da cambiare se 8030969 risultasse il codice azienda GS1).
   Scheda Materiali: righe scritte a mano (materiale, fornitore, quantità, info, costo) salvate in `articoli.materiali` (`database/30-materiali-articoli.sql`).
 
+## Idee in prova (si possono togliere)
+- **Etichetta per la scatola** (commit fe553fc): nella pagina etichette casella "📦 + scatola" per riga → per ogni pezzo anche l'etichetta
+  della scatola con il codice nel riquadro nero; tolto "Barcode duplicati". Se l'idea non piace: `git revert fe553fc`
+  (lo stato di prima è segnato con il tag `prima-etichette-scatola`).
+
 ## Struttura
 - `prototipo/` – il prototipo HTML/CSS/JS, senza build. Si apre con `Avvia prototipo.bat` (server PowerShell su http://localhost:8080).
   - `js/layout.js` menu laterale, barra in alto, scelta sede; `js/elenco.js` modello comune delle pagine elenco movimenti; `js/anagrafica.js` modello delle tabelle di Configurazione/Setup.
