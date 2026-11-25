@@ -187,6 +187,8 @@
   };
 
   // ---------- Disegno ----------
+  // valori in euro sempre con due decimali (−105,00)
+  const euroDiff = v => `<span class="${v > 0 ? "diff-piu" : v < 0 ? "diff-meno" : "diff-zero"}">${v > 0 ? "+" : v < 0 ? "−" : ""}${numero(Math.abs(v))}</span>`;
   const diffHtml = d => `<span class="${d > 0 ? "diff-piu" : d < 0 ? "diff-meno" : "diff-zero"}">${d > 0 ? "+" : d < 0 ? "−" : ""}${q2(Math.abs(d))}</span>`;
   // giacenza nel gestionale: quella di oggi (in corso) o quella di prima della conferma
   const prima = c => confermato ? c.contati - c.diff : (c.articolo.giac ?? 0);
@@ -204,7 +206,7 @@
         <td class="num">${q2(prima(c))}</td>
         <td class="num">${diffHtml(d)}</td>
         <td class="num">${numero(a.costo || 0)}</td>
-        <td class="num">${d ? diffHtml(Math.round(d * (a.costo || 0) * 100) / 100) : ""}</td>
+        <td class="num">${d ? euroDiff(Math.round(d * (a.costo || 0) * 100) / 100) : ""}</td>
         ${inCorso ? `<td><button class="btn-riga cestino" data-togli="${a.id}" title="Togli dal conteggio">🗑</button></td>` : ""}
       </tr>`;
     }).join("") : `<tr><td colspan="7"><div class="vuoto"><b>Nessun articolo contato</b><span>${inCorso ? "Spara il primo barcode qui sopra." : ""}</span></div></td></tr>`;
