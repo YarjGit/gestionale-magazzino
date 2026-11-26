@@ -59,15 +59,16 @@
       <h2 class="section-title">🏪 I nostri ordini in arrivo <span class="count">{{ d.in_arrivo.length }}</span></h2>
       <div class="cards">
         @for (o of d.in_arrivo; track o.tipo + o.id) {
-          <div class="card" (click)="o.tipo === 'Ordine a sede' ? vai(['/trasferimenti/da-filiali']) : vai(['/carico', 'nuovo'], { ordine: o.id })"
-               [title]="o.tipo === 'Ordine a sede' ? 'Vedi in Trasferimenti da Filiali' : 'Crea carico'">
+          <!-- ordine a una sede: si apre l'ordine (articoli e quanto manca), come nel prototipo -->
+          <div class="card" (click)="o.tipo === 'Ordine a sede' ? vai(['/ordine', o.id]) : vai(['/carico', 'nuovo'], { ordine: o.id })"
+               [title]="o.tipo === 'Ordine a sede' ? 'Vedi ordine' : 'Crea carico'">
             <div class="card-head trasf"><span class="name">{{ o.nome }} ({{ o.prot }})</span><span class="tot">{{ q(o.pezzi) }} pezzi</span></div>
             <div class="card-body three">
               <div><div class="k">Tipo di movimento</div><div class="v">{{ o.tipo }}</div></div>
               <div><div class="k">Data ordine</div><div class="v">{{ dataIt(o.data) }}</div></div>
               <div class="r"><div class="k">Articoli da arrivare</div><div class="v">{{ o.righe }}</div></div>
             </div>
-            <div class="card-apri"><span>{{ o.tipo === 'Ordine a sede' ? 'Vedi in Trasferimenti da Filiali →' : 'Crea carico →' }}</span></div>
+            <div class="card-apri"><span>{{ o.tipo === 'Ordine a sede' ? 'Vedi ordine →' : 'Crea carico →' }}</span></div>
           </div>
         } @empty { <p class="empty">Nessun ordine in arrivo: tutto quello che avete ordinato è già arrivato.</p> }
       </div>

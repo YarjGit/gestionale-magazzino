@@ -212,7 +212,7 @@
     }
     const inArrivo = aiFornitori.map(o => ({ nome: o.fornitore, prot: o.prot, data: o.data, righe: o.righe.length, pezzi: o.righe.reduce((s, r) => s + r.residuo, 0),
       tipo: "Ordine a fornitore", url: `carico.html?nuovo=1&ordine=${o.id}`, azione: "Crea carico →" }))
-      .concat([...ordiniSedi.values()].map(o => ({ ...o, prot: o.prot || "#" + o.id, tipo: "Ordine a sede", url: "trasferimenti-da-filiali.html", azione: "Vedi in Trasferimenti da Filiali →" })))
+      .concat([...ordiniSedi.values()].map(o => ({ ...o, prot: o.prot || "#" + o.id, tipo: "Ordine a sede", url: `ordine.html?db=${o.id}`, azione: "Vedi ordine →" })))   // si apre l'ordine (articoli e quanto manca), come in Trasferimenti da Filiali
       .sort((a, b) => (a.data || "").localeCompare(b.data || ""));
     statistiche["Ordini in arrivo"] = inArrivo.length;
     document.getElementById("countIn").textContent = inArrivo.length;
