@@ -121,6 +121,7 @@
         </div>
         <div class="f c3" hidden><label for="fProv">Provenienza</label><select id="fProv"><option value="">Tutte</option></select></div>
         <div class="f c2"><label for="fSenzaCosto">Senza costo</label><label class="switch"><input type="checkbox" id="fSenzaCosto"><span></span></label></div>
+        <div class="f c2"><label for="fTutti" title="Anche gli articoli che questa sede non ha mai avuto (giacenza 0)">Anche senza giacenza</label><label class="switch"><input type="checkbox" id="fTutti"><span></span></label></div>
         <div class="f c3"><label for="fCat">Categoria</label><select id="fCat"><option value="">Tutte</option></select></div>
       </div>
       <div class="filtri-azioni"><button class="btn btn-ghost" id="azzera">Azzera filtri</button></div>
@@ -172,7 +173,7 @@
 </div>
 
 <script src="js/sedi.js"></script>
-<script src="js/layout.js"></script>
+<script src="js/layout.js?v=20261126b"></script>
 <script src="js/categorie.js"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
@@ -189,6 +190,8 @@
   //   forn = ordinato e non ancora arrivato (ordini a fornitore definitivi + inevasi degli ordini alle sedi), cli = prenotato dai clienti
   // "Da ricalcolare" del gestionale vecchio non c'è: la giacenza si calcola sempre dai movimenti.
   const GIACENZE = [];
+  // Articoli mostrati: quelli che la sede ha o ha avuto; con "Anche senza giacenza" tutti gli articoli attivi
+  const visibiliSede = () => GIACENZE.filter(g => !g.mai || $("fTutti").checked);
   const sedeLavoro = trovaSede(leggiSede()).nome;
   const db = await dbPronto, sedeId = ID_SEDI_DB[sedeLavoro];
   async function righeOrdini(tipo) {
@@ -214,11 +217,11 @@
     ordCli.forEach(r => somma(cli, r.articolo_id, +r.quantita));
     GIACENZE.length = 0;
     ARTICOLI.forEach(a => {
-      if (!lotti.has(a.id) && !a.giac) return;
+      const mai = !lotti.has(a.id) && !a.giac;   // mai avuto in questa sede: si vede solo con "Anche senza giacenza"
       const storico = [...(lotti.get(a.id) || new Map())].filter(([, q]) => Math.abs(q) > 0.0001).sort((x, y) => x[0] - y[0]);
       GIACENZE.push({ id: a.id, cod: a.codice, descr: String(a.descr || "").toUpperCase(), storico, costo: a.costo || 0,
         qIni: Math.round((lotti.inizioAnno.get(a.id) || 0) * 100) / 100, qAtt: a.giac || 0,
-        forn: forn.get(a.id) || 0, cli: cli.get(a.id) || 0, barcode: a.barcode || "", scorta: +a.scorta || 0 });
+        forn: forn.get(a.id) || 0, cli: cli.get(a.id) || 0, barcode: a.barcode || "", scorta: +a.scorta || 0, mai });
     });
     const anni = [...new Set(GIACENZE.flatMap(g => g.storico.map(x => x[0])))].sort((x, y) => y - x);
     $("fAnno").innerHTML = '<option value="">Tutti</option>' + anni.map(x => `<option>${x}</option>`).join("");
@@ -259,7 +262,7 @@
     const q = $("cerca").value.trim().toLowerCase();
     const t = TABS.find(x => x.k === tab);
     const anno = +$("fAnno").value;   // anno di acquisto: articoli che hanno pezzi di quell'anno
-    return GIACENZE.filter(g => {
+    return visibiliSede().filter(g => {
       if (!t.f(g)) return false;
       if (anno && !g.storico.some(s => s[0] === anno)) return false;
       if ($("fSenzaCosto").checked && g.costo) return false;
@@ -272,11 +275,11 @@
   }
 
   function disegna() {
-    const nf = CAMPI.filter(id => $(id).value).length + ($("fSenzaCosto").checked ? 1 : 0);
+    const nf = CAMPI.filter(id => $(id).value).length + ($("fSenzaCosto").checked ? 1 : 0) + ($("fTutti").checked ? 1 : 0);
     $("filtriAttivi").hidden = !nf;
     $("filtriAttivi").textContent = nf === 1 ? "1 attivo" : `${nf} attivi`;
 
-    $("tabs").innerHTML = TABS.map(t => `<button class="tab${t.k === tab ? " active" : ""}" data-k="${t.k}">${t.colore ? `<span class="dot" style="background:${t.colore}"></span>` : ""}${t.t}<span class="n">${GIACENZE.filter(t.f).length}</span></button>`).join("");
+    $("tabs").innerHTML = TABS.map(t => `<button class="tab${t.k === tab ? " active" : ""}" data-k="${t.k}">${t.colore ? `<span class="dot" style="background:${t.colore}"></span>` : ""}${t.t}<span class="n">${visibiliSede().filter(t.f).length}</span></button>`).join("");
 
     const col = COLONNE.find(c => c.k === ordine.k);
     const righe = filtra().sort((a, b) => {
@@ -334,8 +337,8 @@
     disegna();
   };
   ["cerca", "fCodDa", "fCodA"].forEach(id => $(id).addEventListener("input", () => { pagina = 1; disegna(); }));
-  ["fAnno", "fProv", "fCat", "fSenzaCosto", "perPagina"].forEach(id => $(id).addEventListener("change", () => { pagina = 1; disegna(); }));
-  $("azzera").onclick = () => { CAMPI.forEach(id => $(id).value = ""); $("fSenzaCosto").checked = false; disegna(); };
+  ["fAnno", "fProv", "fCat", "fSenzaCosto", "fTutti", "perPagina"].forEach(id => $(id).addEventListener("change", () => { pagina = 1; disegna(); }));
+  $("azzera").onclick = () => { CAMPI.forEach(id => $(id).value = ""); $("fSenzaCosto").checked = false; $("fTutti").checked = false; disegna(); };
   $("filtriHead").onclick = () => $("filtri").classList.toggle("chiusi");
   $("prec").onclick = () => { pagina--; disegna(); };
   $("succ").onclick = () => { pagina++; disegna(); };

@@ -107,14 +107,9 @@ const AZIONI_ELENCO = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Nuovo</button>`;
 
-// Azioni della barra in alto per le pagine anagrafica (Configurazione)
+// Azioni della barra in alto per le pagine anagrafica (Configurazione).
+// Tolte "Validazione" e "Record attuali" (copiate dal gestionale vecchio, qui non facevano niente: chiesto dall'utente)
 const AZIONI_ANAGRAFICA = `
-  <label class="top-toggle" title="Funzione da definire">
-    <input type="checkbox" id="soloValidare"> Validazione
-  </label>
-  <label class="top-toggle" title="Funzione da definire">
-    <input type="checkbox" id="recordAttuali" checked> Record attuali
-  </label>
   <span class="spacer"></span>
   <button class="btn btn-primary" id="btnCrea">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
