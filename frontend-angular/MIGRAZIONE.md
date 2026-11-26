@@ -75,6 +75,6 @@ Ogni passo usa i pezzi di quelli prima. Le scritture passano solo da RPC (punto 
     di una filiale, invio, ricezione con conferma, annullamento. *Servono le funzioni dei punti 1, 2, 4, 6.*
 13. ✅ **Ordini da cliente, DDT, scarico a cliente** (`ordine-cliente.html`, `stampa-ddt.html`).
 14. ✅ **Inventario** (`riallineamento.html`, riallineamenti giacenza): conteggio con la pistola, non sparati, conferma nel database.
-15. **Etichette e stampe** (`etichette.html`, `stampa-documento.html`): fogli A4 4×12, costo cifrato, doppia etichetta
+15. ✅ **Etichette e stampe** (`etichette.html`, `stampa-documento.html`): fogli A4 4×12, costo cifrato, doppia etichetta
     (solo CAL SMM Roma), carta intestata.
 16. **Setup**: utenti sito e ruoli, attività utenti, impostazioni, pagine di configurazione rimanenti.

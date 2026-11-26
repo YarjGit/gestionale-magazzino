@@ -6,6 +6,9 @@ import { Shell } from './core/layout/shell';
 export const routes: Routes = [
   { path: 'accesso', loadComponent: () => import('./features/accesso/accesso').then(m => m.Accesso) },
   { path: 'non-autorizzato', loadComponent: () => import('./features/accesso/non-autorizzato').then(m => m.NonAutorizzato) },
+  // stampe su carta intestata: fuori dal menu, si stampa solo il foglio
+  { path: 'stampa', canActivate: [authGuard, sedeGuard], loadComponent: () => import('./features/stampe/stampa-documento').then(m => m.StampaDocumento) },
+  { path: 'stampa-ddt', canActivate: [authGuard, sedeGuard], loadComponent: () => import('./features/stampe/stampa-ddt').then(m => m.StampaDdt) },
   { path: 'scegli-sede', canActivate: [authGuard], loadComponent: () => import('./features/accesso/scegli-sede').then(m => m.ScegliSede) },
   {
     path: '',
@@ -39,6 +42,7 @@ export const routes: Routes = [
       { path: 'diminuzione/:id', data: { tipo: 'diminuzione' }, loadComponent: () => import('./features/movimenti/rettifica').then(m => m.Rettifica) },
       { path: 'ordine-cliente/:id', loadComponent: () => import('./features/movimenti/ordine-cliente').then(m => m.OrdineCliente) },
       { path: 'inventario/:id', loadComponent: () => import('./features/movimenti/inventario').then(m => m.Inventario) },
+      { path: 'etichette', loadComponent: () => import('./features/stampe/etichette').then(m => m.Etichette) },
       { path: 'anagrafiche/fornitori', loadComponent: () => import('./features/anagrafiche/fornitori').then(m => m.Fornitori) },
       { path: 'anagrafiche/fornitori/nuovo', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },
       { path: 'anagrafiche/fornitori/:codice', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },

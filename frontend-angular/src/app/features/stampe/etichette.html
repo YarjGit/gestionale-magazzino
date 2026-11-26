@@ -1,0 +1,107 @@
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Stampa etichette</h1>
+    <div class="crumbs"><a routerLink="/dashboard">⌂</a><span>-</span><a [routerLink]="ritorno()">{{ titolo() }}</a><span>-</span><span>Etichette</span></div>
+  </div>
+</div>
+<section class="panel">
+  <div class="barra-comandi">
+    <div class="f"><label>Totale etichette</label><input [value]="totale()" disabled></div>
+    <div class="f"><label>Salta etichette</label><input type="number" min="0" [value]="salta()" title="Posizioni già usate sul primo foglio" (input)="salta.set(+testo($event) || 0)"></div>
+    <div class="f" style="width:auto"><label>Nascondi prezzo</label><label class="switch"><input type="checkbox" [checked]="nascondiPrezzo()" (change)="nascondiPrezzo.set(spuntato($event))"><span></span></label></div>
+    <span class="formato-info">{{ nomeFormato() }}</span>
+    <span class="spazio"></span>
+    <button class="btn btn-primary" (click)="stampa()">🖨️ Stampa</button>
+    <button class="btn btn-light" (click)="chiudi()">‹ Chiudi</button>
+    <button class="btn btn-light" (click)="impostazioni.set(true)">⚙️ Impostazioni</button>
+  </div>
+  <div class="aggiungi">
+    <div class="f cerca-art">
+      <label>Aggiungi etichetta <span class="pistola" title="La pistola scrive il codice e preme Invio"><span class="led"></span>pronto per la pistola</span></label>
+      <input type="text" placeholder="Spara il barcode o scrivi codice / descrizione…" autocomplete="off" autofocus (input)="cerca($event)" (keydown)="tasto($event)">
+      <div class="suggerimenti" [class.show]="trovati().length > 0">
+        @for (a of trovati(); track a.codice; let i = $index) {
+          <div class="sugg" [class.attivo]="i === attivo()" (mousedown)="aggiungi(a)"><span class="codice">{{ a.codice }}</span>{{ a.descr }}<small>{{ a.barcode }}</small></div>
+        }
+      </div>
+    </div>
+    <div class="f" style="width:auto"><label>Quantità</label>
+      <div class="qta-box"><button (click)="qta.set(qta() > 1 ? qta() - 1 : 1)">−</button><input type="number" min="1" [value]="qta()" (input)="qta.set(+testo($event) || 1)"><button (click)="qta.set(qta() + 1)">+</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th title="Anno di carico: si stampa su ogni etichetta">Anno carico</th><th>Codice</th><th>Descrizione</th><th>Barcode</th><th class="num">Pr. acq.</th><th class="num">Pr. vend.</th><th class="num">Etichette</th><th style="width:40px"></th></tr></thead>
+      <tbody>
+        @for (r of righe(); track $index; let i = $index) {
+          <tr [class.lampeggia]="r.art.codice === ultimo()">
+            <td><input class="anno-riga" type="number" min="2000" max="2100" [value]="r.anno" title="Anno di carico stampato sull'etichetta" (change)="cambiaRiga(i, 'anno', $event)"></td>
+            <td><span class="codice">{{ r.art.codice }}</span></td>
+            <td><div class="testo-lungo" style="max-width:360px">{{ r.art.descr }}</div></td>
+            <td><span class="bc">{{ r.art.barcode }}<span class="tipo" [class.c128]="!eanValido(r.art.barcode)" [title]="eanValido(r.art.barcode) ? '' : 'La cifra di controllo non è da EAN-13: stampato come Code 128'">{{ tipoBarcode(r.art.barcode) }}</span></span></td>
+            <td class="num">{{ numero(r.art.costo) }}</td>
+            <td class="num"><b>{{ numero(prezzoDieci(r.art.prezzo)) }}</b></td>
+            <td><div class="n-et"><input type="number" min="0" [value]="r.n" (input)="cambiaRiga(i, 'n', $event)"></div>
+              @if (doppia()) { <label class="scat-riga" title="Doppia etichetta: per ogni pezzo anche una seconda etichetta, con il codice nel riquadro nero"><input type="checkbox" [checked]="r.scatola" (change)="cambiaRiga(i, 'scatola', $event)"> 🏷️ Doppia etichetta</label> }</td>
+            <td><button class="icon-btn" title="Togli" (click)="togli(i)">✕</button></td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8"><div class="vuoto"><b>Nessuna etichetta</b><span>Spara un barcode con la pistola o cerca un articolo qui sopra.</span></div></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="anteprima-head"><h2>Anteprima</h2><span class="pagine">{{ infoPagine() }}</span></div>
+  <div class="fogli" id="fogli">
+    @if (!copie().length) { <div class="vuoto" style="margin:auto"><b>L'anteprima comparirà qui</b></div> }
+    @else if (formato() === 'rotolo') {
+      <div class="rotolo">
+        @for (a of (perStampa() ? copie() : copie().slice(0, 30)); track $index) { <ng-container *ngTemplateOutlet="cella; context: { $implicit: a }" /> }
+      </div>
+      @if (!perStampa() && copie().length > 30) { <p class="altre" style="align-self:flex-end;color:var(--muted)">… e altre {{ copie().length - 30 }}</p> }
+    } @else {
+      @for (f of fogli(); track $index) {
+        <div class="foglio" [attr.style]="stileFoglio()">
+          @for (a of f; track $index) {
+            @if (a) { <ng-container *ngTemplateOutlet="cella; context: { $implicit: a }" /> } @else { <div class="cella saltata" title="Saltata"></div> }
+          }
+          @for (x of vuote(perFoglio() - f.length); track x) { <div class="cella" style="border-color:#eef1f5"></div> }
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<ng-template #cella let-a>
+  <div class="cella">
+    @if (opz().codice) { @if (a.perScatola) { <div class="c scatola" title="Seconda etichetta (doppia)"><span>{{ a.art.codice }}</span></div> } @else { <div class="c">{{ a.art.codice }}</div> } }
+    @if (opz().descr) { <div class="d">{{ a.art.descr }}</div> }
+    <div class="riga-prezzo"><span><span class="anno" [title]="'Anno di carico ' + a.anno">{{ ('' + a.anno).slice(-2) }}</span>@if (opz().cifrato) { <span class="cifrato" title="Costo d'acquisto cifrato">{{ costoCifrato(a.art.costo) }}</span> }</span>
+      @if (!nascondiPrezzo()) { <span class="p">{{ numero(prezzoDieci(a.art.prezzo)) }}</span> }</div>
+    <div class="barre"><span [innerHTML]="a.svg" style="display:contents"></span>@if (opz().numero) { <span class="n">{{ a.art.barcode }}</span> }</div>
+  </div>
+</ng-template>
+
+@if (impostazioni()) {
+  <div class="modal-bg show" (click)="impostazioni.set(false)">
+    <div class="modal" role="dialog" (click)="$event.stopPropagation()">
+      <h2>Impostazioni etichette</h2>
+      <p>Il formato scelto resta memorizzato su questo computer. Le misure sono in millimetri: si leggono sulla confezione dei fogli adesivi.</p>
+      <div class="campi-imp">
+        <div><label style="font-weight:600">Formato</label>
+          <select (change)="cambiaFormato(testo($event))">@for (f of NOMI_FORMATI; track f[0]) { <option [value]="f[0]" [selected]="f[0] === formato()">{{ f[1] }}</option> }</select></div>
+        @if (formato() === 'pers') {
+          <div class="misure">@for (c of CAMPI_MISURE; track c[0]) { <label>{{ c[1] }}<input type="number" [step]="c[2]" [value]="misurePers()[c[0]]" (input)="cambiaMisura(c[0], $event)"></label> }</div>
+        }
+        <label><input type="checkbox" [checked]="opz().codice" (change)="cambiaOpz('codice', $event)"> Mostra codice articolo</label>
+        <label><input type="checkbox" [checked]="opz().descr" (change)="cambiaOpz('descr', $event)"> Mostra descrizione</label>
+        <label><input type="checkbox" [checked]="opz().numero" (change)="cambiaOpz('numero', $event)"> Mostra le cifre sotto il barcode</label>
+        <label><input type="checkbox" [checked]="opz().cifrato" (change)="cambiaOpz('cifrato', $event)"> Mostra il costo d'acquisto cifrato (codice interno)</label>
+      </div>
+      <div class="modal-azioni"><button class="btn btn-primary" (click)="impostazioni.set(false)">Fatto</button></div>
+    </div>
+  </div>
+}

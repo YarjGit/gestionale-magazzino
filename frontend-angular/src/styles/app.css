@@ -477,3 +477,23 @@ body.mini .collapse-btn { transform: rotate(180deg); }
   .top-actions { order: 5; width: 100%; flex-wrap: wrap; }
   .top-actions .spacer { display: none; }
 }
+
+/* Pagina Etichette: in stampa solo i fogli, alle misure vere (prototipo/etichette.html) */
+  /* ---------- Stampa: solo i fogli, alle misure vere ---------- */
+  
+  @media print {
+    body.stampa-etichette { background: #fff !important; }
+    body.stampa-etichette * { visibility: hidden; }
+    body.stampa-etichette #fogli, #fogli * { visibility: visible; }
+    body.stampa-etichette #fogli { position: absolute; left: 0; top: 0; display: block; padding: 0; background: none; min-height: 0; }
+    body.stampa-etichette .foglio { --s: 1mm; box-shadow: none; break-after: page; }
+    body.stampa-etichette .cella { border: none !important; }
+    body.stampa-etichette .cella.saltata { background: none; }
+    body.stampa-etichette .rotolo { display: block; }
+    body.stampa-etichette .rotolo .cella { width: 50mm; height: 25mm; font-size: 7pt; padding: 1.5mm 2mm; box-shadow: none; border-radius: 0; break-after: page; }
+    body.stampa-etichette .rotolo + .altre { display: none; }
+  }
+
+
+/* Tutte le stampe (documenti, DDT, etichette) sono su A4 senza margini, come nel prototipo */
+@page { size: A4; margin: 0; }
