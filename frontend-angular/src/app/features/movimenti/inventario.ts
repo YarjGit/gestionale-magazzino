@@ -254,7 +254,7 @@ export class Inventario extends SchedaBase {
   protected async excelGiacenza(): Promise<void> {
     this.avvisi.mostra("Preparo l'Excel della giacenza…");
     try {
-      const r = await this.supabase.rpc('giacenza_per_anno', { p_sede: this.sedeId });
+      const r = await this.supabase.rpcTutte('giacenza_per_anno', { p_sede: this.sedeId });
       if (!r.length) { this.avvisi.mostra('In questa sede non ci sono articoli con giacenza'); return; }
       tabellaExcel(this.nomeFile(`Giacenza_${this.oggi}`), 'Giacenza', [Inventario.INTESTAZIONE_EXCEL]
         .concat(r.map(x => this.rigaExcel(x.codice, x.descrizione, toNumber(x.quantita), toNumber(x.costo), x.anno))));
@@ -276,7 +276,7 @@ export class Inventario extends SchedaBase {
       const righe = contati.map(c => this.rigaExcel(c.articolo.codice, c.articolo.descrizione, c.contati, c.articolo.costo || 0, annoInv));
       if (conLasciati) {
         const esclusi = new Set([...contati.map(c => c.articolo.id), ...this.daEliminare()]);
-        (await this.supabase.rpc('giacenza_per_anno', { p_sede: this.sedeId }))
+        (await this.supabase.rpcTutte('giacenza_per_anno', { p_sede: this.sedeId }))
           .filter(x => !esclusi.has(x.articolo_id))
           .forEach(x => righe.push(this.rigaExcel(x.codice, x.descrizione, toNumber(x.quantita), toNumber(x.costo), x.anno)));
       }

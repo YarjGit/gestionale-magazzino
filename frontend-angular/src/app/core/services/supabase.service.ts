@@ -69,6 +69,22 @@ export class SupabaseService {
     return data as RpcFunzioni[N]['ritorno'];
   }
 
+  /**
+   * Come rpc() per le funzioni che restituiscono tante righe: il database ne manda al massimo 1000 per volta,
+   * quindi si leggono a blocchi finché arrivano tutte (es. giacenza_per_anno per gli Excel dell'inventario).
+   */
+  async rpcTutte<N extends NomeRpc>(nome: N, args: RpcFunzioni[N]['args']): Promise<RpcFunzioni[N]['ritorno']> {
+    const tutte: unknown[] = [];
+    for (let da = 0; ; da += 1000) {
+      const { data, error } = await this.client.rpc(nome, args).range(da, da + 999);
+      if (error) throw new ErroreDatabase(error);
+      const blocco = (data ?? []) as unknown[];
+      tutte.push(...blocco);
+      if (blocco.length < 1000) break;
+    }
+    return tutte as RpcFunzioni[N]['ritorno'];
+  }
+
   /** Legge una pagina di una tabella o vista con conteggio, ordinamento, filtri e ricerca lato server. */
   async pagina<T>(tabella: string, o: OpzioniPagina): Promise<Pagina<T>> {
     const da = o.pagina * o.perPagina;
