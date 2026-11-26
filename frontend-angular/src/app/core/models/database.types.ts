@@ -332,6 +332,13 @@ export interface RpcFunzioni {
   /** Scheda articolo: giacenza, in arrivo, prenotati e disponibile previsto per ogni sede attiva. */
   articolo_previsto: { args: { p_articolo: string }; ritorno: PrevistoSede[] };
   /** Prima di salvare: codici quasi uguali e barcode già usati da altri articoli. */
+  /** Elenchi dei movimenti (database/34): una pagina con i filtri, e il riepilogo per stato. */
+  movimenti_elenco: { args: MovimentiFiltri & { p_stato: string | null; p_ordina: string; p_crescente: boolean; p_da: number; p_quanti: number }; ritorno: MovimentoElencoRiga[] };
+  movimenti_riepilogo: { args: MovimentiFiltri; ritorno: { stato: string; movimenti: number; pezzi: Numerico; totale: Numerico }[] };
+  ordini_da_caricare: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; fornitore: string; righe: number; pezzi: Numerico }[] };
+  ordini_da_preparare: { args: { p_sede: SedeId }; ritorno: { id: number; da: string; data: string; righe: number; pezzi: Numerico; disponibili: number }[] };
+  ordini_alle_sedi: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; sede: string; righe: number; pezzi: Numerico; trasferimento_da_ricevere: number | null }[] };
+  inevasi_in_attesa: { args: { p_sede: SedeId }; ritorno: InevasoInAttesa[] };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */
@@ -339,6 +346,58 @@ export interface RpcFunzioni {
   /** "Usalo anche a …": aggiunge un fornitore esistente ai fornitori della sede. */
   aggiungi_fornitore_sede: { args: { p_fornitore: string; p_sede: SedeId }; ritorno: null };
   articoli_simili: { args: { p_codice: string | null; p_barcode: string | null; p_escludi: string | null }; ritorno: { codice: string; descrizione: string; motivo: 'codice' | 'barcode' }[] };
+}
+
+export interface MovimentiFiltri {
+  p_sede: SedeId;
+  /** null = tutti i tipi (Tutti i movimenti) */
+  p_tipo: TipoMovimentoCodice | null;
+  p_in_arrivo: boolean;
+  p_canale: 'ecommerce' | 'negozio' | null;
+  p_cerca: string | null;
+  p_dal: string | null;
+  p_al: string | null;
+  p_anno: number | null;
+  p_controparte: string | null;
+  p_articolo: string | null;
+}
+
+export interface MovimentoElencoRiga {
+  id: number;
+  tipo: string;
+  tipo_nome: string;
+  segno: number;
+  stato: string;
+  stato_db: string;
+  protocollo: string | null;
+  numero_documento: string | null;
+  data_documento: string | null;
+  data: string;
+  data_bolla: string | null;
+  causale: string | null;
+  controparte: string;
+  colore: string | null;
+  tot_art: Numerico;
+  totale: Numerico;
+  pezzi: Numerico;
+  ricevuti: Numerico;
+  etichetta: string | null;
+  in_arrivo: boolean;
+  righe_totali: number;
+}
+
+export interface InevasoInAttesa {
+  ordine_riga_id: number;
+  ordine_id: number;
+  data_ordine: string;
+  stato_ordine: string;
+  sede: string;
+  articolo_id: string;
+  codice: string;
+  descrizione: string;
+  ordinata: Numerico;
+  trasferita: Numerico;
+  residuo: Numerico;
 }
 
 export interface MovimentoAperto {

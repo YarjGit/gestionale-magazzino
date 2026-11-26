@@ -84,6 +84,27 @@ function rpc(nome: string, args: Riga): unknown {
         { movimento_id: 30, data: '2026-03-14', tipo: 'carico_fornitore', nome: 'Carico da Fornitore', stato: 'Definitivo', q: 4, prima: 1, dopo: 5, lotti: { '2026': 4 }, ordinati: 0, prenotati: 0 },
         { movimento_id: 12, data: '2026-01-01', tipo: 'esistenza', nome: 'Giacenza iniziale', stato: 'Definitivo', q: 2, prima: 0, dopo: 2, lotti: { '2024': 2 }, ordinati: 0, prenotati: 0 }
       ].map(r => ({ ...r, totale: 4 }));
+    case 'movimenti_elenco': {
+      const tutte: Riga[] = [
+        { id: 44, tipo: 'carico_fornitore', tipo_nome: 'Carico da Fornitore', segno: 1, stato: 'Provvisorio', protocollo: null, numero_documento: 'DDT 118', data_documento: '2026-11-23', data: '2026-11-24', data_bolla: '2026-11-23', causale: 'Candele per Natale', controparte: 'Candele Esempio & C.', colore: null, tot_art: 120.5, totale: 120.5, pezzi: 12, ricevuti: 0, etichetta: null, in_arrivo: false },
+        { id: 41, tipo: 'vendite_giornaliere', tipo_nome: 'Vendite Giornaliere', segno: -1, stato: 'Definitivo', protocollo: null, numero_documento: null, data_documento: null, data: '2026-11-20', data_bolla: null, causale: 'Vendite del giorno', controparte: '', colore: null, tot_art: 61, totale: 61, pezzi: 1, ricevuti: 0, etichetta: null, in_arrivo: false },
+        { id: 37, tipo: 'trasferimento_a_filiale', tipo_nome: 'Trasferimento a Filiale', segno: -1, stato: 'Definitivo', protocollo: '2026-000037', numero_documento: null, data_documento: null, data: '2026-10-02', data_bolla: null, causale: '', controparte: 'Magazzino Centrale', colore: '#990000', tot_art: 25, totale: 25, pezzi: 1, ricevuti: 0, etichetta: 'da confermare', in_arrivo: false },
+        { id: 50, tipo: 'trasferimento_ricevuto', tipo_nome: 'Trasferimento da Filiale', segno: 1, stato: 'Da ricevere', protocollo: null, numero_documento: null, data_documento: null, data: '2026-11-25', data_bolla: null, causale: '', controparte: 'Magazzino Centrale', colore: '#990000', tot_art: 90, totale: 90, pezzi: 18, ricevuti: 0, etichetta: null, in_arrivo: true }
+      ];
+      const tipo = args['p_tipo'], arrivo = args['p_in_arrivo'] === true, stato = args['p_stato'];
+      const righe = tutte.filter(r => (arrivo ? r['in_arrivo'] : tipo == null || r['tipo'] === tipo) && (!stato || r['stato'] === stato));
+      return righe.map(r => ({ ...r, righe_totali: righe.length }));
+    }
+    case 'movimenti_riepilogo':
+      return [{ stato: 'Definitivo', movimenti: 2, pezzi: 2, totale: 86 }, { stato: 'Provvisorio', movimenti: 1, pezzi: 12, totale: 120.5 }, { stato: 'Da ricevere', movimenti: 1, pezzi: 18, totale: 90 }];
+    case 'ordini_da_caricare':
+      return [{ id: 30, prot: '2026-000030', data: '2026-11-10', stato: 'Definitivo', fornitore: 'Candele Esempio & C.', righe: 3, pezzi: 40 }];
+    case 'ordini_da_preparare':
+      return [];
+    case 'ordini_alle_sedi':
+      return [{ id: 31, prot: '#31', data: '2026-11-18', stato: 'Definitivo', sede: 'Magazzino Centrale', righe: 2, pezzi: 6, trasferimento_da_ricevere: null }];
+    case 'inevasi_in_attesa':
+      return [{ ordine_riga_id: 1, ordine_id: 31, data_ordine: '2026-11-18', stato_ordine: 'Definitivo', sede: 'Magazzino Centrale', articolo_id: 'a1', codice: 'B0701', descrizione: 'STOLA RICAMATA VERDE', ordinata: 4, trasferita: 0, residuo: 4 }];
     case 'dashboard_sede':
       return {
         in_arrivo: [{ id: 30, prot: '2026-000030', data: '2026-11-10', nome: 'Candele Esempio & C.', righe: 3, pezzi: 40, tipo: 'Ordine a fornitore' },

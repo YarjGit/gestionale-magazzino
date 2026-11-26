@@ -65,7 +65,7 @@ Ogni passo usa i pezzi di quelli prima. Le scritture passano solo da RPC (punto 
    barcode creato dal database, materiali, giacenza per anno, altre sedi, movimenti. *Serve `salva_articolo`.*
 5. ✅ **Anagrafiche**: sedi, fornitori (+ fornitori per sede), clienti, aliquote e tabelle di configurazione. *RPC di salvataggio.*
 6. ✅ **Dashboard** (`dashboard.html`): merce in arrivo da confermare, ordini delle filiali da preparare, inevasi.
-7. **Elenco movimenti comune** (`js/elenco.js`) e **Tutti i movimenti**: filtri, stati, ricerca, paginazione lato server.
+7. ✅ **Elenco movimenti comune** (`js/elenco.js`) e **Tutti i movimenti**: filtri, stati, ricerca, paginazione lato server.
 8. **Vendite giornaliere** negozio ed e-commerce (`vendite-giornaliere.html`, `vendita.html`): una giornata al giorno,
    limite di giacenza, stampa mensile e-commerce.
 9. **Aumento e diminuzione giacenza** (`aumento.html`, `diminuzione.html`).

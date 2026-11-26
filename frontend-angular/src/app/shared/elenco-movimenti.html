@@ -1,0 +1,103 @@
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ config().titolo }}</h1>
+    <div class="crumbs"><span>Movimenti</span><span>-</span><span>{{ config().titolo }}</span></div>
+  </div>
+  <div class="azioni-top">
+    <ng-content select="[azioni]" />
+    @if (config().nuovo; as n) { <button class="btn btn-primary" (click)="nuovo()">＋ {{ n.testo }}</button> }
+  </div>
+</div>
+@if (config().stati.length > 1) {
+  <div class="tabs" style="margin:0 0 12px">
+    <button class="tab" [class.active]="scheda() === ''" (click)="scegliScheda('')">Tutti<span class="n">{{ conteggio()('') }}</span></button>
+    @for (s of config().stati; track s) {
+      <button class="tab" [class.active]="scheda() === s" (click)="scegliScheda(s)"><span class="dot" [style.background]="stile(s).colore"></span>{{ STATI[s]?.plurale ?? s }}<span class="n">{{ conteggio()(s) }}</span></button>
+    }
+    <ng-content select="[schede]" />
+  </div>
+}
+@if (config().nota) { <div class="nota-elenco" [innerHTML]="config().nota"></div> }
+
+<ng-content />
+
+<section class="panel filtri" [class.chiusi]="!filtriAperti()">
+  <div class="filtri-head" (click)="filtriAperti.set(!filtriAperti())">
+    <span>⛃</span><h2>Filtri di ricerca</h2>
+    @if (filtriAttivi()) { <span class="badge">{{ filtriAttivi() === 1 ? '1 attivo' : filtriAttivi() + ' attivi' }}</span> }
+    <span class="chev">▾</span>
+  </div>
+  <div class="filtri-body" [hidden]="!filtriAperti()">
+    <div class="grid-filtri">
+      <div class="f c2"><label>Anno</label><input type="number" [value]="anno() ?? ''" (change)="cambiaAnno($event)"></div>
+      <div class="f c2"><label>Dal</label><input type="date" [value]="dal()" (change)="cambia(dal, $event)"></div>
+      <div class="f c2"><label>Al</label><input type="date" [value]="al()" (change)="cambia(al, $event)"></div>
+      @if (config().controparte) {
+        <div class="f c3"><label>{{ config().controparte }}</label><input placeholder="contiene…" [value]="controparte()" (input)="cambia(controparte, $event)"></div>
+      }
+      <div class="f c3"><label>Articolo</label><input placeholder="codice, descrizione o barcode" [value]="articolo()" (input)="cambia(articolo, $event)"></div>
+    </div>
+    <div class="filtri-azioni"><button class="btn btn-ghost" (click)="azzera()">Azzera filtri</button></div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="toolbar">
+    <div class="tool-group"><button title="Aggiorna" (click)="ricarica()">↻</button><button title="Esporta per Excel" (click)="esporta()">⤓</button></div>
+    <div class="cerca"><input type="search" [placeholder]="'Cerca per numero, ' + (config().controparte ? config().controparte!.toLowerCase() + ', ' : '') + 'causale…'" [value]="cerca()" (input)="cambia(cerca, $event)"></div>
+  </div>
+  @if (errore()) { <div class="avviso-accesso">⚠ {{ errore() }}</div> }
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:4px;padding:0"></th>
+        @for (c of config().colonne; track c) {
+          <th [class.num]="c === 'tot_art' || c === 'totale' || c === 'pezzi'" [class.sort]="ordinabile(c)" (click)="ordinaPer(c)">{{ titolo(c) }}
+            @if (ordinabile(c)) { <span class="freccia">{{ ordine().colonna === c ? (ordine().crescente ? '▲' : '▼') : '▾' }}</span> }</th>
+        }
+      </tr></thead>
+      <tbody>
+        @for (r of righe(); track r.tipo + r.id) {
+          <tr class="cliccabile" [class.barrato]="r.stato === 'Annullato'" (click)="apriRiga(r)">
+            <td class="stato-bar"><span [style.background]="stile(r.stato).colore"></span></td>
+            @for (c of config().colonne; track c) {
+              @switch (c) {
+                @case ('numero') {
+                  <td class="num-mov">
+                    @if (r.protocollo) { <span class="id">{{ r.protocollo }}</span><span class="sec">#{{ r.id }}</span> } @else { <span class="id">#{{ r.id }}</span> }
+                    @if (r.etichetta) { <span class="tag" [style.background]="r.etichetta === 'ricevuto' ? '#18a05822' : '#0891b222'" [style.color]="r.etichetta === 'ricevuto' ? '#18a058' : '#0891b2'">{{ r.etichetta }}</span> }
+                    @if (r.numero_documento) { <span class="doc">{{ r.numero_documento }}@if (r.data_documento) { del {{ dataIt(r.data_documento) }} }</span> }
+                  </td>
+                }
+                @case ('giorno') { <td class="num-mov"><span class="id">{{ dataIt(r.data) }}</span><span class="sec">{{ giornoSettimana(r.data) }}</span></td> }
+                @case ('tipo') { <td><span class="tipo-mov" [class]="'tipo-mov ' + classeTipo(r)[0]">{{ classeTipo(r)[1] }}</span>{{ r.tipo_nome }}</td> }
+                @case ('stato') { <td><span class="pill" [style.background]="stile(r.stato).colore + '1f'" [style.color]="stile(r.stato).colore">{{ stile(r.stato).icona }} {{ r.stato }}</span></td> }
+                @case ('data') { <td>{{ dataIt(r.data) }}</td> }
+                @case ('controparte') { <td><div class="testo-lungo" style="max-width:200px" [title]="r.controparte">@if (r.colore) { <span class="pallino" [style.background]="r.colore"></span> }{{ r.controparte }}</div></td> }
+                @case ('bolla') { <td>{{ dataIt(r.data_bolla) }}</td> }
+                @case ('causale') { <td><div class="testo-medio" style="max-width:240px" [title]="r.causale ?? ''">{{ r.causale }}</div></td> }
+                @case ('arrivato') { <td><div class="avanz" [title]="toNumber(r.ricevuti) + ' di ' + toNumber(r.pezzi) + ' pezzi'"><div class="bar"><span [style.width.%]="percentuale(r)"></span></div><small>{{ percentuale(r) }}%</small></div></td> }
+                @case ('tot_art') { <td class="num">{{ numero(toNumber(r.tot_art)) }}</td> }
+                @case ('totale') { <td class="num"><b>{{ numero(toNumber(r.totale)) }}</b></td> }
+                @case ('pezzi') { <td class="num">{{ toNumber(r.pezzi).toLocaleString('it-IT') }}</td> }
+              }
+            }
+          </tr>
+        } @empty {
+          <tr><td [attr.colspan]="config().colonne.length + 1"><div class="vuoto">
+            <b>{{ caricamento() ? 'Caricamento…' : conteggio()('') ? 'Nessun movimento con questi filtri' : 'Ancora nessun movimento in ' + config().titolo }}</b>
+            @if (!caricamento()) { <span>{{ conteggio()('') ? 'Prova a cambiare o azzerare i filtri (anche l\'anno).' : config().nuovo ? 'Usa "' + config().nuovo!.testo + '" in alto per registrare il primo.' : 'I movimenti compariranno qui da soli.' }}</span> }
+          </div></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="piede">
+    <div class="totali">
+      <span>Movimenti: <b>{{ totali().movimenti }}</b></span>
+      <span>Pezzi: <b>{{ totali().pezzi.toLocaleString('it-IT') }}</b></span>
+      <span>Totale: <b>{{ euro(totali().totale) }}</b></span>
+    </div>
+    <app-paginatore [pagina]="pagina()" [perPagina]="perPagina()" [totale]="totaleRighe()" [caricamento]="caricamento()" (paginaCambiata)="pagina.set($event)" (perPaginaCambiata)="perPagina.set($event); pagina.set(0)" />
+  </div>
+</section>
