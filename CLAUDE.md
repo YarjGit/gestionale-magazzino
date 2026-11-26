@@ -103,6 +103,12 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   (in corso = Provvisorio, quantita 0 e quantita_contata); non sparati (solo "tutto"): Lascia / Modifica / Elimina (giacenza a zero e articolo
   disattivato se le altre sedi non ne hanno); alla conferma per ogni articolo una riga −giacenza e una +contati sull'anno in corso.
   Confermano solo amministratore e responsabile magazzino. Inventario in corso: avviso rosso in vendite, scarichi, diminuzioni, trasferimenti.
+  **Proposta per l'inventario di fine anno 2026 (26/11/2026, da confermare con l'utente, "poi vediamo")**: le quantità di oggi non sono affidabili
+  (vengono dal vecchio gestionale), quindi l'inventario **sostituisce tutto**: giacenza = contati **per articolo e anno**, non sparati a zero
+  (senza disattivarli), conferma fatta dal database (`conferma_inventario`, anche nel prototipo, che oggi calcola in pagina). Anno dall'etichetta con
+  cartellini barcode 2015…2026 + "ANNO CORRENTE" in modalità "anno fisso" (riquadro grande "STAI CONTANDO: 2022", vale finché non si spara
+  un altro cartellino) e pagina per stamparli; in futuro anno dentro il barcode delle etichette nuove. Nel vecchio si sparava articolo + barcode
+  dell'anno per ogni pezzo (default anno corrente). Prove con dati veri consentite fino al primo inventario. Prototipo consigliato per l'inventario.
   Gli articoli disattivati non compaiono nella ricerca né con la pistola.
   Tasti "📊 Excel giacenza attuale" (prima di contare) e "📊 Excel inventario" (contati sull'anno dell'inventario + non sparati lasciati):
   colonne Codice art., Descrizione, Quantità, Costo, Totale, Anno, una riga per anno di acquisto (`lottiSedeDb` in `movimenti-db.js`;
