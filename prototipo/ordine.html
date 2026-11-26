@@ -41,6 +41,7 @@
   </div>
   <button class="btn btn-light" id="btnExcel">📤 Excel</button>
   <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
+  <button class="btn btn-light" id="btnAnnullaOrdine" hidden style="color:var(--ko)" title="L'ordine diventa Annullato: resta nell'elenco ma non è più da caricare o da preparare">⛔ Annulla ordine</button>
   <button class="btn btn-verde" id="btnModifica">✎ Modifica</button>
   <button class="btn btn-light" id="btnAnnulla" hidden>✕ Annulla</button>
   <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva</button>
@@ -430,6 +431,31 @@
     mostraFornitore();
     righe.disegna();
   }
+  // ---------- Annulla ordine (deciso con l'utente): si annulla, non si cancella (resta barrato in "Annullati" e in Attività Utenti) ----------
+  // Solo un ordine salvato, Provvisorio o Definitivo, e solo se non è arrivato niente: nessun carico o trasferimento collegato.
+  // Annullato, sparisce da "Ordini a fornitori da caricare" (Carichi) e dagli ordini da preparare del Magazzino Centrale.
+  const annullabile = ord && ord.dbId && ["Provvisorio", "Definitivo"].includes(ord.stato);
+  if (annullabile) {
+    pulsantiLettura.push("btnAnnullaOrdine");
+    $("btnAnnullaOrdine").hidden = false;
+    $("btnAnnullaOrdine").onclick = async () => {
+      const db = await dbPronto;
+      // c'è già qualcosa di arrivato? (righe di carichi o trasferimenti collegate alle righe di questo ordine)
+      const { data: righeOrd } = await db.from("movimenti_righe").select("id").eq("movimento_id", ord.dbId);
+      const ids = (righeOrd || []).map(r => r.id);
+      const { data: collegate } = ids.length ? await db.from("movimenti_righe").select("id, movimenti!inner(id, stato)").in("ordine_riga_id", ids).neq("movimenti.stato", "Annullato") : { data: [] };
+      if (collegate && collegate.length) {
+        avviso(`Non si può annullare: una parte dell'ordine è già arrivata (movimento #${collegate[0].movimenti.id}). Gli articoli che mancano si possono togliere dagli inevasi.`, true);
+        return;
+      }
+      if (!confirm(`Annullare l'ordine ${ord.prot || "#" + ord.dbId}?\n\nResta nell'elenco come Annullato, ma non sarà più da caricare né da preparare.`)) return;
+      const { error } = await db.from("movimenti").update({ stato: "Annullato", modificato_il: new Date().toISOString() }).eq("id", ord.dbId).in("stato", ["Provvisorio", "Definitivo"]);
+      if (error) { avviso("Errore nell'annullare l'ordine: " + error.message, true); return; }
+      avviso("Ordine annullato");
+      setTimeout(() => location.reload(), 900);
+    };
+  }
+
   $("btnModifica").onclick = () => {
     valoriPrima = [...document.querySelectorAll(".mod")].map(el => el.type === "checkbox" ? el.checked : el.value);
     righePrima = righe.fotografia();

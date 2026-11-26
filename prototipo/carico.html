@@ -769,7 +769,14 @@
     if (data) {
       const scelto = $("selFornitore").value;
       // solo i fornitori della sede di lavoro (più quello già scelto in un carico salvato)
-      FORN = (await soloFornitoriSede(db, data, [scelto])).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
+      // carico da un ordine: il fornitore dell'ordine c'è sempre, anche se non è tra quelli della sede
+      // (es. ordine del Magazzino Centrale alle Clarisse, fornitore collegato solo a CAL SMM Roma)
+      const tenere = [scelto];
+      if (daOrdine) {
+        const { data: od } = await db.from("movimenti").select("fornitore_id").eq("id", daOrdine).maybeSingle();
+        if (od) tenere.push(od.fornitore_id);
+      }
+      FORN = (await soloFornitoriSede(db, data, tenere)).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
       // la tendina di "Movimenti collegati" c'è solo nel carico nuovo
       ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
       aggiornaCampiForn();
