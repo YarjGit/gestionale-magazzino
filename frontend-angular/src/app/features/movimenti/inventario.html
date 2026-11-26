@@ -7,7 +7,7 @@
     <div>
       <h1 class="page-title">{{ nuovo ? 'Nuovo inventario' : 'Inventario' }} @if (id()) { <span class="num">#{{ id() }}</span> }
         <span class="pill" [style.background]="confermato() ? '#18a0581f' : annullato() ? '#c628281f' : '#e58a001f'" [style.color]="confermato() ? '#18a058' : annullato() ? '#c62828' : '#e58a00'">{{ confermato() ? '✔ Confermato' : annullato() ? '✕ Annullato' : '◷ In corso' }}</span></h1>
-      <div class="crumbs"><a routerLink="/dashboard">⌂</a><span>-</span><span>Movimenti</span><span>-</span><a routerLink="/inventario">Riallineamenti Giacenza</a><span>-</span><span>{{ id() ? '#' + id() : 'Nuovo' }}</span></div>
+      <div class="crumbs"><a routerLink="/dashboard">⌂</a><span>-</span><span>Movimenti</span><span>-</span><a routerLink="/inventario">Inventario</a><span>-</span><span>{{ id() ? '#' + id() : 'Nuovo' }}</span></div>
     </div>
     <div class="totale-top"><div class="t">{{ sede.sede()?.nome }}</div><div class="v">{{ contati().length }} articoli</div><div class="p">{{ q2(pezzi()) }} pezzi contati</div></div>
   </div>

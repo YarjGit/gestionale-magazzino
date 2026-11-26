@@ -37,7 +37,7 @@ const TIPI_MOVIMENTO = {
   "Reso da Cliente": "E", "Aumento Giacenza": "E", "Altro Carico": "E",
   "Vendite Giornaliere": "U", "Scarico a Cliente": "U", "Ordine da Cliente": "U",
   "Reso a Fornitore": "U", "Trasferimento a Filiale": "U", "Preventivo": "U",
-  "Diminuzione Giacenza": "U", "Altro Scarico": "U", "Riallineamento": "R", "Giacenza iniziale": "E"
+  "Diminuzione Giacenza": "U", "Altro Scarico": "U", "Riallineamento": "R", "Inventario": "R", "Giacenza iniziale": "E"
 };
 
 const dataIt = iso => iso ? iso.split("-").reverse().join("/") : "";

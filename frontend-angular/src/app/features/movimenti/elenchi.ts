@@ -387,7 +387,7 @@ export class OrdiniClienti {
 })
 export class Riallineamenti {
   protected readonly config: ConfigElencoMovimenti = {
-    titolo: 'Riallineamenti Giacenza', tipo: 'riallineamento', csv: 'riallineamenti-giacenza', stati: ['Provvisorio', 'Definitivo', 'Annullato'],
+    titolo: 'Inventario', tipo: 'riallineamento', csv: 'riallineamenti-giacenza', stati: ['Provvisorio', 'Definitivo', 'Annullato'],
     nota: '📋 L\'<b>inventario</b>: si sparano tutti i pezzi con la pistola e alla conferma la giacenza diventa quella contata (tutta sull\'anno in corso). Mentre un inventario è <b>in corso</b> in questa sede non fare vendite né scarichi.',
     colonne: ['numero', 'stato', 'data', 'causale', 'tot_art', 'totale', 'pezzi'],
     titoli: { pezzi: 'Differenza pezzi' },

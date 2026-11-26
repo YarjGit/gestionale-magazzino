@@ -34,7 +34,7 @@ const MENU = [
       { label: "Diminuzione Giacenza", page: "diminuzione-giacenza" },
       { label: "Altri Scarichi", page: "altri-scarichi" }
     ] },
-    { titolo: "Rettifiche", voci: [{ label: "Riallineamenti Giacenza", page: "riallineamenti-giacenza" }] },
+    { titolo: "Rettifiche", voci: [{ label: "Inventario", page: "riallineamenti-giacenza" }] },
     { titolo: "Riepilogo", voci: [{ label: "Tutti i Movimenti", page: "tutti-movimenti" }, { label: "Inevasi", page: "inevasi" }] }
   ] },
   { id: "magazzino", label: "Magazzino", gruppi: [

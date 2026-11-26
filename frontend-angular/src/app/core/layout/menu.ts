@@ -42,7 +42,7 @@ export const MENU: SezioneMenu[] = [
         { label: 'Diminuzione Giacenza', route: '/movimenti/diminuzione-giacenza' },
         { label: 'Altri Scarichi', inArrivo: true }
       ] },
-      { titolo: 'Rettifiche', voci: [{ label: 'Riallineamenti Giacenza', route: '/inventario' }] },
+      { titolo: 'Rettifiche', voci: [{ label: 'Inventario', route: '/inventario' }] },
       { titolo: 'Riepilogo', voci: [{ label: 'Tutti i Movimenti', route: '/movimenti/tutti' }, { label: 'Inevasi', route: '/trasferimenti/inevasi' }] }
     ]
   },
