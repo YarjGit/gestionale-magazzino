@@ -1,0 +1,62 @@
+<div [class.in-modifica]="modifica()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a [routerLink]="elenco" style="color:var(--accent)">Torna all'elenco</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="nuovo ? (aumento ? 'Nuovo aumento di giacenza' : 'Nuova diminuzione di giacenza') : (aumento ? 'Aumento giacenza' : 'Diminuzione giacenza')"
+    [numero]="id()" [stato]="stato()" [totale]="totale()" etichettaTotale="Valore a costo + IVA" [sotto]="pezzi() + ' pezzi · ' + righe().length + ' righe'"
+    [elenco]="elenco" [nomeElenco]="aumento ? 'Aumento Giacenza' : 'Diminuzione Giacenza'" [modifica]="modifica()" [modificabile]="statoSalvato() !== 'Annullato'"
+    [salvataggio]="salvataggio()" [inventario]="inventario()"
+    [testoModifica]="nuovo ? (aumento ? 'Nuovo aumento: scegli il motivo e l\'anno, poi aggiungi gli articoli (anche con la pistola).' : 'Nuova diminuzione: scegli il motivo, poi aggiungi gli articoli (anche con la pistola).') : 'Stai modificando. Ricordati di salvare.'"
+    (modificaClick)="modificaScheda()" (annulla)="annullaModifica()" (salva)="salva($event)">
+    @if (aumento) { <button class="btn btn-light" (click)="etichette()">🏷️ Etichette</button> }
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+  </app-testa-scheda>
+
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="tab.set('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="tab.set('articoli')">📦 Articoli <span class="n">{{ righe().length }}</span></button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab">
+      <div class="gruppo"><h3>{{ aumento ? '➕ Perché entra la merce' : '➖ Perché esce la merce' }}</h3>
+        <div class="motivi">
+          @for (m of MOTIVI; track m.k) {
+            <button type="button" class="motivo" [class.scelto]="m.k === motivo()" [disabled]="!modifica()" (click)="scegliMotivo(m.k)">
+              <span class="ico">{{ m.ico }}</span><b>{{ m.t }}</b><small>{{ m.s }}</small></button>
+          }
+        </div>
+      </div>
+      <div class="gruppo"><h3>📄 Documento</h3><div class="campi">
+        <div class="f s2"><label>Stato movimento</label>
+          <select [disabled]="!modifica() || stato() === 'Annullato'" (change)="stato.set(testo($event))">
+            @for (s of ['Provvisorio', 'Definitivo']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+            @if (stato() === 'Annullato') { <option selected>Annullato</option> }
+          </select></div>
+        <div class="f s2"><label>Data</label><input type="date" [value]="data()" [disabled]="!modifica()" (change)="data.set(testo($event))"></div>
+        @if (aumento) {
+          <div class="f s2"><label>Anno di acquisto</label>
+            <div class="anno-box"><select [disabled]="!modifica()" (change)="anno.set(+testo($event))">@for (a of anni(); track a) { <option [value]="a" [selected]="a === anno()">{{ a }}</option> }</select>
+              @if (anno() < annoOggi) { <span class="vecchio">anno passato</span> }</div>
+            <span class="aiuto">si stampa sulle etichette</span></div>
+        }
+        <div class="f s2"><label>Sede</label><input [value]="sede.sede()?.nome ?? ''" disabled></div>
+      </div></div>
+      <div class="gruppo"><h3>📝 Note</h3><div class="campi">
+        <div class="f s3"><label>Causale</label><textarea [value]="causale()" [placeholder]="esempio()" [disabled]="!modifica()" (input)="causale.set(testo($event))"></textarea><span class="aiuto">non stampata sul documento</span></div>
+        <div class="f s3"><label>Annotazioni</label><textarea [value]="annot()" [disabled]="!modifica()" (input)="annot.set(testo($event))"></textarea><span class="aiuto">stampate sul documento</span></div>
+      </div></div>
+    </div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      <app-righe-movimento [config]="config" [(righe)]="righe" [modifica]="modifica()" [annoGiac]="aumento ? anno() : null" />
+    </div>
+    }
+  </section>
+}
+</div>
