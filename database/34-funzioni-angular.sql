@@ -541,7 +541,7 @@ begin
   if not found or m.tipo <> 'ordine_fornitore' then raise exception 'Ordine % non trovato', p_id; end if;
   if not puo_scrivere_sede(m.sede_id) then raise exception 'Utente non autorizzato a scrivere in questa sede'; end if;
   if m.stato = 'Annullato' then return; end if;
-  if m.stato not in ('Provvisorio', 'Definitivo') then raise exception 'L''ordine è % : non si può più annullare', m.stato; end if;
+  if m.stato not in ('Provvisorio', 'Definitivo') then raise exception 'L''ordine è %: non si può più annullare', lower(m.stato); end if;
   select mx.id into v_altro from movimenti_righe x join movimenti mx on mx.id = x.movimento_id
   where x.ordine_riga_id in (select r.id from movimenti_righe r where r.movimento_id = p_id) and mx.stato <> 'Annullato' limit 1;
   if v_altro is not null then
