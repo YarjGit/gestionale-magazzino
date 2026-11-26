@@ -48,7 +48,8 @@
   const elenco = avviaElenco({
     titolo: ECOM ? "Vendite e-commerce" : "Vendite Giornaliere",
     nota: ECOM ? "🛒 Una giornata per ogni giorno di vendite online: la merce esce dalla giacenza della sede in cui lavori. Durante il giorno si aprono le <b>vendite di oggi</b> e si aggiungono gli articoli man mano, con l'ora." : undefined,
-    nuovo: ECOM ? "Vendite e-commerce di oggi" : "Nuova giornata",
+    nuovo: ECOM ? "Nuova vendita e-commerce" : "Nuova vendita",
+    senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
     nuovoUrl: ECOM ? "vendita.html?nuovo=1&canale=ecommerce" : undefined,
     dettaglio: "vendita.html",
     csv: "vendite-giornaliere",
@@ -153,13 +154,13 @@
     const tutte = await elencoMovimentiDb(db, "vendite_giornaliere", ID_SEDI_DB[trovaSede(leggiSede()).nome], "vendita.html");
     const righe = tutte.filter(r => eEcom(r) === ECOM);
     if (righe.length) elenco.aggiungi(righe);
-    // "Vendite e-commerce di oggi": se la giornata di oggi c'è già si apre lì, pronta per aggiungere articoli
+    // "Nuova vendita e-commerce": se la giornata di oggi c'è già si apre lì, pronta per aggiungere articoli (il nome del tasto resta uguale)
     if (ECOM) {
       const oggi = righe.find(r => r.data === oggiIso && r.stato !== "Annullato");
       if (oggi) {
         const b = document.getElementById("btnCrea");
         b.onclick = () => location.href = `vendita.html?db=${oggi.id}&modifica=1`;
-        b.lastChild.textContent = " Aggiungi alle vendite di oggi";
+        b.title = "Si aggiunge alla giornata e-commerce di oggi, già aperta";
       }
     }
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));

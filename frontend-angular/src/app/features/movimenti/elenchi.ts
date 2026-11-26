@@ -222,7 +222,7 @@ export class TrasferimentiDaFiliali {
 
 /**
  * Vendite Giornaliere (prototipo/vendite-giornaliere.html): ?canale=ecommerce = solo le giornate online, senza = solo il negozio.
- * Tasti uniti "Vendite del centro / Vendite e-commerce" sempre nello stesso posto; nell'e-commerce "Aggiungi alle vendite di oggi".
+ * Tasti uniti "Vendite del centro / Vendite e-commerce" sempre nello stesso posto; nell'e-commerce "Nuova vendita e-commerce" (apre la giornata di oggi se c'è già).
  */
 @Component({
   selector: 'app-vendite-giornaliere',
@@ -238,7 +238,7 @@ export class TrasferimentiDaFiliali {
         @if (ecom()) {
           <ng-container azioni>
           <a class="btn btn-light" style="color:#5b21b6;border-color:#cdb8f5" routerLink="/stampe/trasferimento-ecommerce" title="Stampa del mese per la Sede Centrale dell'Apostolato Liturgico">🖨️ Trasferimento del mese</a>
-          <button class="btn btn-primary" (click)="vendite()">＋ {{ oggi() ? 'Aggiungi alle vendite di oggi' : 'Vendite e-commerce di oggi' }}</button>
+          <button class="btn btn-primary" (click)="vendite()">＋ Nuova vendita e-commerce</button>
           </ng-container>
         }
       </app-elenco-movimenti>
@@ -257,7 +257,7 @@ export class VenditeGiornaliere {
         nota: '🛒 Una giornata per ogni giorno di vendite online: la merce esce dalla giacenza della sede in cui lavori. Durante il giorno si aprono le <b>vendite di oggi</b> e si aggiungono gli articoli man mano, con l\'ora.',
         colonne: ['giorno', 'causale', 'tot_art', 'totale', 'pezzi'] }
     : { titolo: 'Vendite Giornaliere', tipo: 'vendite_giornaliere', canale: 'negozio', csv: 'vendite-giornaliere', stati: ['Definitivo', 'Annullato'],
-        colonne: ['giorno', 'causale', 'tot_art', 'totale', 'pezzi'], nuovo: { testo: 'Nuova giornata', percorso: ['/vendita', 'nuovo'] } });
+        colonne: ['giorno', 'causale', 'tot_art', 'totale', 'pezzi'], nuovo: { testo: 'Nuova vendita', percorso: ['/vendita', 'nuovo'] } });
 
   constructor() {
     this.route.queryParamMap.subscribe(p => {
