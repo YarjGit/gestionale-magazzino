@@ -154,6 +154,17 @@ async function confermaRicezioneDb(db, id) {
 // ---------- Ordini alle sedi e INEVASI (vista "inevasi", database/14-inevasi.sql) ----------
 // Righe della vista con l'articolo (forma di ARTICOLI) e la giacenza della sede che deve mandare la merce.
 // filtro: { sede_fornitrice } o { sede_richiedente }, e facoltativi ordine_id / stato_ordine; soloResiduo: solo righe con qualcosa da mandare
+// Ordini di questa sede a un'altra sede già preparati (Evaso) con articoli ancora da mandare: scheda "Con inevasi".
+// Map id ordine → pezzi ancora da mandare (serve anche alla colonna "Arrivato" di Ordini a Fornitori).
+async function ordiniConInevasiDb(db, sedeId) {
+  const { data, error } = await db.from("inevasi").select("ordine_id, sede_fornitrice, residuo")
+    .eq("sede_richiedente", sedeId).eq("stato_ordine", "Evaso").gt("residuo", 0);
+  if (error) throw error;
+  const mancano = new Map();
+  data.filter(r => r.sede_fornitrice !== sedeId).forEach(r => mancano.set(r.ordine_id, (mancano.get(r.ordine_id) || 0) + +r.residuo));
+  return mancano;
+}
+
 async function inevasiDb(db, filtro, { soloResiduo = true } = {}) {
   let q = db.from("inevasi").select("*");
   Object.entries(filtro).forEach(([k, v]) => { q = Array.isArray(v) ? q.in(k, v) : q.eq(k, v); });

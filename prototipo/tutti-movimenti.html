@@ -32,7 +32,7 @@
     titolo: "Tutti i Movimenti",
     csv: "tutti-movimenti",
     senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
-    stati: [STATO.definitivo, STATO.provvisorio, STATO.riordino, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato],
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.conInevasi, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato],
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],
     controparte: {
@@ -59,7 +59,9 @@
   // Dopo l'accesso: tutti i movimenti della sede salvati nel database
   dbPronto.then(async db => {
     if (!db) return;
-    const righe = await elencoTuttiMovimentiDb(db, ID_SEDI_DB[trovaSede(leggiSede()).nome]);
+    const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
+    const [righe, conInevasi] = await Promise.all([elencoTuttiMovimentiDb(db, sedeId), ordiniConInevasiDb(db, sedeId)]);
+    righe.forEach(r => r.conInevasi = r.tipo === "Ordine a Fornitore" && conInevasi.has(r.id));
     if (righe.length) elenco.aggiungi(righe);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>

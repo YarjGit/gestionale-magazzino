@@ -31,7 +31,10 @@ const STATO = {
   annullato:   { nome: "Annullato",   plurale: "Annullati",   colore: "#c62828", icona: "✕" },
   // trasferimenti visti dalla sede che riceve: la merce entra in giacenza solo con "Conferma ricevuto"
   daRicevere:  { nome: "Da ricevere", plurale: "Da ricevere", colore: "#0891b2", icona: "📦" },
-  ricevuto:    { nome: "Ricevuto",    plurale: "Ricevuti",    colore: "#18a058", icona: "✔" }
+  ricevuto:    { nome: "Ricevuto",    plurale: "Ricevuti",    colore: "#18a058", icona: "✔" },
+  // Non è uno stato: ordini alle sedi già preparati con articoli ancora da mandare (inevasi). Prende il posto di "Riordino",
+  // che nel nuovo gestionale non si usa più (gli inevasi restano legati all'ordine di partenza). La pagina mette r.conInevasi.
+  conInevasi:  { nome: "Con inevasi", plurale: "Con inevasi", colore: "#db2777", icona: "⏳", filtro: r => !!r.conInevasi }
 };
 
 // Tipi di movimento: E = entrata in magazzino, U = uscita, R = rettifica
@@ -220,6 +223,8 @@ function avviaElenco(cfg) {
   const COLONNE = cfg.colonne;
   const visibili = new Set(COLONNE.map(c => c.k));
   let tabStato = "";
+  // Una riga è nella scheda se ha quello stato, o se la scheda ha un suo filtro (es. "Con inevasi") e lo rispetta
+  const inScheda = (r, nome) => { const s = cfg.stati.find(x => x.nome === nome); return s && s.filtro ? s.filtro(r) : r.stato === nome; };
   let ordine = { k: COLONNE[0].k, dir: -1 };
   let pagina = 1;
   const ID_CP = filtriCp.map((f, i) => `fCp${i}`);
@@ -261,13 +266,13 @@ function avviaElenco(cfg) {
     const parole = paroleCerca();
     const anno = $("fAnno").value;
     return cfg.dati.filter(r => {
-      if (tabStato && r.stato !== tabStato) return false;
+      if (tabStato && !inScheda(r, tabStato)) return false;
       if ($("soloValidare").checked && !cfg.statiValidazione.includes(r.stato)) return false;
       if (anno && !r.data.startsWith(anno)) return false;
       if ($("fLab").value && r.lab !== $("fLab").value) return false;
       if (ID_CP.some(id => $(id).value !== "" && r.cp !== +$(id).value)) return false;
       if (extra.some(f => $(f.id).value && r[f.campo] !== $(f.id).value)) return false;
-      if ($("fStato").value && r.stato !== $("fStato").value) return false;
+      if ($("fStato").value && !inScheda(r, $("fStato").value)) return false;
       if ($("fDal").value && r.data < $("fDal").value) return false;
       if ($("fAl").value && r.data > $("fAl").value) return false;
       if (parole.length) {
@@ -287,7 +292,7 @@ function avviaElenco(cfg) {
     // Con un solo stato (es. Vendite Giornaliere) le schede non servono
     $("tabs").hidden = cfg.stati.length < 2;
     $("tabs").innerHTML = [{ nome: "", plurale: "Tutti" }].concat(cfg.stati).map(s =>
-      `<button class="tab${s.nome === tabStato ? " active" : ""}" data-s="${s.nome}">${s.colore ? `<span class="dot" style="background:${s.colore}"></span>` : ""}${s.plurale}<span class="n">${base.filter(r => !s.nome || r.stato === s.nome).length}</span></button>`).join("");
+      `<button class="tab${s.nome === tabStato ? " active" : ""}" data-s="${s.nome}">${s.colore ? `<span class="dot" style="background:${s.colore}"></span>` : ""}${s.plurale}<span class="n">${base.filter(r => !s.nome || inScheda(r, s.nome)).length}</span></button>`).join("");
 
     $("intestazione").innerHTML = '<th style="width:4px;padding:0"></th><th style="width:70px"></th>' +
       COLONNE.filter(c => visibili.has(c.k)).map(c => {

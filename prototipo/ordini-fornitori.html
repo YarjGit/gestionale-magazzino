@@ -27,7 +27,7 @@
     nuovo: "Nuovo ordine",
     dettaglio: "ordine.html",
     csv: "ordini-fornitori",
-    stati: [STATO.provvisorio, STATO.definitivo, STATO.riordino, STATO.evaso, STATO.annullato],
+    stati: [STATO.provvisorio, STATO.definitivo, STATO.conInevasi, STATO.evaso, STATO.annullato],
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],
     controparte: { filtro: "Fornitore", elenco: FORNITORI },
@@ -57,7 +57,11 @@
         <a href="inevasi.html?vista=attesa" class="btn-inevasi-top${nArt ? "" : " zero"}" title="Articoli ordinati e non ancora arrivati: non vanno riordinati">⏳ INEVASI IN ATTESA <span class="num">${nArt}</span></a>
         <span class="spacer"></span>`);
     }
-    const righe = await elencoMovimentiDb(db, "ordine_fornitore", sedeId, "ordine.html");
+    const [righe, conInevasi] = await Promise.all([elencoMovimentiDb(db, "ordine_fornitore", sedeId, "ordine.html"), ordiniConInevasiDb(db, sedeId)]);
+    righe.forEach(r => {
+      r.conInevasi = conInevasi.has(r.id);
+      if (r.conInevasi) r.ricevuti = Math.max(0, r.nArt - conInevasi.get(r.id));   // "Arrivato": senza i pezzi ancora da mandare
+    });
     if (righe.length) elenco.aggiungi(righe);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
 </script>
