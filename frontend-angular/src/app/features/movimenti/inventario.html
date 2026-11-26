@@ -1,0 +1,120 @@
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a routerLink="/inventario" style="color:var(--accent)">Torna all'elenco</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura dell'inventario…</b></div></section>
+} @else {
+  <div class="scheda-head">
+    <div>
+      <h1 class="page-title">{{ nuovo ? 'Nuovo inventario' : 'Inventario' }} @if (id()) { <span class="num">#{{ id() }}</span> }
+        <span class="pill" [style.background]="confermato() ? '#18a0581f' : annullato() ? '#c628281f' : '#e58a001f'" [style.color]="confermato() ? '#18a058' : annullato() ? '#c62828' : '#e58a00'">{{ confermato() ? '✔ Confermato' : annullato() ? '✕ Annullato' : '◷ In corso' }}</span></h1>
+      <div class="crumbs"><a routerLink="/dashboard">⌂</a><span>-</span><span>Movimenti</span><span>-</span><a routerLink="/inventario">Riallineamenti Giacenza</a><span>-</span><span>{{ id() ? '#' + id() : 'Nuovo' }}</span></div>
+    </div>
+    <div class="totale-top"><div class="t">{{ sede.sede()?.nome }}</div><div class="v">{{ contati().length }} articoli</div><div class="p">{{ q2(pezzi()) }} pezzi contati</div></div>
+  </div>
+  <div class="azioni-scheda" style="display:flex;justify-content:flex-end;gap:8px;margin:10px 0 12px;flex-wrap:wrap">
+    <button class="btn btn-light" (click)="stampa()">🖨️ Stampa differenze</button>
+    <button class="btn btn-light" (click)="chiudi()">✕ Chiudi</button>
+    @if (inCorso()) {
+      @if (id()) { <button class="btn btn-light" style="color:var(--ko)" [disabled]="salvataggio()" (click)="annullaInventario()">✕ Annulla inventario</button> }
+      <button class="btn btn-primary" [disabled]="salvataggio()" (click)="salvaInCorso()">💾 Salva e continua dopo</button>
+      <button class="btn btn-verde" [disabled]="salvataggio()" (click)="conferma()" title="Solo amministratore o responsabile magazzino">✔ Conferma inventario</button>
+    }
+  </div>
+  @if (inCorso()) { <div class="banner provv">◷ <span><b>Inventario in corso</b>: la giacenza non cambia finché non lo confermi. Intanto in questa sede <b>non fare vendite né scarichi</b>. Puoi salvare e continuare a contare un altro giorno.</span></div> }
+  @if (confermato()) { <div class="banner" style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Inventario <b>confermato</b> il {{ dataIt(dataInv()) }}: la giacenza degli articoli contati è diventata quella contata, tutta sull'anno {{ annoInv() ?? dataInv().slice(0, 4) }}.</span></div> }
+  @if (annullato()) { <div class="banner ann">✕ Inventario annullato: la giacenza non è stata toccata.</div> }
+
+  <section class="panel">
+    <div class="gruppo"><h3>📋 Cosa si conta</h3>
+      <div class="ambiti">
+        <button type="button" class="ambito" [class.scelto]="ambito() === 'tutto'" [disabled]="!inCorso() || (!!id() && ambito() !== 'tutto')" (click)="scegliAmbito('tutto')">
+          <b>🏬 Tutto il magazzino</b><small>alla fine si vedono gli articoli con giacenza non sparati: Lascia, Modifica o Elimina</small></button>
+        <button type="button" class="ambito" [class.scelto]="ambito() === 'parte'" [disabled]="!inCorso() || (!!id() && ambito() !== 'parte')" (click)="scegliAmbito('parte')">
+          <b>🧺 Solo una parte</b><small>es. uno scaffale: gli articoli non sparati restano come sono</small></button>
+      </div>
+      <div class="f" style="margin-top:10px"><label>Note</label><input [value]="note()" [disabled]="!inCorso()" placeholder="es. scaffali A e B" (input)="note.set(testo($event))"></div>
+    </div>
+
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">🔢 Contati <span class="n">{{ contati().length }}</span></button>
+      @if (ambito() === 'tutto' || eliminati().length) {
+        <button class="scheda-tab" [class.active]="tab() === 'nonsparati'" (click)="apriTab('nonsparati')">❔ Non sparati @if (inCorso()) { <span class="n">{{ nsTotale() || '…' }}</span> } @else { <span class="n">{{ eliminati().length }}</span> }</button>
+      }
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab">
+      @if (inCorso()) {
+        <div class="spara">
+          <div class="f"><label>Spara il barcode (o scrivi codice / descrizione) <span class="pistola"><span class="led"></span>pronto per la pistola</span></label>
+            <input id="spara" autocomplete="off" placeholder="Spara il barcode…" (input)="cerca($event)" (keydown)="tasto($event)" autofocus>
+            @if (trovati().length) {
+              <div class="suggerimenti show">
+                @for (a of trovati(); track a.id; let i = $index) {
+                  <div class="sugg" [class.attivo]="i === attivo()" (mousedown)="prendi(a)"><span class="codice">{{ a.codice }}</span>{{ a.descrizione }}<small>giac. {{ q2(a.giacenza ?? 0) }}</small></div>
+                }
+              </div>
+            }
+          </div>
+          <div class="f" style="max-width:110px;min-width:90px"><label>Quanti</label><input type="number" min="1" style="text-align:right" [value]="quanti()" (input)="quanti.set(+testo($event) || 1)"></div>
+        </div>
+      }
+      <div class="table-wrap"><table>
+        <thead><tr>@if (inCorso()) { <th style="width:40px"></th> }<th>Articolo</th><th class="num">Gestionale</th><th class="num">Contati</th><th class="num">Differenza</th></tr></thead>
+        <tbody>
+          @for (c of ordinati(); track c.articolo.id) {
+            <tr [class.ultimo]="c.articolo.id === ultimo()">
+              @if (inCorso()) { <td><button class="btn-riga cestino" title="Togli dal conteggio" (click)="togli(c)">🗑</button></td> }
+              <td class="art-cella"><span class="codice">{{ c.articolo.codice }}</span><b>{{ c.articolo.descrizione }}</b></td>
+              <td class="num">{{ q2(prima(c)) }}</td>
+              <td class="num">@if (inCorso()) { <span class="passo"><button class="btn-riga" (click)="passo(c, -1)">−</button><input class="num-mod" [value]="c.contati" (change)="scrivi(c, $event)"><button class="btn-riga" (click)="passo(c, 1)">+</button></span> } @else { {{ q2(c.contati) }} }</td>
+              <td class="num"><span [class]="differenza(c) > 0 ? 'diff-piu' : differenza(c) < 0 ? 'diff-meno' : 'diff-zero'">{{ differenza(c) > 0 ? '+' : differenza(c) < 0 ? '−' : '' }}{{ q2(differenza(c) < 0 ? -differenza(c) : differenza(c)) }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5"><div class="vuoto"><b>Nessun articolo contato</b><span>{{ inCorso() ? 'Spara il primo barcode qui sopra.' : '' }}</span></div></td></tr>
+          }
+        </tbody>
+      </table></div>
+      <div class="riepilogo-inv"><span>Articoli contati: <b>{{ contati().length }}</b></span><span>Pezzi contati: <b>{{ q2(pezzi()) }}</b></span>
+        <span>In più: <b class="diff-piu">+{{ q2(piu()) }}</b></span><span>In meno: <b class="diff-meno">−{{ q2(meno()) }}</b></span></div>
+    </div>
+    }
+
+    @if (tab() === 'nonsparati') {
+    <div class="pannello-tab">
+      @if (!inCorso()) {
+        @if (eliminati().length) {
+          <p style="color:var(--muted)">Articoli non sparati eliminati con questo inventario (giacenza a zero, articolo disattivato):</p>
+          <div class="table-wrap"><table><tbody>@for (e of eliminati(); track e.codice) { <tr><td class="art-cella"><span class="codice">{{ e.codice }}</span><b>{{ e.descrizione }}</b></td></tr> }</tbody></table></div>
+        } @else { <div class="vuoto"><b>Nessun articolo eliminato</b><span>Gli articoli non sparati sono rimasti come erano.</span></div> }
+      } @else {
+        <div class="nota-viola">❔ Articoli con giacenza in {{ sede.sede()?.nome }} che non sono stati sparati. Per ognuno scegli <b>Lascia</b> (resta con la sua giacenza), <b>Modifica</b> (te lo eri dimenticato: scrivi i pezzi) o <b>Elimina</b> (giacenza a zero e articolo disattivato).</div>
+        <div class="barra-ns">
+          <button class="btn btn-light" (click)="tutti('lascia')">Lascia tutti</button>
+          <button class="btn btn-light" style="color:var(--ko)" (click)="tutti('elimina')">Elimina tutti</button>
+          <span class="spazio"></span><span style="color:var(--muted)">Da eliminare: <b>{{ daEliminare().length }}</b> · non sparati: <b>{{ nsTotale() }}</b></span>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Articolo</th><th class="num">Giacenza</th><th>Scelta</th></tr></thead>
+          <tbody>
+            @for (n of ns(); track n.id) {
+              <tr><td class="art-cella"><span class="codice">{{ n.codice }}</span><b>{{ n.descrizione }}</b></td><td class="num">{{ q2(toNum(n.giacenza)) }}</td>
+                <td><span class="scelte-ns">
+                  <button data-az="lascia" [class.on]="scelta(n.id) === 'lascia'" (click)="scegli(n, 'lascia')">Lascia</button>
+                  <button data-az="modifica" [class.on]="scelta(n.id) === 'modifica'" (click)="scegli(n, 'modifica')">Modifica</button>
+                  <button data-az="elimina" [class.on]="scelta(n.id) === 'elimina'" (click)="scegli(n, 'elimina')">Elimina</button></span>
+                  @if (scelta(n.id) === 'modifica') { <input class="num-mod" placeholder="pezzi" style="margin-left:8px" (change)="modificaNs(n, $event)" autofocus> }
+                </td></tr>
+            } @empty { <tr><td colspan="3"><div class="vuoto"><b>{{ ambito() === 'tutto' ? 'Tutti gli articoli con giacenza sono stati sparati' : 'Inventario di una parte' }}</b></div></td></tr> }
+          </tbody>
+        </table></div>
+        @if (nsTotale() > 50) {
+          <div class="piede"><span></span><div class="pagine"><span>Pagina {{ nsPagina() + 1 }} di {{ nsPagine() }}</span>
+            <button [disabled]="nsPagina() === 0" (click)="caricaNonSparati(nsPagina() - 1)">‹</button>
+            <button [disabled]="(nsPagina() + 1) * 50 >= nsTotale()" (click)="caricaNonSparati(nsPagina() + 1)">›</button></div></div>
+        }
+      }
+    </div>
+    }
+  </section>
+}

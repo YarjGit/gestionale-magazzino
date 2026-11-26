@@ -397,8 +397,23 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function scarico_di_ordine(bigint) to authenticated;
 
--- Controllo: deve dare 16
+-- ---------- Inventario: articoli con giacenza non ancora sparati (inventario di tutto il magazzino) ----------
+-- Articoli attivi con giacenza diversa da zero nella sede che non sono tra quelli già contati (p_contati), una pagina
+-- alla volta (con il totale in ogni riga). Con p_quanti grande si leggono anche solo gli id per "Elimina / Lascia tutti".
+create or replace function inventario_non_sparati(p_sede text, p_contati uuid[], p_da int default 0, p_quanti int default 50)
+returns table (id uuid, codice text, descrizione text, barcode text, costo_netto numeric, giacenza numeric, totale bigint)
+language sql stable security invoker set search_path = public as $$
+  select a.id, a.codice, a.descrizione, a.barcode, a.costo_netto::numeric, g.quantita::numeric, count(*) over ()
+  from giacenze g join articoli a on a.id = g.articolo_id
+  where g.sede_id = p_sede and g.quantita <> 0 and a.attivo is not false
+    and not (a.id = any(coalesce(p_contati, '{}')))
+  order by a.codice
+  limit greatest(1, least(p_quanti, 20000)) offset greatest(0, p_da);
+$$;
+grant execute on function inventario_non_sparati(text, uuid[], int, int) to authenticated;
+
+-- Controllo: deve dare 17
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
   'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede', 'salva_cliente',
-  'scarico_di_ordine');
+  'scarico_di_ordine', 'inventario_non_sparati');

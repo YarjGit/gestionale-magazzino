@@ -352,6 +352,8 @@ export interface RpcFunzioni {
   inevasi_annullati_sede: { args: { p_sede: SedeId }; ritorno: { id: number; annullato_il: string; annullato_da: string | null; quantita: Numerico; motivo: string | null; ordine_id: number; codice: string; descrizione: string; filiale: string | null }[] };
   /** Scarico a cliente già fatto per un ordine (null = non ancora scalato). */
   scarico_di_ordine: { args: { p_ordine: number }; ritorno: number | null };
+  /** Inventario di tutto il magazzino: articoli con giacenza non ancora sparati, una pagina alla volta. */
+  inventario_non_sparati: { args: { p_sede: SedeId; p_contati: string[]; p_da: number; p_quanti: number }; ritorno: { id: string; codice: string; descrizione: string; barcode: string | null; costo_netto: Numerico; giacenza: Numerico; totale: number }[] };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */

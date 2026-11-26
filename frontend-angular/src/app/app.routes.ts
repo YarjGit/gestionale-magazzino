@@ -38,6 +38,7 @@ export const routes: Routes = [
       { path: 'aumento/:id', data: { tipo: 'aumento' }, loadComponent: () => import('./features/movimenti/rettifica').then(m => m.Rettifica) },
       { path: 'diminuzione/:id', data: { tipo: 'diminuzione' }, loadComponent: () => import('./features/movimenti/rettifica').then(m => m.Rettifica) },
       { path: 'ordine-cliente/:id', loadComponent: () => import('./features/movimenti/ordine-cliente').then(m => m.OrdineCliente) },
+      { path: 'inventario/:id', loadComponent: () => import('./features/movimenti/inventario').then(m => m.Inventario) },
       { path: 'anagrafiche/fornitori', loadComponent: () => import('./features/anagrafiche/fornitori').then(m => m.Fornitori) },
       { path: 'anagrafiche/fornitori/nuovo', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },
       { path: 'anagrafiche/fornitori/:codice', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },

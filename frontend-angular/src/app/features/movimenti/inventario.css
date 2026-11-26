@@ -1,0 +1,29 @@
+  /* Tutto il magazzino / solo una parte */
+  .ambiti { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ambito { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 11px; background: #fff; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+  .ambito b { font-size: 0.95rem; }
+  .ambito small { color: var(--muted); font-size: 0.8rem; line-height: 1.35; }
+  .ambito.scelto { border-color: var(--accent); background: #eef5ff; }
+  .ambito:disabled { cursor: default; }
+  .ambito:disabled:not(.scelto) { opacity: 0.45; }
+  /* Campo della pistola, grande */
+  .spara { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 14px; margin-bottom: 14px; border: 2px dashed #9cc3f5; border-radius: 12px; background: #f6faff; }
+  .spara .f { flex: 1; min-width: 260px; position: relative; }
+  .spara input#spara { font-size: 1.05rem; padding: 10px 12px; }
+  .diff-piu { color: var(--ok); font-weight: 700; }
+  .diff-meno { color: var(--ko); font-weight: 700; }
+  .diff-zero { color: var(--muted); }
+  .num-mod { width: 70px; text-align: right; }
+  tr.ultimo td { background: #fffbe6; }
+  .riepilogo-inv { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); }
+  .riepilogo-inv b { color: var(--text); }
+  /* Articoli non sparati: tre scelte per riga */
+  .scelte-ns { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .scelte-ns button { padding: 5px 10px; border: none; border-right: 1px solid var(--line); background: #fff; font: inherit; font-size: 0.8rem; cursor: pointer; color: var(--text); }
+  .scelte-ns button:last-child { border-right: none; }
+  .scelte-ns button.on[data-az="lascia"] { background: #eef1f6; font-weight: 700; }
+  .scelte-ns button.on[data-az="modifica"] { background: #eef5ff; color: var(--accent); font-weight: 700; }
+  .scelte-ns button.on[data-az="elimina"] { background: #fde4e4; color: var(--ko); font-weight: 700; }
+  .scelte-ns button:disabled { cursor: default; }
+  .barra-ns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .barra-ns .spazio { flex: 1; }
