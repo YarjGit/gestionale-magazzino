@@ -1,4 +1,5 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, Injector, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import type { Session } from '@supabase/supabase-js';
 import { ErroreDatabase, SupabaseService } from './supabase.service';
 import { anteprimaAttiva, SESSIONE_FINTA } from '../anteprima/anteprima';
@@ -11,6 +12,7 @@ import { anteprimaAttiva, SESSIONE_FINTA } from '../anteprima/anteprima';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly supabase = inject(SupabaseService);
+  private readonly injector = inject(Injector);
 
   readonly sessione = signal<Session | null>(null);
   /** null = non ancora verificato. */
@@ -23,14 +25,30 @@ export class AuthService {
 
   constructor() {
     this.avvio = this.inizializza();
-    this.supabase.client.auth.onAuthStateChange((_evento, sessione) => {
+    this.supabase.client.auth.onAuthStateChange((evento, sessione) => {
       if (anteprimaAttiva()) return;
+      const eraDentro = this.sessione() !== null;
       this.sessione.set(sessione);
       if (!sessione) {
         this.autorizzato.set(null);
         this.amministratore.set(false);
+        // sessione scaduta da sola (non "Esci"): si torna all'accesso con la spiegazione. Se si sta modificando una scheda
+        // non la si chiude: chi rientra in un'altra scheda del browser ritrova la sessione anche qui e può salvare.
+        if (evento === 'SIGNED_OUT' && eraDentro && !this.uscitaVoluta) setTimeout(() => this.sessioneScaduta());
       }
+      this.uscitaVoluta = false;
     });
+  }
+
+  private uscitaVoluta = false;
+
+  private sessioneScaduta(): void {
+    const router = this.injector.get(Router);
+    if (document.body.dataset['modifica'] === '1') {
+      alert("La sessione è scaduta. Le modifiche di questa scheda NON sono perse: apri un'altra scheda del browser, entra di nuovo nel gestionale, poi torna qui e premi Salva.");
+      return;
+    }
+    void router.navigate(['/accesso'], { queryParams: { scaduta: 1 } });
   }
 
   /** Attende che la sessione salvata sia stata letta (da usare nelle guard). */
@@ -75,12 +93,13 @@ export class AuthService {
   async inviaLinkAccesso(email: string): Promise<void> {
     const { error } = await this.supabase.client.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: `${window.location.origin}/` }
+      options: { emailRedirectTo: document.baseURI }   // indirizzo della app (anche se pubblicata in una sottocartella)
     });
     if (error) throw new ErroreDatabase(error);
   }
 
   async esci(): Promise<void> {
+    this.uscitaVoluta = true;
     await this.supabase.client.auth.signOut();
   }
 }

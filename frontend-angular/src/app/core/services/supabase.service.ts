@@ -29,6 +29,10 @@ export function messaggioPerUtente(testo: string): string {
   if (testo.startsWith('Giacenza insufficiente')) return testo;
   if (/non autorizzato/i.test(testo)) return 'Questo utente non è autorizzato: chiedi all\'amministratore.';
   if (/Failed to fetch|NetworkError/i.test(testo)) return 'Connessione assente: controlla internet e riprova.';
+  if (/JWT expired|invalid JWT|refresh token/i.test(testo)) return "La sessione è scaduta: entra di nuovo (in un'altra scheda, se stai modificando qualcosa) e riprova.";
+  if (/duplicate key/i.test(testo)) return 'Questo dato esiste già (codice o numero doppio): controlla e riprova.';
+  if (/violates check constraint "trasferimento_non_a_se_stessa"/.test(testo)) return 'Un trasferimento non può andare verso la stessa sede che lo manda.';
+  if (/Utente non autorizzato a scrivere in questa sede|SEDE_NON_TUA/.test(testo)) return 'Puoi guardare i dati delle altre sedi, ma modificare solo quelli della tua sede.';
   return testo;
 }
 

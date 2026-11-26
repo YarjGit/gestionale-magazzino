@@ -55,6 +55,8 @@ export class Accesso implements OnInit {
     // link scaduto o già usato: Supabase torna qui con l'errore nell'indirizzo
     const err = new URLSearchParams(location.hash.slice(1)).get('error_description');
     if (err) this.esito.set({ testo: `Il link non è più valido (${err.replace(/\+/g, ' ')}). Chiedine uno nuovo qui sotto.`, errore: true });
+    // sessione scaduta (es. computer rimasto spento a lungo): si spiega perché si è qui
+    else if (/[?&]scaduta=1/.test(location.href)) this.esito.set({ testo: 'La sessione è scaduta: entra di nuovo per continuare.', errore: true });
     await this.auth.pronto();
     if (this.auth.connesso()) void this.router.navigateByUrl('/dashboard');   // già dentro
   }

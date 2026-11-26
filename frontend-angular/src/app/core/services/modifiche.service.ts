@@ -18,5 +18,7 @@ export class ModificheService {
 
   imposta(attive: boolean): void {
     this.attive.set(attive);
+    // letto da AuthService se la sessione scade mentre si modifica (per non perdere il lavoro)
+    if (attive) document.body.dataset['modifica'] = '1'; else delete document.body.dataset['modifica'];
   }
 }

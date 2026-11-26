@@ -78,3 +78,44 @@ Ogni passo usa i pezzi di quelli prima. Le scritture passano solo da RPC (punto 
 15. ✅ **Etichette e stampe** (`etichette.html`, `stampa-documento.html`): fogli A4 4×12, costo cifrato, doppia etichetta
     (solo CAL SMM Roma), carta intestata.
 16. ✅ **Setup**: utenti sito e ruoli, attività utenti, impostazioni, pagine di configurazione rimanenti.
+
+## 4. Stato (26/11/2026): tutte le 16 voci migrate
+
+Ogni schermata ha la stessa logica del prototipo, scrive **solo** con funzioni del database e legge una pagina alla volta.
+Le funzioni nuove sono in `../database/33-funzioni-sicure.sql` e `../database/34-funzioni-angular.sql` (già eseguiti).
+Restano "in arrivo" nel menu le voci che nel prototipo sono solo grafica (resi, preventivi, altri carichi/scarichi, categorie,
+gran parte di Configurazione e Setup) e, "in futuro", Laboratori ed e-commerce (vedi `ECOMMERCE.md`).
+
+## 5. Verifica (prompt 4): atomicità, velocità, permessi per sede
+
+| Controllo | Com'è adesso |
+|-----------|--------------|
+| **Tutto o niente** | Ogni salvataggio è una sola funzione del database: `salva_movimento`, `salva_carico` (carico + ordini Evasi), `salva_movimento_ed_evadi` (trasferimento + ordine Evaso), `conferma_ricezione`, `annulla_movimento`, `annulla_inevaso`, `conferma_inventario` (differenze calcolate nel database con la giacenza di quel momento), `scala_ordine_cliente`, `salva_articolo` / `salva_fornitore` / `salva_cliente` / `salva_utente`. Se qualcosa va storto non resta niente a metà. |
+| **Giacenza** | Mai calcolata nella pagina per decidere: il database blocca la giacenza sotto zero (lucchetto per sede e articolo, anche con più computer insieme). La pagina la usa solo per avvisare prima. |
+| **Lavoro da più computer** | Versione della scheda (`CONFLITTO`), giornata di vendite unica (`GIORNATA_ESISTE`: i miei articoli si aggiungono a quella dell'altro), ordine preparato una volta sola (`ORDINE_GIA_PREPARATO`), numeri di bolla e codici senza doppioni (lucchetti). |
+| **Velocità** | Elenchi, ricerche e pistola fatti dal database a pagine (`articoli_elenco`, `giacenze_sede`, `movimenti_elenco`, `cerca_articoli`, `inevasi_dettaglio`…). Indici in `35-indici-e-controlli.sql` (anche ricerca "contiene" a trigrammi) e permessi calcolati una volta per richiesta. |
+| **Permessi per sede** | `36-permessi-per-sede.sql`: tutti vedono tutto, ognuno modifica solo la sua sede (amministratori tutto). Eccezioni: chi riceve conferma l'arrivo; la sede che prepara l'ordine di una filiale lo mette Evaso. Controllo sulle tabelle (trigger): vale anche per il prototipo. Prima vanno spuntate le sedi di ogni persona in Utenti Sito. |
+| **Scritture dirette** | La nuova versione non ne fa nessuna (controllato nel codice). `37-solo-funzioni.sql` le chiude del tutto per tutti: **solo quando il prototipo non si usa più**. |
+| **Chiavi** | Nel codice c'è solo la chiave *publishable* (pubblica per natura). Nessuna chiave segreta né password. |
+| **Spazio (piano gratuito 500 MB)** | Una riga di movimento pesa circa 100–150 byte: 500 MB bastano per milioni di righe. `spazio_database()` (solo amministratore) mostra quanto pesa ogni tabella. La tabella che cresce di più è `registro_attivita`: se un giorno servisse spazio si possono togliere gli accessi più vecchi (da decidere insieme, niente di automatico). Prima dell'uso quotidiano vero resta consigliato il piano Pro (backup giornalieri e niente pausa). |
+
+## 6. Casi limite (prompt 5)
+
+| Caso | Cosa succede |
+|------|--------------|
+| **Doppio clic su Salva** | Il tasto si blocca al primo clic (`conSalvataggio`); e anche con due computer il database salva una volta sola (versione, lucchetti, numero di bolla). |
+| **Giacenza insufficiente** | Vendite, scarichi, diminuzioni e trasferimenti avvisano subito (riga rossa) e non salvano; se nel frattempo un altro computer ha venduto, il database rifiuta con "Giacenza insufficiente: codice (in giacenza N, ne mancano M)". |
+| **Trasferimento verso la stessa sede** | La sede di lavoro non compare tra le sedi che ricevono; in più il database lo rifiuta (vincolo `trasferimento_non_a_se_stessa`, file 35). |
+| **Ricevuto due volte / annullato dopo la ricezione** | `conferma_ricezione` e `annulla_movimento` lo rifiutano con un messaggio chiaro. |
+| **Sessione scaduta** | Fuori da una modifica si torna all'accesso con "La sessione è scaduta". Durante una modifica la scheda resta aperta: si rientra da un'altra scheda del browser e si preme Salva (il lavoro non si perde). |
+| **Connessione assente** | Messaggio "Connessione assente: controlla internet e riprova"; niente viene salvato a metà. |
+| **Inventario in corso** | Avviso rosso in vendite, scarichi, diminuzioni e trasferimenti; la conferma solo per amministratore o responsabile magazzino (controllo nel database). |
+| **Doppio ordine di articoli già in attesa** | Finestra "Va bene / Ne servono di più"; quelli aggiunti lo stesso hanno l'etichetta IN PIÙ. |
+
+## 7. Cosa del prototipo si potrà togliere (prompt 6) — NON ancora
+
+Il prototipo resta com'è finché la nuova versione non è in uso. Quando lo sarà:
+- si potranno togliere `prototipo/*.html`, `prototipo/js/`, `prototipo/css/`, `prototipo/server.ps1` e `Avvia prototipo.bat`;
+- **da tenere** (o spostare): `prototipo/img/logo-pddm.jpg` (ora anche in `frontend-angular/public/img/`), `prototipo/js/dati-articoli-reali.js` (solo PC di lavoro, non è su GitHub);
+- `index.html` nella radice (rimanda al prototipo) andrà fatto puntare alla nuova versione;
+- poi si esegue `database/37-solo-funzioni.sql`.

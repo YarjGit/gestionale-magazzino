@@ -164,8 +164,16 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   (pg_dump di PostgreSQL 17 Command Line Tools), copie in `Documenti\Backup gestionale` (60 giorni, almeno 10), registro `backup.log`.
 
 ## Nuova versione in Angular (`frontend-angular/`)
-- Si sta rifacendo il gestionale in Angular (21, standalone, Signals, TypeScript strict) + `@supabase/supabase-js`, nella sottocartella
+- Gestionale rifatto in Angular (21, standalone, Signals, TypeScript strict) + `@supabase/supabase-js`, nella sottocartella
   `frontend-angular/`. Il prototipo `prototipo/` **resta com'è e funziona**: è il riferimento funzionale, non va modificato.
+- **Tutte le 16 voci migrate** (26/11/2026): dashboard, articoli, giacenze, anagrafiche, elenchi e schede di tutti i movimenti
+  (carico, ordine, vendita negozio ed e-commerce, trasferimento con inevasi, aumento/diminuzione, ordine cliente/scarico con DDT,
+  inventario), pagina Inevasi, stampe (carta intestata, DDT, etichette), Setup (utenti, attività). Dettagli: `frontend-angular/MIGRAZIONE.md`.
 - Regole architetturali obbligatorie: `frontend-angular/CLAUDE.md` (scritture solo tramite RPC/transazioni PostgreSQL, mai calcoli di
   giacenza solo lato client, paginazione e ricerca lato server, tipi allineati allo schema, `core/` `features/` `shared/`).
-- Analisi, punti da mettere in sicurezza e checklist della migrazione (una schermata alla volta, `ng build` senza errori): `frontend-angular/MIGRAZIONE.md`.
+- Database per la nuova versione: `33-funzioni-sicure.sql` e `34-funzioni-angular.sql` (eseguiti il 26/11/2026; il 34 si riesegue
+  quando cambia), `35-indici-e-controlli.sql` (si può eseguire subito), `36-permessi-per-sede.sql` (dopo aver spuntato la sede di ogni
+  persona in Utenti Sito), `37-solo-funzioni.sql` (**solo** quando il prototipo non si usa più).
+- Provarla: `Avvia versione Angular.bat` (serve Node.js); dati inventati con `http://localhost:4200/?anteprima=1`, veri con `?anteprima=0`.
+- Pubblicazione **preparata ma non attiva** (Cloudflare Pages o GitHub Pages: `frontend-angular/README.md`): la decide l'utente.
+- E-commerce (Joomla 3 + VirtueMart): solo il piano in `frontend-angular/ECOMMERCE.md`, da non realizzare finché l'utente non lo chiede.
