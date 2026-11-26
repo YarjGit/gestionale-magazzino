@@ -14,6 +14,7 @@
 //   csv                    nome del file esportato
 //   dettaglio              pagina della scheda (es. "carico.html"): la riga si apre con ?id=…
 //   senzaModifica         nasconde la matita di modifica (es. riallineamenti)
+//   senzaEtichette        nasconde il tasto Etichette in alto (es. inventario)
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
 //   nota                   testo (HTML) mostrato in un riquadro sotto il titolo, per spiegare come funziona la pagina
@@ -402,6 +403,7 @@ function avviaElenco(cfg) {
   document.addEventListener("click", () => { rowMenu.classList.remove("show"); $("colonneWrap").classList.remove("open"); });
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
+  if (cfg.senzaEtichette) $("btnEtichette").hidden = true;
   $("btnEtichette").onclick = () => cfg.paginaEtichette ? location.href = cfg.paginaEtichette : avviso("Stampa etichette: la definiamo insieme");
   // cfg.nuovoUrl: indirizzo del pulsante "Nuovo …" quando non è dettaglio?nuovo=1
   $("btnCrea").onclick = () => cfg.nuovoUrl ? location.href = cfg.nuovoUrl : cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);
