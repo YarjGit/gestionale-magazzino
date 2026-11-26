@@ -206,13 +206,26 @@
     const [aiFornitori, alleSedi] = await Promise.all([ordiniDaCaricareDb(db, null, sedeDash), inevasiDb(db, { sede_richiedente: sedeDash })]);
     const ordiniSedi = new Map();
     for (const r of alleSedi) {
-      const o = ordiniSedi.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo, data: r.data_ordine, nome: await nomeSedeDb(db, r.sede_fornitrice), righe: 0, pezzi: 0 };
+      const o = ordiniSedi.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo, data: r.data_ordine, stato: r.stato_ordine, nome: await nomeSedeDb(db, r.sede_fornitrice), righe: 0, pezzi: 0 };
       o.righe++; o.pezzi += r.residuo;
       ordiniSedi.set(r.ordine_id, o);
     }
+    // Trasferimenti già partiti per questi ordini e non ancora confermati (riconosciuti dalle righe collegate all'ordine)
+    if (alleSedi.length) {
+      const { data: partiti } = await db.from("movimenti_righe").select("ordine_riga_id, movimenti(id, tipo, stato, ricevuto_il)")
+        .in("ordine_riga_id", alleSedi.map(r => r.ordine_riga_id));
+      (partiti || []).filter(p => p.movimenti && p.movimenti.tipo === "trasferimento_a_filiale" && ["Definitivo", "Evaso"].includes(p.movimenti.stato) && !p.movimenti.ricevuto_il)
+        .forEach(p => { const r = alleSedi.find(x => x.ordine_riga_id === p.ordine_riga_id); if (r && ordiniSedi.has(r.ordine_id)) ordiniSedi.get(r.ordine_id).tr = p.movimenti.id; });
+    }
+    // Ordine già preparato (Evaso) e niente in viaggio: resta solo qualche inevaso, che non va in Dashboard (deciso con l'utente).
+    // Gli inevasi si vedono col tasto INEVASI IN ATTESA e nella scheda "Con inevasi" di Ordini a Fornitori, e in "Già in attesa" nel nuovo ordine.
+    ordiniSedi.forEach((o, id) => { if (o.stato === "Evaso" && !o.tr) ordiniSedi.delete(id); });
     const inArrivo = aiFornitori.map(o => ({ nome: o.fornitore, prot: o.prot, data: o.data, righe: o.righe.length, pezzi: o.righe.reduce((s, r) => s + r.residuo, 0),
       tipo: "Ordine a fornitore", url: `carico.html?nuovo=1&ordine=${o.id}`, azione: "Crea carico →" }))
-      .concat([...ordiniSedi.values()].map(o => ({ ...o, prot: o.prot || "#" + o.id, tipo: "Ordine a sede", url: `ordine.html?db=${o.id}`, azione: "Vedi ordine →" })))   // si apre l'ordine (articoli e quanto manca), come in Trasferimenti da Filiali
+      // Ordine a una sede: come in Trasferimenti da Filiali, se la merce è partita (trasferimento non ancora confermato) si apre
+      // quel trasferimento per confermare il ricevuto ("Ricevi"); altrimenti si apre l'ordine (articoli e quanto manca)
+      .concat([...ordiniSedi.values()].map(o => ({ ...o, prot: o.prot || "#" + o.id, tipo: "Ordine a sede",
+        url: o.tr ? `trasferimento.html?db=${o.tr}` : `ordine.html?db=${o.id}`, azione: o.tr ? "Ricevi →" : "Vedi ordine →" })))
       .sort((a, b) => (a.data || "").localeCompare(b.data || ""));
     statistiche["Ordini in arrivo"] = inArrivo.length;
     document.getElementById("countIn").textContent = inArrivo.length;

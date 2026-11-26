@@ -99,6 +99,10 @@
     const daRicevere = new Map();
     (partiti || []).filter(p => p.movimenti && p.movimenti.tipo === "trasferimento_a_filiale" && ["Definitivo", "Evaso"].includes(p.movimenti.stato) && !p.movimenti.ricevuto_il)
       .forEach(p => ordini.forEach(o => { if (o.righe.includes(p.ordine_riga_id)) daRicevere.set(o.id, p.movimenti.id); }));
+    // Ordine già preparato (Evaso) e niente in viaggio: restano solo inevasi, che qui non si mostrano (come in Dashboard):
+    // si vedono col tasto INEVASI IN ATTESA e nella scheda "Con inevasi" di Ordini a Fornitori
+    ordini.forEach((o, id) => { if (o.stato === "Evaso" && !daRicevere.has(id)) ordini.delete(id); });
+    if (!ordini.size) return;
     for (const o of ordini.values()) o.nomeSede = await nomeSedeDb(db, o.sede);
     document.querySelector(".page-head").insertAdjacentHTML("afterend", `
       <details class="ordini-da-caricare" open>
