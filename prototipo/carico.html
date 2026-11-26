@@ -68,6 +68,10 @@
   const sedeLavoro = trovaSede(leggiSede()).nome;
   // Sede che prepara la merce chiesta dalle sedi estere: nella causale si scrive il paese di spedizione
   const PER_ESTERO = sedeLavoro === "CAL Roma per Estero";
+  // CAL SMM Roma non usa pagamento e spedizione nei carichi (chiesto dall'utente): si vedono solo il fornitore e le note.
+  // I campi restano nella pagina, nascosti, perché il salvataggio li legge. Le altre sedi (es. Magazzino Centrale) li vedono ancora.
+  const CARICO_SEMPLICE = sedeLavoro === "CAL SMM Roma";
+  const nasc = CARICO_SEMPLICE ? " nasc" : "";
   // Carico salvato: si legge dal database prima di disegnare la pagina
   const movDb = dbId ? await dbPronto.then(db => db && leggiMovimentoDb(db, dbId, ID_SEDI_DB[sedeLavoro])).catch(err => { avviso("Errore nel leggere il carico: " + err.message); return null; }) : null;
   const car = nuovo
@@ -168,16 +172,16 @@
             </div>
 
             <div class="gruppo">
-              <h3>🏭 Fornitore e pagamento</h3>
+              <h3>🏭 ${CARICO_SEMPLICE ? "Fornitore" : "Fornitore e pagamento"}</h3>
               <div class="campi">
                 ${campo("s4", "Fornitore", `<select class="mod" id="selFornitore" disabled>${opzioniForn(car.cp < 0 ? "" : String(car.cp))}</select>`)}
-                ${campo("s2", "Sconto %", inp("", 'type="number" min="0" max="100" style="text-align:right"'))}
-                ${campo("s3", "Condizione di pagamento", `<select class="mod" id="fCondPag" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], car.condPag)}</select>`)}
-                ${campo("s3", "Sede che riceve", `<input value="${esc(car.lab)}" disabled>`)}
+                ${campo("s2" + nasc, "Sconto %", inp("", 'type="number" min="0" max="100" style="text-align:right"'))}
+                ${campo("s3" + nasc, "Condizione di pagamento", `<select class="mod" id="fCondPag" disabled><option></option>${opz(["Contrassegno", "Già effettuato", "Ricevimento fattura", "Bonifico a 30 gg.", "Bonifico a 60 gg.", "Bonifico a 90 gg."], car.condPag)}</select>`)}
+                ${campo("s3" + nasc, "Sede che riceve", `<input value="${esc(car.lab)}" disabled>`)}
               </div>
             </div>
 
-            <div class="gruppo">
+            <div class="gruppo"${CARICO_SEMPLICE ? ' style="display:none"' : ""}>
               <h3>🚚 Spedizione</h3>
               <div class="campi">
                 ${campo("s2", "Spedizioniere", `<select class="mod" id="fSped" disabled><option></option>${opz(["Euroitaly", "BRT Corriere Espresso"], car.sped)}</select>`)}
