@@ -43,6 +43,8 @@ export const routes: Routes = [
       { path: 'ordine-cliente/:id', loadComponent: () => import('./features/movimenti/ordine-cliente').then(m => m.OrdineCliente) },
       { path: 'inventario/:id', loadComponent: () => import('./features/movimenti/inventario').then(m => m.Inventario) },
       { path: 'etichette', loadComponent: () => import('./features/stampe/etichette').then(m => m.Etichette) },
+      { path: 'setup/utenti', loadComponent: () => import('./features/setup/utenti-sito').then(m => m.UtentiSito) },
+      { path: 'setup/attivita', loadComponent: () => import('./features/setup/attivita-utenti').then(m => m.AttivitaUtenti) },
       { path: 'anagrafiche/fornitori', loadComponent: () => import('./features/anagrafiche/fornitori').then(m => m.Fornitori) },
       { path: 'anagrafiche/fornitori/nuovo', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },
       { path: 'anagrafiche/fornitori/:codice', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },

@@ -1,0 +1,51 @@
+<div class="page-head">
+  <div><h1 class="page-title">Utenti Sito</h1><div class="crumbs"><span>Setup</span><span>-</span><span>Utenti Sito</span></div></div>
+  @if (admin()) { <button class="btn btn-primary" style="margin-left:auto" (click)="apri(null)">＋ Nuovo utente</button> }
+</div>
+<div class="tabs" style="margin:0 0 12px">
+  <button class="tab" [class.active]="scheda() === ''" (click)="scheda.set('')">Tutti<span class="n">{{ conteggi().tutti }}</span></button>
+  <button class="tab" [class.active]="scheda() === 'adm'" (click)="scheda.set('adm')"><span class="dot" style="background:#7c3aed"></span>Amministratori<span class="n">{{ conteggi().adm }}</span></button>
+  <button class="tab" [class.active]="scheda() === 'att'" (click)="scheda.set('att')"><span class="dot" style="background:#18a058"></span>Attivi<span class="n">{{ conteggi().att }}</span></button>
+  <button class="tab" [class.active]="scheda() === 'blo'" (click)="scheda.set('blo')"><span class="dot" style="background:#c62828"></span>Bloccati<span class="n">{{ conteggi().blo }}</span></button>
+</div>
+@if (!admin() && !caricamento()) { <div class="solo-lettura">Puoi vedere l'elenco; solo un amministratore può aggiungere o modificare gli utenti.</div> }
+<div class="nota-elenco">👤 Chi è in questo elenco può entrare nel gestionale con il link che riceve alla sua mail. I ruoli per ora sono etichette: i permessi per ruolo si decideranno insieme (oggi la conferma dell'inventario è solo per amministratore e responsabile magazzino).</div>
+@if (errore()) { <div class="avviso-accesso">⚠ {{ errore() }}</div> }
+<section class="panel">
+  <div class="toolbar"><div class="cerca"><input type="search" placeholder="Cerca nome, mail o ruolo…" [value]="cerca()" (input)="cerca.set(testo($event))"></div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nome visualizzato</th><th>Indirizzo email</th><th>Ruoli</th><th>Sedi</th><th>Ultimo accesso</th><th>Stato</th></tr></thead>
+    <tbody>
+      @for (r of visibili(); track r.email) {
+        <tr [class.cliccabile]="admin()" (click)="apri(r)">
+          <td><span class="utente"><span class="iniziali" [style.background]="colore(r.email)">{{ iniziali(r) }}</span>{{ r.nome || r.email.split('@')[0] }}</span></td>
+          <td>{{ r.email }}</td>
+          <td>@for (k of r.ruoli; track k) { <span class="ruolo" [style.background]="ruolo(k)[3]" [style.color]="ruolo(k)[2]">{{ ruolo(k)[1] }}</span> }</td>
+          <td>{{ nomiSedi(r) }}</td>
+          <td><span class="ultimo">{{ data(r.ultimo) }}</span></td>
+          <td>@if (r.bloccato) { <span class="bloccato">🔒 Bloccato</span> } @else { <span class="attivo">✓ Attivo</span> }</td>
+        </tr>
+      } @empty {
+        <tr><td colspan="6"><div class="vuoto"><b>{{ caricamento() ? 'Caricamento…' : 'Nessun utente' }}</b></div></td></tr>
+      }
+    </tbody>
+  </table></div>
+</section>
+
+@if (modulo(); as m) {
+  <div class="modal-bg show"><div class="modal" style="width:min(560px,100%)">
+    <h2>{{ m.nuovo ? 'Nuovo utente' : 'Modifica ' + (m.nome || m.email) }}</h2>
+    <div class="f" style="margin-bottom:10px"><label>Indirizzo email</label><input type="email" [value]="m.email" [disabled]="!m.nuovo" (input)="imposta('email', testo($event))" autofocus>
+      @if (!m.nuovo) { <span class="aiuto">la mail identifica l'utente: per cambiarla si crea un utente nuovo e si blocca il vecchio</span> }</div>
+    <div class="f" style="margin-bottom:10px"><label>Nome visualizzato</label><input [value]="m.nome" (input)="imposta('nome', testo($event))"></div>
+    <div class="f" style="margin-bottom:10px"><label>Ruoli</label>
+      <div class="scelte">@for (r of RUOLI; track r[0]) { <label><input type="checkbox" [checked]="m.ruoli.has(r[0])" (change)="spunta('ruoli', r[0], spuntato($event))"> <span>{{ r[1] }}<small>{{ r[4] }}</small></span></label> }</div></div>
+    <div class="f" style="margin-bottom:10px"><label>Sedi (solo informative)</label>
+      <div class="scelte">@for (s of sediScelta(m); track s.id) { <label><input type="checkbox" [checked]="m.sedi.has(s.id)" (change)="spunta('sedi', s.id, spuntato($event))"> {{ s.nome }}</label> }</div></div>
+    <label class="interr"><span class="switch"><input type="checkbox" [checked]="m.bloccato" (change)="imposta('bloccato', spuntato($event))"><span></span></span> Bloccato (non può più entrare)</label>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-light" (click)="modulo.set(null)">Annulla</button>
+      <button class="btn btn-primary" [disabled]="salvataggio()" (click)="salva()">💾 Salva</button>
+    </div>
+  </div></div>
+}
