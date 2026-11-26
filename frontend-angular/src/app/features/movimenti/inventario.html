@@ -25,7 +25,40 @@
   @if (annullato()) { <div class="banner ann">✕ Inventario annullato: la giacenza non è stata toccata.</div> }
 
   <section class="panel">
-    <div class="gruppo"><h3>📋 Cosa si conta</h3>
+    <div class="gruppo">
+      <div class="titolo-regole"><h3>📋 Cosa si conta</h3>
+        <button type="button" class="btn-regole" [class.on]="regoleAperte()" (click)="regoleAperte.set(!regoleAperte())">📖 {{ regoleAperte() ? 'Nascondi le regole' : "Come si fa l'inventario" }}</button></div>
+      @if (regoleAperte()) {
+        <div class="regole">
+          <div><h4>🏬 Tutto il magazzino</h4>
+            <ol>
+              <li>Premi <b>Tutto il magazzino</b>: l'inventario è <b>in corso</b> e la giacenza non cambia finché non lo confermi.</li>
+              <li>Spara con la pistola <b>ogni pezzo</b> della sede; per tanti pezzi uguali scrivi il numero in "Quanti". Puoi salvare e continuare un altro giorno.</li>
+              <li>Alla fine guarda la scheda <b>Non sparati</b> (articoli che avevano giacenza ma non li hai contati) e per ognuno scegli
+                <b>Lascia</b> (resta com'è), <b>Modifica</b> (te l'eri dimenticato: scrivi i pezzi) o <b>Elimina</b> (giacenza a zero e articolo disattivato).</li>
+              <li><b>Conferma</b> (solo amministratore o responsabile di magazzino): la giacenza diventa quella contata.</li>
+            </ol>
+            <div class="attenzione"><b>🛒 Vendite giornaliere durante l'inventario.</b> Alla conferma la giacenza diventa <b>quella contata</b>: per questo è meglio
+              <b>non vendere</b> mentre si conta (inventario a negozio chiuso, da confermare prima di riaprire).<br>
+              Se devi vendere lo stesso: registra la vendita come sempre in Vendite Giornaliere e poi
+              <ul>
+                <li>se l'articolo <b>l'avevi già sparato</b>, toglilo dal conteggio con il tasto <b>−</b> (altrimenti alla conferma il pezzo venduto torna in giacenza);</li>
+                <li>se <b>non l'avevi ancora sparato</b>, non fare niente: il pezzo è uscito e non lo conterai.</li>
+              </ul>
+              Le vendite di altri giorni già registrate prima di iniziare non cambiano niente.</div>
+          </div>
+          <div><h4>🗂️ Solo una parte</h4>
+            <ol>
+              <li>Premi <b>Solo una parte</b> e scrivi nelle <b>Note</b> cosa conti (es. "scaffali A-C", "categoria rosari").</li>
+              <li>Spara tutti i pezzi di <b>quella parte</b>: se un articolo è anche in un altro scaffale, conta anche quelli, perché la giacenza diventa quella sparata.</li>
+              <li><b>Conferma</b>: cambia solo la giacenza degli articoli sparati; tutti gli altri restano come sono (non c'è la lista dei non sparati).</li>
+            </ol>
+            <div class="attenzione">Anche qui, se vendi un articolo che hai già sparato, toglilo dal conteggio con il tasto <b>−</b>.</div>
+          </div>
+          <div class="da-definire"><b>📅 Anno di acquisto: regola ancora da definire.</b> Per ora, alla conferma, i pezzi contati vanno tutti sull'anno in corso
+            (sulle etichette nuove uscirebbe quest'anno). Si deciderà se tenere gli anni di prima, togliendo i mancanti dagli anni più vecchi e mettendo i trovati in più sull'anno in corso.</div>
+        </div>
+      }
       <div class="ambiti">
         <button type="button" class="ambito" [class.scelto]="ambito() === 'tutto'" [disabled]="!inCorso() || (!!id() && ambito() !== 'tutto')" (click)="scegliAmbito('tutto')">
           <b>🏬 Tutto il magazzino</b><small>alla fine si vedono gli articoli con giacenza non sparati: Lascia, Modifica o Elimina</small></button>

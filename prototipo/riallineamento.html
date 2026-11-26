@@ -31,6 +31,16 @@
   tr.ultimo td { background: #fffbe6; }
   .riepilogo-inv { display: flex; gap: 22px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); }
   .riepilogo-inv b { color: var(--text); }
+  /* Tasto "Come si fa l'inventario" e riquadro con le regole (sopra i tasti Tutto il magazzino / Solo una parte) */
+  .titolo-regole { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-regole { border: 1px solid var(--line); background: #fff; color: var(--accent); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  .btn-regole:hover, .btn-regole.on { background: #eef5ff; border-color: var(--accent); }
+  .regole { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 0 0 12px; }
+  .regole > div { border: 1px solid var(--line); border-radius: 11px; padding: 12px 14px; background: #fbfcfe; font-size: 0.86rem; line-height: 1.45; }
+  .regole h4 { margin: 0 0 6px; font-size: 0.92rem; }
+  .regole ol, .regole ul { margin: 4px 0 8px; padding-left: 20px; }
+  .regole .attenzione { background: #fff6e5; border: 1px solid #f3d08a; border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
+  .regole .da-definire { grid-column: 1 / -1; background: #f3efff; border: 1px dashed #a48ee0; border-radius: 11px; padding: 10px 14px; font-size: 0.86rem; line-height: 1.45; }
   /* Articoli non sparati: tre scelte per riga */
   .scelte-ns { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .scelte-ns button { padding: 5px 10px; border: none; border-right: 1px solid var(--line); background: #fff; font: inherit; font-size: 0.8rem; cursor: pointer; color: var(--text); }
@@ -105,6 +115,7 @@
   const annullato = mov && mov.stato === "Annullato";
   const inCorso = !confermato && !annullato;
   let ambito = mov ? (mov.motivo === "Solo una parte" ? "parte" : "tutto") : "";
+  let regoleAperte = false; // regole dell'inventario chiuse: si aprono col tasto "Come si fa l'inventario"
 
   // Articoli con la giacenza di questa sede (ricerca e pistola) e righe dell'inventario
   await caricaArticoliDalDb(db, sedeId).catch(err => avviso("Errore nel leggere gli articoli: " + err.message));
@@ -144,7 +155,37 @@
 
     <section class="panel">
       <div class="gruppo" style="margin-bottom:14px">
-        <h3>📋 Cosa si conta</h3>
+        <div class="titolo-regole"><h3>📋 Cosa si conta</h3>
+          <button type="button" class="btn-regole${regoleAperte ? " on" : ""}" id="btnRegole">📖 ${regoleAperte ? "Nascondi le regole" : "Come si fa l'inventario"}</button></div>
+        <div class="regole" id="regole" ${regoleAperte ? "" : "hidden"}>
+          <div><h4>🏬 Tutto il magazzino</h4>
+            <ol>
+              <li>Premi <b>Tutto il magazzino</b>: l'inventario è <b>in corso</b> e la giacenza non cambia finché non lo confermi.</li>
+              <li>Spara con la pistola <b>ogni pezzo</b> della sede; per tanti pezzi uguali scrivi il numero in "Pezzi". Puoi salvare e continuare un altro giorno.</li>
+              <li>Alla fine guarda la scheda <b>Non sparati</b> (articoli che avevano giacenza ma non li hai contati) e per ognuno scegli
+                <b>Lascia</b> (resta com'è), <b>Modifica</b> (te l'eri dimenticato: scrivi i pezzi) o <b>Elimina</b> (giacenza a zero e articolo disattivato).</li>
+              <li><b>Conferma</b> (solo amministratore o responsabile di magazzino): la giacenza diventa quella contata.</li>
+            </ol>
+            <div class="attenzione"><b>🛒 Vendite giornaliere durante l'inventario.</b> Alla conferma la giacenza diventa <b>quella contata</b>: per questo è meglio
+              <b>non vendere</b> mentre si conta (inventario a negozio chiuso, da confermare prima di riaprire).<br>
+              Se devi vendere lo stesso: registra la vendita come sempre in Vendite Giornaliere e poi
+              <ul>
+                <li>se l'articolo <b>l'avevi già sparato</b>, toglilo dal conteggio con il tasto <b>−</b> (altrimenti alla conferma il pezzo venduto torna in giacenza);</li>
+                <li>se <b>non l'avevi ancora sparato</b>, non fare niente: il pezzo è uscito e non lo conterai.</li>
+              </ul>
+              Le vendite di altri giorni già registrate prima di iniziare non cambiano niente.</div>
+          </div>
+          <div><h4>🗂️ Solo una parte</h4>
+            <ol>
+              <li>Premi <b>Solo una parte</b> e scrivi nelle <b>Note</b> cosa conti (es. "scaffali A-C", "categoria rosari").</li>
+              <li>Spara tutti i pezzi di <b>quella parte</b>: se un articolo è anche in un altro scaffale, conta anche quelli, perché la giacenza diventa quella sparata.</li>
+              <li><b>Conferma</b>: cambia solo la giacenza degli articoli sparati; tutti gli altri restano come sono (non c'è la lista dei non sparati).</li>
+            </ol>
+            <div class="attenzione">Anche qui, se vendi un articolo che hai già sparato, toglilo dal conteggio con il tasto <b>−</b>.</div>
+          </div>
+          <div class="da-definire"><b>📅 Anno di acquisto: regola ancora da definire.</b> Per ora, alla conferma, i pezzi contati vanno tutti sull'anno in corso
+            (sulle etichette nuove uscirebbe quest'anno). Si deciderà se tenere gli anni di prima, togliendo i mancanti dagli anni più vecchi e mettendo i trovati in più sull'anno in corso.</div>
+        </div>
         <div class="ambiti" id="ambiti">
           <button type="button" class="ambito${ambito === "tutto" ? " scelto" : ""}" data-ambito="tutto" ${mov ? "disabled" : ""}><b>🏬 Tutto il magazzino</b><small>Gli articoli con giacenza che non vengono sparati finiscono in una lista: per ognuno scegli se lasciarlo, scrivere i pezzi o eliminarlo.</small></button>
           <button type="button" class="ambito${ambito === "parte" ? " scelto" : ""}" data-ambito="parte" ${mov ? "disabled" : ""}><b>🗂️ Solo una parte</b><small>Es. uno scaffale o una categoria: cambia solo la giacenza degli articoli sparati, gli altri restano come sono.</small></button>
@@ -179,6 +220,13 @@
     if (!b) return;
     document.querySelectorAll(".scheda-tab").forEach(t => t.classList.toggle("active", t === b));
     document.querySelectorAll(".pannello-tab").forEach(p => p.hidden = p.id !== "tab-" + b.dataset.t);
+  };
+  // Regole dell'inventario: si aprono e chiudono con il tasto sopra "Cosa si conta"
+  $("btnRegole").onclick = () => {
+    regoleAperte = !regoleAperte;
+    $("regole").hidden = !regoleAperte;
+    $("btnRegole").classList.toggle("on", regoleAperte);
+    $("btnRegole").textContent = "📖 " + (regoleAperte ? "Nascondi le regole" : "Come si fa l'inventario");
   };
   $("ambiti").onclick = e => {
     const b = e.target.closest("[data-ambito]");

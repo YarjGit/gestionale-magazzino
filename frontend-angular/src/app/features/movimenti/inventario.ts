@@ -38,6 +38,8 @@ export class Inventario extends SchedaBase {
   protected readonly dataInv = signal(this.oggi);
   protected readonly annoInv = signal<number | null>(null);
   protected readonly ambito = signal<'' | 'tutto' | 'parte'>('');
+  /** regole dell'inventario (tasto "Come si fa l'inventario" sopra Tutto il magazzino / Solo una parte): chiuse all'apertura */
+  protected readonly regoleAperte = signal(false);
   protected readonly note = signal('');
   protected readonly contati = signal<Contato[]>([]);
   protected readonly scelte = signal<Map<string, Scelta>>(new Map());
