@@ -368,6 +368,16 @@
     if (!daMandare.length) {
       if (!daOrdine) { avviso("Aggiungi almeno un articolo da mandare"); return; }
       if (!confirm("Non mandi niente: tutti gli articoli dell'ordine restano negli inevasi. Confermi?")) return;
+      // Niente da mandare: NON si crea un trasferimento vuoto (prima nasceva e la filiale doveva "confermare" 0 articoli).
+      // L'ordine, se non era ancora preparato, diventa Evaso: quello che manca si vede negli inevasi.
+      const ordiniVuoti = [...new Set(RIGHE.filter(r => r.ordineId).map(r => r.ordineId))];
+      if (ordiniVuoti.length) {
+        const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).in("id", ordiniVuoti).eq("stato", "Definitivo");
+        if (error) { avviso("Errore: " + error.message, true); return; }
+      }
+      avviso("Nessun trasferimento creato: gli articoli dell'ordine restano negli inevasi");
+      setTimeout(() => location.replace("trasferimenti-a-filiali.html"), 1000);
+      return;
     }
     const sopra = daMandare.filter(r => r.ordinata != null && r.manda > r.ordinata);
     if (sopra.length && !confirm(`Per ${sopra.length} articoli mandi più di quanto ordinato. Confermi?`)) return;
