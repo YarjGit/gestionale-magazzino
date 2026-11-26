@@ -1,0 +1,186 @@
+<div [class.in-modifica]="inModifica()">
+  <div class="scheda-head">
+    <div>
+      <h1 class="page-title">
+        @if (nuovo) { Nuovo fornitore } @else { {{ valori().ragione_sociale }} <span class="num">{{ valori().codice }}</span> }
+      </h1>
+      <div class="crumbs">
+        <a routerLink="/dashboard">⌂</a><span>-</span><span>Configurazione</span><span>-</span><a routerLink="/anagrafiche/fornitori">Fornitori</a><span>-</span>
+        <span>{{ nuovo ? 'Nuovo' : valori().codice }}</span>
+      </div>
+    </div>
+    <div class="totale-top">
+      <div class="t">Articoli di questo fornitore</div>
+      <div class="v">{{ artTotale().toLocaleString('it-IT') }}</div>
+      <div class="p">{{ valori().sede_collegata ? 'collegato a una sede' : 'fornitore esterno' }}</div>
+    </div>
+  </div>
+
+  <div class="azioni-scheda">
+    @if (inModifica()) {
+      <button class="btn btn-light" (click)="annulla()" [disabled]="salvataggio()">✕ Annulla</button>
+      <button class="btn btn-primary" (click)="salva(false)" [disabled]="salvataggio()">💾 {{ salvataggio() ? 'Salvo…' : 'Salva' }}</button>
+      <button class="btn btn-verde" (click)="salva(true)" [disabled]="salvataggio()">✔ Salva e chiudi</button>
+    } @else {
+      <button class="btn btn-light" (click)="chiudi()">✕ Chiudi</button>
+      <button class="btn btn-verde" (click)="modifica()" [disabled]="!fornitore()">✎ Modifica</button>
+    }
+  </div>
+
+  @if (inModifica()) {
+    <div class="banner mod">✎ {{ nuovo ? 'Nuovo fornitore: basta la ragione sociale, il codice si assegna da solo.' : 'Stai modificando il fornitore. Ricordati di salvare.' }}</div>
+  }
+  @if (errore()) {
+    <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a routerLink="/anagrafiche/fornitori" style="color:var(--accent)">Torna all'elenco dei fornitori</a></span></div></div>
+  } @else if (caricamento()) {
+    <section class="panel"><div class="vuoto"><b>Caricamento del fornitore…</b></div></section>
+  } @else {
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="apriTab('articoli')">📦 Articoli <span class="n">{{ artTotale() }}</span></button>
+      <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab">
+      <div class="dettagli">
+        <div>
+          <div class="gruppo">
+            <h3>🏭 Fornitore</h3>
+            <div class="campi">
+              <div class="f s1"><label>Codice</label>
+                <input placeholder="automatico" [value]="valori().codice" [disabled]="!inModifica() || !nuovo" (input)="imposta('codice', testo($event))">
+                @if (nuovo) { <span class="aiuto">vuoto = il successivo libero</span> }</div>
+              <div class="f s4"><label>Ragione sociale <span style="color:var(--ko)">*</span></label>
+                <input style="text-transform:uppercase" [value]="valori().ragione_sociale" [disabled]="!inModifica()" (input)="imposta('ragione_sociale', testo($event))" (change)="controllaDoppio()"></div>
+              <div class="f s1"><label>Aliquota IVA</label>
+                <select [disabled]="!inModifica()" (change)="imposta('aliquota_iva', testo($event))">
+                  @for (a of ALIQUOTE; track a) { <option [value]="a" [selected]="+valori().aliquota_iva === a">{{ a }}%</option> }
+                </select></div>
+            </div>
+            @if (doppio(); as d) {
+              <div class="avviso-doppio">⚠ C'è già <a [routerLink]="['/anagrafiche/fornitori', d.codice]" target="_blank" style="color:inherit;font-weight:700">{{ d.codice }} · {{ d.ragione_sociale }}</a> con lo stesso nome o la stessa partita IVA.
+                @if (nuovo && conSedi()) { <button type="button" (click)="usaAncheQui()">Usalo anche a {{ sede.sede()?.nome }}</button> }</div>
+            }
+          </div>
+          <div class="gruppo">
+            <h3>🧾 Dati fiscali</h3>
+            <div class="campi">
+              <div class="f s2"><label>Partita IVA</label>
+                <input maxlength="16" [value]="valori().partita_iva" [disabled]="!inModifica()" (input)="imposta('partita_iva', testo($event))" (change)="controllaDoppio()">
+                <span class="aiuto">11 cifre per l'Italia</span></div>
+              <div class="f s2"><label>Codice fiscale</label>
+                <input maxlength="16" style="text-transform:uppercase" [value]="valori().codice_fiscale" [disabled]="!inModifica()" (input)="imposta('codice_fiscale', testo($event))"></div>
+              <div class="f s2"><label>Archivio collegato</label>
+                <select [disabled]="!inModifica()" (change)="imposta('sede_collegata', testo($event))">
+                  <option value="">— nessuno (fornitore esterno) —</option>
+                  @for (s of sede.sedi(); track s.id) { <option [value]="s.id" [selected]="s.id === valori().sede_collegata">{{ s.nome }}</option> }
+                </select>
+                <span class="aiuto">solo se il fornitore è una nostra sede</span></div>
+            </div>
+          </div>
+          <div class="gruppo">
+            <h3>🏬 Sedi che usano questo fornitore</h3>
+            @if (conSedi()) {
+              <div class="scelte-sedi">
+                @for (s of sediScelta(); track s.id) {
+                  <label><input type="checkbox" [checked]="sediUsate().has(s.id)" [disabled]="!inModifica()" (change)="spuntaSede(s.id, spuntato($event))"> {{ s.nome }}</label>
+                }
+              </div>
+              <span class="aiuto">ogni sede vede nei carichi e negli ordini solo i suoi fornitori</span>
+            } @else {
+              <span class="aiuto">Per dividere i fornitori per sede va eseguito su Supabase il file database/23-fornitori-per-sede.sql</span>
+            }
+          </div>
+          <div class="gruppo">
+            <h3>📍 Indirizzo</h3>
+            <div class="campi">
+              <div class="f s3"><label>Indirizzo</label><input placeholder="es. Via Roma, 1" [value]="valori().indirizzo" [disabled]="!inModifica()" (input)="imposta('indirizzo', testo($event))"></div>
+              <div class="f s1"><label>CAP</label><input maxlength="10" [value]="valori().cap" [disabled]="!inModifica()" (input)="imposta('cap', testo($event))"></div>
+              <div class="f s2"><label>Città</label><input [value]="valori().citta" [disabled]="!inModifica()" (input)="imposta('citta', testo($event))"></div>
+              <div class="f s1"><label>Provincia</label><input maxlength="2" style="text-transform:uppercase" [value]="valori().provincia" [disabled]="!inModifica()" (input)="imposta('provincia', testo($event))"></div>
+              <div class="f s2"><label>Nazione</label><input list="nazioni" [value]="valori().nazione" [disabled]="!inModifica()" (input)="imposta('nazione', testo($event))">
+                <datalist id="nazioni">@for (n of NAZIONI; track n) { <option [value]="n"></option> }</datalist></div>
+            </div>
+          </div>
+          <div class="gruppo">
+            <h3>☎ Contatti</h3>
+            <div class="campi">
+              <div class="f s2"><label>Telefono</label><input type="tel" [value]="valori().telefono" [disabled]="!inModifica()" (input)="imposta('telefono', testo($event))"></div>
+              <div class="f s2"><label>Cellulare</label><input type="tel" [value]="valori().cellulare" [disabled]="!inModifica()" (input)="imposta('cellulare', testo($event))"></div>
+              <div class="f s3"><label>Email</label><input type="email" [value]="valori().email" [disabled]="!inModifica()" (input)="imposta('email', testo($event))"></div>
+            </div>
+          </div>
+          <div class="gruppo">
+            <h3>📝 Annotazioni</h3>
+            <div class="campi">
+              <div class="f s6"><label>Annotazioni</label><textarea [value]="valori().note" [disabled]="!inModifica()" (input)="imposta('note', testo($event))"></textarea>
+                <span class="aiuto">solo per uso interno, non stampate</span></div>
+            </div>
+          </div>
+        </div>
+        <aside class="riepilogo">
+          <h3>Come esce sui documenti</h3>
+          <div class="biglietto"><b class="t">Fornitore</b>
+            @for (r of biglietto(); track $index) { {{ r }}<br> } @empty { <span class="vuoto-b">Scrivi la ragione sociale e l'indirizzo</span> }
+          </div>
+        </aside>
+      </div>
+    </div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      @if (articoli(); as art) {
+        @if (art.length) {
+          <div class="table-wrap"><table class="art-forn">
+            <thead><tr><th>Codice</th><th>Descrizione</th><th class="num">Costo</th><th class="num">Prezzo IVA incl.</th></tr></thead>
+            <tbody>
+              @for (a of art; track a.codice) {
+                <tr [style.opacity]="a.attivo === false ? 0.5 : 1"><td><a class="art" [routerLink]="['/articoli', a.codice]">{{ a.codice }}</a></td><td>{{ a.descrizione }}</td>
+                  <td class="num">{{ numero(toNumber(a.costo_netto)) }}</td><td class="num">{{ numero(toNumber(a.prezzo_vendita_ivato)) }}</td></tr>
+              }
+            </tbody>
+          </table></div>
+          @if (artTotale() > artPerPagina()) {
+            <div class="piede"><span></span><app-paginatore [pagina]="artPagina()" [perPagina]="artPerPagina()" [totale]="artTotale()" (paginaCambiata)="cambiaPaginaArt($event)" (perPaginaCambiata)="cambiaPerPaginaArt($event)" /></div>
+          }
+        } @else {
+          <div class="vuoto"><b>Nessun articolo</b><span>Nessun articolo ha questo fornitore come fornitore 1 o 2.</span></div>
+        }
+      } @else if (nuovo) {
+        <div class="vuoto"><b>Nessun articolo</b><span>Gli articoli si collegano al fornitore dalla loro scheda, dopo aver salvato il fornitore.</span></div>
+      } @else {
+        <div class="vuoto"><b>Lettura dal database…</b></div>
+      }
+    </div>
+    }
+
+    @if (tab() === 'storico') {
+    <div class="pannello-tab">
+      @if (nuovo) {
+        <div class="vuoto"><b>Fornitore non ancora salvato</b></div>
+      } @else {
+        <div class="timeline">
+          @if (storico(); as eventi) {
+            @for (e of eventi; track e.id) {
+              <div class="evento" [class.ok]="e.attivita === 'Nuovo fornitore'">
+                <div class="quando">{{ oraIt(e.quando) }} · {{ e.email ?? 'Sistema' }}</div>
+                <div class="cosa">{{ e.attivita }}</div>
+                @if (e.dettagli) { <div class="dett">{{ e.dettagli }}</div> }
+              </div>
+            } @empty {
+              @if (fornitore()?.creato_il; as c) { <div class="evento ok"><div class="quando">{{ oraIt(c) }}</div><div class="cosa">Fornitore creato</div></div> }
+              @if (fornitore()?.modificato_il; as m) { <div class="evento"><div class="quando">{{ oraIt(m) }}</div><div class="cosa">Ultima modifica</div></div> }
+            }
+          } @else {
+            <div class="vuoto"><b>Lettura dal database…</b></div>
+          }
+        </div>
+      }
+    </div>
+    }
+  </section>
+  }
+</div>

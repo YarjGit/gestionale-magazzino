@@ -18,7 +18,13 @@ export const routes: Routes = [
       { path: 'articoli', loadComponent: () => import('./features/articoli/elenco-articoli').then(m => m.ElencoArticoli) },
       { path: 'articoli/nuovo', loadComponent: () => import('./features/articoli/scheda-articolo').then(m => m.SchedaArticolo) },
       { path: 'articoli/:codice', loadComponent: () => import('./features/articoli/scheda-articolo').then(m => m.SchedaArticolo) },
-      { path: 'giacenze', loadComponent: () => import('./features/giacenze/giacenze').then(m => m.Giacenze) }
+      { path: 'giacenze', loadComponent: () => import('./features/giacenze/giacenze').then(m => m.Giacenze) },
+      { path: 'anagrafiche/fornitori', loadComponent: () => import('./features/anagrafiche/fornitori').then(m => m.Fornitori) },
+      { path: 'anagrafiche/fornitori/nuovo', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },
+      { path: 'anagrafiche/fornitori/:codice', loadComponent: () => import('./features/anagrafiche/scheda-fornitore').then(m => m.SchedaFornitore) },
+      { path: 'anagrafiche/clienti', loadComponent: () => import('./features/anagrafiche/clienti').then(m => m.Clienti) },
+      { path: 'anagrafiche/aliquote-iva', loadComponent: () => import('./features/anagrafiche/aliquote-iva').then(m => m.AliquoteIva) },
+      { path: 'setup/sedi', loadComponent: () => import('./features/anagrafiche/sedi').then(m => m.Sedi) }
     ]
   },
   { path: '**', redirectTo: '' }

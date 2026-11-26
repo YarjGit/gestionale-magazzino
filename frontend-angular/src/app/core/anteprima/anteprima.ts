@@ -7,6 +7,9 @@ import { environment } from '../../../environments/environment';
 
 export const anteprimaAttiva = (): boolean => {
   try {
+    // ?anteprima=1 la accende, ?anteprima=0 la spegne (resta ricordata in questo browser); solo in sviluppo
+    const scelta = new URLSearchParams(location.search).get('anteprima');
+    if (environment.anteprimaPossibile && (scelta === '1' || scelta === '0')) localStorage.setItem('anteprima', scelta);
     return environment.anteprimaPossibile && localStorage.getItem('anteprima') === '1';
   } catch {
     return false;
@@ -81,6 +84,11 @@ function rpc(nome: string, args: Riga): unknown {
         { movimento_id: 30, data: '2026-03-14', tipo: 'carico_fornitore', nome: 'Carico da Fornitore', stato: 'Definitivo', q: 4, prima: 1, dopo: 5, lotti: { '2026': 4 }, ordinati: 0, prenotati: 0 },
         { movimento_id: 12, data: '2026-01-01', tipo: 'esistenza', nome: 'Giacenza iniziale', stato: 'Definitivo', q: 2, prima: 0, dopo: 2, lotti: { '2024': 2 }, ordinati: 0, prenotati: 0 }
       ].map(r => ({ ...r, totale: 4 }));
+    case 'fornitori_doppi':
+      return [];
+    case 'salva_fornitore':
+    case 'salva_cliente':
+      return 'x';
     case 'articoli_simili':
       return [];
     case 'salva_articolo':
@@ -98,7 +106,21 @@ function tabella(nome: string, url: URL): unknown[] {
   };
   switch (nome) {
     case 'sedi': return SEDI;
-    case 'fornitori': return FORNITORI;
+    case 'fornitori': {
+      const cod = eq('codice');
+      const righe: Riga[] = FORNITORI.map(f => ({ ...f, partita_iva: f['sede_collegata'] ? '00901011007' : null, usato: [{ sede_id: 'cal-smm-roma' }], aliquota_iva: 22, nazione: 'Italia', creato_il: '2026-01-03T10:00:00Z' }));
+      return cod ? righe.filter(f => f['codice'] === cod) : righe;
+    }
+    case 'clienti': return [
+      { id: 'c-1', codice: 'C00001', nome: 'PARROCCHIA ESEMPIO', tipo: 'Parrocchia', citta: 'ROMA', nazione: 'Italia', email: 'parrocchia@esempio.it' },
+      { id: 'c-2', codice: 'C00002', nome: 'LIBRERIA ESEMPIO', tipo: 'Negozio', citta: 'MILANO', nazione: 'Italia' },
+      { id: 'c-3', codice: 'C00003', nome: 'CONGRESSO ESEMPIO', tipo: 'Ente', citta: 'ALTÖTTING', nazione: 'Germania' }
+    ];
+    case 'aliquote_iva': return [
+      { codice: '22', descrizione: 'Aliquota 22%', aliquota: 22, applicazione: 'A' },
+      { codice: '04', descrizione: 'Aliquota 4%', aliquota: 4, applicazione: 'A' },
+      { codice: '0', descrizione: 'Non assegnata', aliquota: 0, applicazione: 'A' }
+    ];
     case 'fornitori_sedi': return [];
     case 'articoli': {
       const cod = eq('codice');

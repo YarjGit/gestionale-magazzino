@@ -1,59 +1,29 @@
-# FrontendAngular
+# Gestionale Magazzino – nuova versione (Angular)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.1.
+Rifacimento del gestionale in Angular 21 + Supabase. **Il prototipo in `../prototipo/` resta com'è e continua a funzionare**:
+questa cartella è separata e non lo tocca. Regole per chi sviluppa: `CLAUDE.md`; avanzamento e checklist: `MIGRAZIONE.md`.
 
-## Development server
+## Provarla su un PC (casa o lavoro)
 
-To start a local development server, run:
+1. Aggiornare la cartella da GitHub (`git pull`, o "aggiorna da GitHub" a Claude).
+2. Serve **Node.js** (versione LTS, da https://nodejs.org) una volta sola per PC.
+3. Doppio clic su **`Avvia versione Angular.bat`** (nella cartella principale, accanto a "Avvia prototipo.bat").
+   La prima volta scarica i pacchetti (qualche minuto), poi apre http://localhost:4200/ nel browser.
+   Se dopo un aggiornamento da GitHub l'elenco dei pacchetti è cambiato, li riscarica da solo.
 
-```bash
-ng serve
-```
+- **Dati inventati** (per guardare le schermate senza accedere): http://localhost:4200/?anteprima=1 — per tornare ai dati veri: `?anteprima=0`.
+  L'anteprima esiste solo così, in locale: nella versione pubblicata non c'è.
+- **Dati veri**: si entra con la stessa mail del prototipo. Il link via email riporta a `localhost:4200` solo se su Supabase
+  (Authentication → URL Configuration → Redirect URLs) c'è `http://localhost:4200/**`.
+- Le funzioni che **salvano** (articoli, fornitori, clienti) usano `database/33-funzioni-sicure.sql`: va incollato una volta
+  nel SQL Editor di Supabase (non cambia niente per il prototipo, aggiunge solo funzioni).
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Comandi (per chi sviluppa)
 
-## Code scaffolding
+- `npm start` – server di sviluppo su http://localhost:4200
+- `npx ng build` – compila la versione da pubblicare in `dist/frontend-angular/browser` (deve finire senza errori)
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Pubblicazione
 
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Non ancora attiva: la scelta (Cloudflare Pages o altro) è dell'utente. Il frontend contiene solo la chiave *publishable*
+di Supabase (pubblica per natura); la chiave segreta e la password del database non vanno mai nel codice.

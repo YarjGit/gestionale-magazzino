@@ -264,12 +264,15 @@ end $$;
 -- Fornitore nuovo o modificato, con le sedi che lo usano (fornitori_sedi)
 create or replace function salva_fornitore(p_id uuid, p_dati jsonb, p_sedi text[] default null) returns uuid
 language plpgsql security definer set search_path = public as $$
-declare v_id uuid;
+declare v_id uuid; v_n int;
 begin
   if not e_autorizzato() then raise exception 'Utente non autorizzato'; end if;
   if p_id is null and coalesce(p_dati ->> 'codice', '') = '' then
     perform pg_advisory_xact_lock(hashtext('codice:fornitori'));
-    p_dati := p_dati || jsonb_build_object('codice', (select coalesce(max(codice::bigint), 0) + 1 from fornitori where codice ~ '^\d{1,9}$')::text);
+    -- il successivo libero sotto 003500 (i 900xxx sono le nostre sedi, i 0035xx i laboratori), con 6 cifre: come il prototipo
+    select coalesce(max(codice::int), 0) + 1 into v_n from fornitori where codice ~ '^\d{1,6}$' and codice::int < 3500;
+    while exists (select 1 from fornitori where codice = lpad(v_n::text, 6, '0')) loop v_n := v_n + 1; end loop;
+    p_dati := p_dati || jsonb_build_object('codice', lpad(v_n::text, 6, '0'));
   end if;
   v_id := _scrivi_anagrafica('fornitori', p_id::text, p_dati, array['id_vecchio'])::uuid;
   update fornitori set modificato_il = now() where id = v_id;
@@ -549,6 +552,32 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function articoli_simili(text, text, uuid) to authenticated;
 
+-- Scheda fornitore: c'è già un fornitore con lo stesso nome o la stessa partita IVA? (la P.IVA 00901011007 delle
+-- Pie Discepole è comune a tutte le nostre sedi: per quella conta solo il nome)
+create or replace function fornitori_doppi(p_nome text, p_piva text, p_escludi uuid default null)
+returns table (id uuid, codice text, ragione_sociale text)
+language sql stable security invoker set search_path = public as $$
+  with x as (
+    select regexp_replace(upper(coalesce(p_nome, '')), '[^A-Z0-9]', '', 'g') as n,
+           ltrim(regexp_replace(regexp_replace(upper(coalesce(p_piva, '')), '^IT', ''), '\D', '', 'g'), '0') as p
+  )
+  select f.id, f.codice, f.ragione_sociale from fornitori f, x
+  where f.id is distinct from p_escludi
+    and ((x.n <> '' and regexp_replace(upper(f.ragione_sociale), '[^A-Z0-9]', '', 'g') = x.n)
+      or (length(x.p) >= 9 and x.p <> '901011007'
+          and ltrim(regexp_replace(regexp_replace(upper(coalesce(f.partita_iva, '')), '^IT', ''), '\D', '', 'g'), '0') = x.p))
+  limit 5;
+$$;
+
+-- "Usalo anche a <sede>": un fornitore che esiste già in un'altra sede si aggiunge alla sede di lavoro (niente doppioni)
+create or replace function aggiungi_fornitore_sede(p_fornitore uuid, p_sede text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not puo_scrivere_sede(p_sede) then raise exception 'Utente non autorizzato'; end if;
+  insert into fornitori_sedi (fornitore_id, sede_id) values (p_fornitore, p_sede) on conflict do nothing;
+end $$;
+grant execute on function fornitori_doppi(text, text, uuid), aggiungi_fornitore_sede(uuid, text) to authenticated;
+
 grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimento_ed_evadi(bigint, jsonb, jsonb, bigint[]),
   conferma_ricezione(bigint), annulla_movimento(bigint), annulla_inevaso(bigint, numeric, text), aggiorna_documento_movimento(bigint, jsonb),
   conferma_inventario(bigint), nuovo_barcode(), salva_articolo(uuid, jsonb, timestamptz), salva_fornitore(uuid, jsonb, text[]),
@@ -557,8 +586,9 @@ grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimen
 -- funzioni di servizio: non si chiamano dalle pagine
 revoke execute on function _scrivi_anagrafica(text, text, jsonb, text[]), controlla_giacenza(text, uuid[]), blocca_articoli(text, uuid[]) from public, anon, authenticated;
 
--- Controllo: deve dare 21
+-- Controllo: deve dare 23
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in (
   'puo_scrivere_sede', 'ha_ruolo', 'salva_movimento_ed_evadi', 'conferma_ricezione', 'annulla_movimento', 'annulla_inevaso',
   'aggiorna_documento_movimento', 'conferma_inventario', 'nuovo_barcode', 'salva_articolo', 'salva_fornitore', 'salva_cliente',
-  'salva_utente', 'registra_evento', 'giacenze_sede', 'articoli_elenco', 'articoli_conteggi', 'articolo_lotti', 'articolo_movimenti', 'articolo_previsto', 'articoli_simili');
+  'salva_utente', 'registra_evento', 'giacenze_sede', 'articoli_elenco', 'articoli_conteggi', 'articolo_lotti', 'articolo_movimenti', 'articolo_previsto', 'articoli_simili',
+  'fornitori_doppi', 'aggiungi_fornitore_sede');

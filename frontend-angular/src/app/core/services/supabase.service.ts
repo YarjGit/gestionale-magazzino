@@ -42,6 +42,8 @@ export interface OpzioniPagina {
   cerca?: { testo: string; colonne: string[] };
   /** Filtri di uguaglianza (colonna → valore). */
   filtri?: Record<string, string | number | boolean | null>;
+  /** Condizioni PostgREST in più, ognuna messa in .or() (es. 'partita_iva.is.null,partita_iva.eq.'); tra loro valgono tutte. */
+  condizioni?: string[];
 }
 
 /**
@@ -70,15 +72,24 @@ export class SupabaseService {
     for (const [colonna, valore] of Object.entries(o.filtri ?? {})) {
       q = valore === null ? q.is(colonna, null) : q.eq(colonna, valore);
     }
-    const testo = o.cerca?.testo.trim();
-    if (testo && o.cerca) {
-      // virgole e parentesi rompono la sintassi di .or(): si tolgono dal testo cercato
-      const pulito = testo.replace(/[,()]/g, ' ').replace(/\s+/g, ' ');
-      q = q.or(o.cerca.colonne.map(c => `${c}.ilike.%${pulito}%`).join(','));
-    }
+    for (const c of o.condizioni ?? []) q = q.or(c);
+    // ricerca a parole: ognuna deve comparire (anche a metà) in almeno una delle colonne
+    // (virgole e parentesi rompono la sintassi di .or(): si tolgono dal testo cercato)
+    const parole = (o.cerca?.testo ?? '').replace(/[,()%*]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 6);
+    for (const p of parole) q = q.or((o.cerca?.colonne ?? []).map(c => `${c}.ilike.%${p}%`).join(','));
     if (o.ordina) q = q.order(o.ordina.colonna, { ascending: o.ordina.crescente ?? true });
     const { data, error, count } = await q.range(da, da + o.perPagina - 1);
     if (error) throw new ErroreDatabase(error);
     return { righe: (data ?? []) as T[], totale: count ?? 0, pagina: o.pagina, perPagina: o.perPagina };
+  }
+
+  /** Conta le righe con questi filtri senza leggerle (numeri delle schede in alto). */
+  async conta(tabella: string, filtri: Record<string, string | number | boolean | null> = {}, condizioni: string[] = [], select = 'codice'): Promise<number> {
+    let q = this.client.from(tabella).select(select, { count: 'exact', head: true });
+    for (const [colonna, valore] of Object.entries(filtri)) q = valore === null ? q.is(colonna, null) : q.eq(colonna, valore);
+    for (const c of condizioni) q = q.or(c);
+    const { count, error } = await q;
+    if (error) throw new ErroreDatabase(error);
+    return count ?? 0;
   }
 }
