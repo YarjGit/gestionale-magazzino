@@ -69,6 +69,22 @@ function rpc(nome: string, args: Riga): unknown {
       return [{ tutti: 6, disponibili: 4, esauriti: 1, negativi: 1 }];
     case 'giacenze_sede':
       return ARTICOLI.map(a => ({ ...a, articolo_id: a['id'], totale: ARTICOLI.length }));
+    case 'articolo_lotti':
+      return [{ anno: 2024, iniziale: 2, caricata: 0, venduta: 1, altre_uscite: 0, finale: 1 },
+        { anno: 2026, iniziale: 0, caricata: 4, venduta: 1, altre_uscite: 1, finale: 2 }];
+    case 'articolo_previsto':
+      return SEDI.filter(s => s['attiva']).map((s, i) => ({ sede_id: s['id'], sede_nome: s['nome'], giacenza: [3, 10, 0][i], in_arrivo: [2, 0, 0][i], prenotati: [1, 0, 0][i], previsto: [4, 10, 0][i] }));
+    case 'articolo_movimenti':
+      return [
+        { movimento_id: 41, data: '2026-11-20', tipo: 'vendite_giornaliere', nome: 'Vendite Giornaliere', stato: 'Definitivo', q: -1, prima: 4, dopo: 3, lotti: { '2024': -1 }, ordinati: 0, prenotati: 0 },
+        { movimento_id: 37, data: '2026-10-02', tipo: 'trasferimento_a_filiale', nome: 'Trasferimento a Filiale', stato: 'Definitivo', q: -1, prima: 5, dopo: 4, lotti: { '2026': -1 }, ordinati: 0, prenotati: 0 },
+        { movimento_id: 30, data: '2026-03-14', tipo: 'carico_fornitore', nome: 'Carico da Fornitore', stato: 'Definitivo', q: 4, prima: 1, dopo: 5, lotti: { '2026': 4 }, ordinati: 0, prenotati: 0 },
+        { movimento_id: 12, data: '2026-01-01', tipo: 'esistenza', nome: 'Giacenza iniziale', stato: 'Definitivo', q: 2, prima: 0, dopo: 2, lotti: { '2024': 2 }, ordinati: 0, prenotati: 0 }
+      ].map(r => ({ ...r, totale: 4 }));
+    case 'articoli_simili':
+      return [];
+    case 'salva_articolo':
+      return ARTICOLI[0]['id'];
     default:
       return null;
   }
@@ -88,6 +104,8 @@ function tabella(nome: string, url: URL): unknown[] {
       const cod = eq('codice');
       return cod ? ARTICOLI.filter(a => a['codice'] === cod) : ARTICOLI;
     }
+    case 'registro_attivita':
+      return [{ id: 1, quando: '2026-11-20T10:00:00Z', email: 'prova@anteprima.it', sede: 'CAL SMM Roma', attivita: 'Modifica articolo', dettagli: 'prezzo_vendita_ivato, ricarico', tabella: 'articoli', riferimento: eq('riferimento') }];
     case 'giacenze': {
       const art = eq('articolo_id');
       return art ? SEDI.slice(0, 2).map((s, i) => ({ sede_id: s['id'], articolo_id: art, quantita: i ? 10 : 3 })) : [];

@@ -1,0 +1,302 @@
+<div [class.in-modifica]="inModifica()">
+  <div class="scheda-head">
+    <div>
+      <h1 class="page-title">
+        @if (nuovo) { Nuovo articolo } @else { Articolo <span class="num">{{ modulo().codice }}</span> }
+      </h1>
+      <div class="crumbs">
+        <a routerLink="/dashboard">⌂</a><span>-</span><span>Magazzino</span><span>-</span><a routerLink="/articoli">Articoli</a><span>-</span>
+        <span>{{ nuovo ? 'Nuovo' : modulo().codice }}</span>
+      </div>
+    </div>
+    <div class="totale-top">
+      <div class="t">Prezzo in etichetta</div>
+      <div class="v">{{ euro(calcolo().etichetta) }}</div>
+      @if (!nuovo) { <div class="p">giacenza {{ sede.sede()?.nome }}: <b>{{ q2(giacenzaSede()) }}</b></div> }
+    </div>
+  </div>
+
+  <!-- Tasti della scheda: nel prototipo stavano nella barra in alto, qui sopra la scheda -->
+  <div class="azioni-scheda">
+    @if (inModifica()) {
+      <button class="btn btn-light" (click)="annulla()" [disabled]="salvataggio()">✕ Annulla</button>
+      <button class="btn btn-primary" (click)="salva(false)" [disabled]="salvataggio()">💾 {{ salvataggio() ? 'Salvo…' : 'Salva' }}</button>
+      <button class="btn btn-verde" (click)="salva(true)" [disabled]="salvataggio()">✔ Salva e chiudi</button>
+    } @else {
+      <button class="btn btn-light" (click)="etichetta()" [disabled]="!articolo()">🏷️ Stampa etichetta</button>
+      <button class="btn btn-light" (click)="chiudi()">✕ Chiudi</button>
+      <button class="btn btn-verde" (click)="modifica()" [disabled]="!articolo()">✎ Modifica</button>
+    }
+  </div>
+
+  @if (inModifica() && !nuovo) { <div class="banner mod">✎ Stai modificando l'articolo. Ricordati di salvare.</div> }
+  @if (errore()) { <div class="avviso-accesso">⚠ {{ errore() }}</div> }
+
+  @if (caricamento()) {
+    <section class="panel"><div class="vuoto"><b>Caricamento dell'articolo…</b></div></section>
+  } @else if (!errore()) {
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'materiali'" (click)="apriTab('materiali')">🧵 Materiali
+        @if (modulo().materiali.length) { <span class="n">{{ modulo().materiali.length }}</span> }</button>
+      <!-- articolo nuovo: giacenze, movimenti e storico arrivano dopo il salvataggio -->
+      @if (!nuovo) {
+        <button class="scheda-tab" [class.active]="tab() === 'giacenza'" (click)="apriTab('giacenza')">📦 Giacenza</button>
+        <button class="scheda-tab" [class.active]="tab() === 'altre'" (click)="apriTab('altre')">🏬 Giacenza altre sedi</button>
+        <button class="scheda-tab" [class.active]="tab() === 'movimenti'" (click)="apriTab('movimenti')">🔁 Movimenti</button>
+        <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+      }
+    </div>
+
+    <!-- ===== DETTAGLI ===== -->
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab">
+      <div class="det-riga">
+        <div class="f det-interr">
+          <label>Disattivato</label>
+          <label class="interr"><span class="switch"><input type="checkbox" [checked]="!modulo().attivo" [disabled]="!inModifica()" (change)="imposta('attivo', !spuntato($event))"><span></span></span></label>
+        </div>
+        <div class="f det-cod"><label>Codice</label>
+          <input [value]="modulo().codice" [disabled]="!inModifica() || !nuovo" (input)="imposta('codice', testo($event))"></div>
+        <div class="f det-descr"><label>Descrizione</label>
+          <input [value]="modulo().descrizione" [disabled]="!inModifica()" (input)="imposta('descrizione', testo($event))"></div>
+        <div class="f det-scelte"><label>Provenienza</label>
+          <div class="scelte">
+            @for (p of PROVENIENZE; track p) {
+              <label><input type="radio" name="provenienza" [checked]="modulo().provenienza === p" [disabled]="!inModifica()" (change)="imposta('provenienza', p)">{{ p }}</label>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="det-riga">
+        <div class="f det-cod"><label>IVA</label>
+          <select [disabled]="!inModifica()" (change)="cambiaIva(testo($event))">
+            @for (a of ALIQUOTE; track a.codice) { <option [value]="a.codice" [selected]="a.codice === modulo().iva">{{ a.testo }}</option> }
+          </select>
+        </div>
+        <div class="f det-scorta"><label>Scorta minima</label>
+          <input type="number" min="0" style="text-align:right" [value]="modulo().scorta" [disabled]="!inModifica()" (input)="imposta('scorta', +testo($event) || 0)"></div>
+        <div class="f det-scelte"><label>Unità di misura</label>
+          <div class="scelte">
+            @for (u of UNITA; track u) {
+              <label><input type="radio" name="unita" [checked]="modulo().unita === u" [disabled]="!inModifica()" (change)="imposta('unita', u)">{{ u }}</label>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="det-corpo">
+        <div>
+          <div class="prezzi">
+            <div class="riga-prezzo"><label>Costo<small>prezzo del fornitore, senza IVA</small></label>
+              <input class="mod" [value]="numero(modulo().costoLordo)" [disabled]="!inModifica()" (change)="cambiaPrezzo('costoLordo', $event)"><span></span></div>
+            <div class="riga-prezzo"><label>Sconto %<small>sconto del fornitore sul costo</small></label>
+              <input class="mod" [value]="percento(modulo().sconto)" [disabled]="!inModifica()" (change)="cambiaPrezzo('sconto', $event)"><span></span></div>
+            <div class="riga-prezzo calcolato"><label>Prezzo scontato<small>costo meno lo sconto del fornitore</small></label>
+              <input [value]="numero(calcolo().costoNetto)" disabled><span></span></div>
+            <div class="riga-prezzo"><label>Ricarico %<small>100% = prezzo doppio del costo</small></label>
+              <input class="mod" [value]="percento(modulo().ricarico)" [disabled]="!inModifica()" (change)="cambiaPrezzo('ricarico', $event)">
+              <span>@if (inModifica()) { <button class="btn-riga-prezzo" title="Ricalcola il ricarico dal prezzo finale" (click)="ricalcolaRicarico()">🧮</button> }</span></div>
+            <div class="riga-prezzo calcolato"><label>Prezzo senza IVA</label>
+              <input [value]="numero(calcolo().prezzoVendita)" disabled><span></span></div>
+            <div class="riga-prezzo calcolato"><label>IVA {{ percIvaScelta() }}%<small>si somma al prezzo senza IVA</small></label>
+              <input [value]="numero(calcolo().importoIva)" disabled><span></span></div>
+            <div class="riga-prezzo finale"><label>Prezzo di vendita finale<small>comprensivo di ricarico + IVA, ai 10 centesimi</small></label>
+              <input class="mod" [value]="numero(calcolo().etichetta)" [disabled]="!inModifica()" (change)="cambiaFinale($event)">
+              <span>@if (inModifica()) { <button class="btn-riga-prezzo" title="Arrotonda all'euro superiore" (click)="arrotondaEuro()">↑ €</button> }</span></div>
+          </div>
+          <div class="nota-calcolo">
+            Costo netto {{ numero(calcolo().costoNetto) }}@if (calcolo().spese) { + {{ numero(calcolo().spese) }} di spese }
+            × {{ numero(1 + modulo().ricarico / 100) }} = {{ numero(calcolo().prezzoVendita) }} · con IVA {{ numero(calcolo().conIva) }}
+            @if (modulo().arrotondamento) { · arrotondato di {{ numero(modulo().arrotondamento) }} }
+          </div>
+        </div>
+        <div class="det-destra">
+          <div class="f"><label>Fornitore
+              @if (modulo().fornitoreDedotto) { <span class="dedotto" title="Dedotto dal codice articolo: da verificare">da verificare</span> }</label>
+            <app-cerca-fornitore [fornitori]="fornitori()" [valore]="modulo().fornitore" vuoto="Nessuno" [disabilitato]="!inModifica()" (cambiato)="scegliFornitore($event)" />
+          </div>
+          <div class="det-due">
+            <!-- il barcode serve solo per le nostre etichette: lo crea sempre il gestionale (database), non si scrive a mano -->
+            <div class="f"><label>Barcode</label>
+              <div class="barcode-box"><input [value]="modulo().barcode" placeholder="si crea da solo al salvataggio" disabled><span [innerHTML]="barcode()"></span></div>
+              <span class="aiuto">creato dal gestionale, unico: è quello stampato sulle nostre etichette</span>
+            </div>
+          </div>
+          <div class="det-due">
+            <div class="f"><label>Anno listino</label>
+              <input style="text-align:right" [value]="modulo().annoListino" [disabled]="!inModifica()" (input)="imposta('annoListino', testo($event))"></div>
+            <!-- lo scaffale serve solo al Magazzino Centrale: nelle altre sedi il campo è nascosto (il valore resta salvato) -->
+            <div class="f" [class.nascosto]="!magazzinoCentrale()"><label>Scaffale</label>
+              <input placeholder="es. B3" [value]="modulo().scaffale" [disabled]="!inModifica()" (input)="imposta('scaffale', testo($event))"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="det-sotto">
+        <div class="f"><label>Annotazioni</label>
+          <textarea placeholder="es. sconto del fornitore sulla spedizione di ottobre" [value]="modulo().annotazioni" [disabled]="!inModifica()" (input)="imposta('annotazioni', testo($event))"></textarea>
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- ===== MATERIALI ===== -->
+    @if (tab() === 'materiali') {
+    <div class="pannello-tab">
+      <div class="nota-viola">🧵 I materiali usati per fare un pezzo di questo articolo (es. prodotti fatti in laboratorio), con il loro costo.</div>
+      <div class="table-wrap"><table class="tab-materiali">
+        <thead><tr><th style="width:26%">Materiale</th><th style="width:22%">Fornitore</th><th class="num" style="width:10%">Quantità</th><th>Info aggiuntive</th><th class="num" style="width:11%">Costo</th>@if (inModifica()) { <th style="width:40px"></th> }</tr></thead>
+        <tbody>
+          @for (m of modulo().materiali; track $index; let i = $index) {
+            <tr>
+              @if (inModifica()) {
+                <td><input class="in-mat" data-k="materiale" placeholder="es. stoffa di lino" [value]="m.materiale" (change)="cambiaMateriale(i, 'materiale', $event)"></td>
+                <td><input class="in-mat" list="elencoFornMat" placeholder="scrivi il fornitore" [value]="m.fornitore" (change)="cambiaMateriale(i, 'fornitore', $event)"></td>
+                <td class="num"><input class="in-mat" style="text-align:right" placeholder="0" [value]="m.quantita ? percento(m.quantita) : ''" (change)="cambiaMateriale(i, 'quantita', $event)"></td>
+                <td><input class="in-mat" placeholder="es. metri, colore, misura" [value]="m.info" (change)="cambiaMateriale(i, 'info', $event)"></td>
+                <td class="num"><input class="in-mat" style="text-align:right" placeholder="0,00" [value]="m.costo ? numero(m.costo) : ''" (change)="cambiaMateriale(i, 'costo', $event)"></td>
+                <td><button class="btn-riga cestino" title="Togli il materiale" (click)="togliMateriale(i)">🗑</button></td>
+              } @else {
+                <td>{{ m.materiale }}</td><td>{{ m.fornitore }}</td><td class="num">{{ m.quantita ? percento(m.quantita) : '' }}</td><td>{{ m.info }}</td><td class="num">{{ m.costo ? numero(m.costo) : '' }}</td>
+              }
+            </tr>
+          } @empty {
+            <tr><td colspan="6"><div class="vuoto"><b>Nessun materiale</b><span>{{ inModifica() ? 'Usa ＋ Aggiungi materiale qui sotto.' : 'Per aggiungerne premi Modifica.' }}</span></div></td></tr>
+          }
+        </tbody>
+        <tfoot><tr><td colspan="4">Costo totale</td><td class="num">{{ numero(totaleMateriali()) }}</td>@if (inModifica()) { <td></td> }</tr></tfoot>
+      </table></div>
+      <datalist id="elencoFornMat">@for (f of fornitori(); track f.id) { <option [value]="f.nome"></option> }</datalist>
+      @if (inModifica()) { <button class="btn btn-light" style="margin-top:10px" (click)="aggiungiMateriale()">＋ Aggiungi materiale</button> }
+    </div>
+    }
+
+    <!-- ===== GIACENZA (calcolata dal database: articolo_lotti, articolo_previsto) ===== -->
+    @if (tab() === 'giacenza') {
+    <div class="pannello-tab">
+      <div class="nota-viola">📦 La merce è divisa per <b>anno di acquisto</b> (le vendite tolgono prima dal lotto più vecchio).
+        <b>Iniziale</b> = pezzi a inizio {{ annoCorrente }}, <b>Caricata</b> = entrati quest'anno, <b>Venduta</b> = venduti quest'anno, <b>Finale</b> = pezzi di oggi.</div>
+      @if (erroreGiacenza()) { <div class="avviso-accesso">⚠ {{ erroreGiacenza() }}</div> }
+      <div class="table-wrap"><table>
+        <thead><tr><th>Anno di acquisto</th><th class="num">Iniziale</th><th class="num">Caricata</th><th class="num">Venduta</th>
+          @if (conAltreUscite()) { <th class="num" title="Trasferimenti ad altre sedi, diminuzioni di giacenza, inventario">Altre uscite</th> }<th class="num">Finale</th></tr></thead>
+        <tbody>
+          @if (lotti(); as lotti) {
+            @for (l of lotti; track l.anno) {
+              <tr><td><b>{{ l.anno }}</b></td><td class="num">{{ q2(toNumber(l.iniziale)) }}</td>
+                <td class="num piu">{{ toNumber(l.caricata) ? '+' + q2(toNumber(l.caricata)) : 0 }}</td>
+                <td class="num meno">{{ toNumber(l.venduta) ? '−' + q2(toNumber(l.venduta)) : 0 }}</td>
+                @if (conAltreUscite()) { <td class="num meno">{{ toNumber(l.altre_uscite) ? '−' + q2(toNumber(l.altre_uscite)) : 0 }}</td> }
+                <td class="num"><b>{{ q2(toNumber(l.finale)) }}</b></td></tr>
+            } @empty {
+              <tr><td colspan="6"><div class="vuoto"><b>Mai movimentato in {{ sede.sede()?.nome }}</b><span>Nessun carico, vendita o trasferimento di questo articolo qui.</span></div></td></tr>
+            }
+          } @else {
+            <tr><td colspan="6"><div class="vuoto"><b>Lettura dal database…</b></div></td></tr>
+          }
+        </tbody>
+        @if ((lotti()?.length ?? 0) > 1) {
+          <tfoot><tr class="riga-inizio"><td>Totale</td><td class="num">{{ q2(totaleLotti().iniziale) }}</td><td class="num">+{{ q2(totaleLotti().caricata) }}</td>
+            <td class="num">{{ totaleLotti().venduta ? '−' + q2(totaleLotti().venduta) : 0 }}</td>
+            @if (conAltreUscite()) { <td class="num">{{ totaleLotti().altre ? '−' + q2(totaleLotti().altre) : 0 }}</td> }
+            <td class="num">{{ q2(totaleLotti().finale) }}</td></tr></tfoot>
+        }
+      </table></div>
+      @if (previstoSede(); as p) {
+        <div class="previsto">
+          <div><small>Giacenza oggi</small><b>{{ q2(toNumber(p.giacenza)) }}</b></div>
+          <div><small>In arrivo (ordinati, non ancora arrivati)</small><b>{{ toNumber(p.in_arrivo) ? '+' + q2(toNumber(p.in_arrivo)) : 0 }}</b></div>
+          <div><small>Prenotati (ordini dei clienti da spedire)</small><b>{{ toNumber(p.prenotati) ? '−' + q2(toNumber(p.prenotati)) : 0 }}</b></div>
+          <div class="finale"><small>Disponibile previsto</small><b>{{ q2(toNumber(p.previsto)) }}</b></div>
+        </div>
+      }
+    </div>
+    }
+
+    <!-- ===== GIACENZA ALTRE SEDI ===== -->
+    @if (tab() === 'altre') {
+    <div class="pannello-tab">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Sede</th><th class="num">Giacenza</th><th class="num" title="Ordini ai fornitori non ancora arrivati e ordini alle sedi non ancora mandati">In arrivo</th>
+          <th class="num" title="Ordini dei clienti non ancora spediti">Prenotati</th><th class="num" title="Giacenza + In arrivo − Prenotati">Disponibile previsto</th></tr></thead>
+        <tbody>
+          @if (previsto() !== null) {
+            @for (p of altreSedi(); track p.sede_id) {
+              <tr><td>{{ p.sede_nome }}</td><td class="num"><b>{{ q2(toNumber(p.giacenza)) }}</b></td>
+                <td class="num">{{ toNumber(p.in_arrivo) ? '+' + q2(toNumber(p.in_arrivo)) : 0 }}</td>
+                <td class="num">{{ toNumber(p.prenotati) ? '−' + q2(toNumber(p.prenotati)) : 0 }}</td>
+                <td class="num"><b>{{ q2(toNumber(p.previsto)) }}</b></td></tr>
+            } @empty {
+              <tr><td colspan="5"><div class="vuoto"><b>Nessun'altra sede attiva</b></div></td></tr>
+            }
+          } @else {
+            <tr><td colspan="5"><div class="vuoto"><b>Lettura dal database…</b></div></td></tr>
+          }
+        </tbody>
+      </table></div>
+    </div>
+    }
+
+    <!-- ===== MOVIMENTI (una pagina alla volta: articolo_movimenti) ===== -->
+    @if (tab() === 'movimenti') {
+    <div class="pannello-tab">
+      @if (erroreGiacenza()) { <div class="avviso-accesso">⚠ {{ erroreGiacenza() }}</div> }
+      <div class="table-wrap"><table>
+        <thead><tr><th>Numero</th><th>Data</th><th>Tipo di movimento</th><th>Stato</th><th class="num">Entrati / usciti</th><th class="num">Giacenza</th>
+          <th class="num" title="Ordinati e non ancora arrivati, o prenotati dai clienti">In ordine</th><th class="num">Anno acquisto</th></tr></thead>
+        <tbody>
+          @if (movimenti(); as righe) {
+            @if (righe.length && movPagina() === 0) { <tr class="riga-inizio"><td colspan="5">Giacenza di oggi</td><td class="num">{{ q2(toNumber(righe[0].dopo)) }}</td><td></td><td></td></tr> }
+            @for (r of righe; track $index) {
+              <tr>
+                <td>
+                  @if (link(r); as l) { <a class="num-mov" [routerLink]="l"><span class="id">#{{ r.movimento_id }}</span></a> }
+                  @else { <span class="num-mov"><span class="id">#{{ r.movimento_id }}</span></span> }
+                </td>
+                <td>{{ dataIt(r.data) }}</td><td>{{ r.nome }}</td><td>{{ r.stato }}</td>
+                <td class="num" [class.piu]="toNumber(r.q) > 0" [class.meno]="toNumber(r.q) < 0">{{ segnato(toNumber(r.q)) }}</td>
+                <td class="num"><span class="freccia-giac">@if (toNumber(r.q)) { {{ q2(toNumber(r.prima)) }} → {{ q2(toNumber(r.dopo)) }} }</span></td>
+                <td class="num virtuale">{{ toNumber(r.ordinati) ? '+' + q2(toNumber(r.ordinati)) : toNumber(r.prenotati) ? 'pren. ' + q2(toNumber(r.prenotati)) : '' }}</td>
+                <td class="num">{{ anniLotti(r) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8"><div class="vuoto"><b>Nessun movimento in {{ sede.sede()?.nome }}</b></div></td></tr>
+            }
+          } @else {
+            <tr><td colspan="8"><div class="vuoto"><b>Lettura dal database…</b></div></td></tr>
+          }
+        </tbody>
+      </table></div>
+      @if (movTotale() > movPerPagina()) {
+        <div class="piede"><span></span>
+          <app-paginatore [pagina]="movPagina()" [perPagina]="movPerPagina()" [totale]="movTotale()" (paginaCambiata)="cambiaPaginaMov($event)" (perPaginaCambiata)="cambiaPerPaginaMov($event)" />
+        </div>
+      }
+    </div>
+    }
+
+    <!-- ===== STORICO (registro attività del database) ===== -->
+    @if (tab() === 'storico') {
+    <div class="pannello-tab">
+      <div class="timeline">
+        @if (storico(); as eventi) {
+          @for (e of eventi; track e.id) {
+            <div class="evento" [class.ok]="e.attivita === 'Nuovo articolo'">
+              <div class="quando">{{ oraIt(e.quando) }} · {{ e.email ?? 'Sistema' }}</div>
+              <div class="cosa">{{ e.attivita }}</div>
+              @if (e.dettagli) { <div class="dett">{{ e.dettagli }}</div> }
+            </div>
+          } @empty {
+            <div class="vuoto"><b>Nessuna modifica registrata</b><span>Le modifiche si annotano da quando è attivo il registro attività.</span></div>
+          }
+        } @else {
+          <div class="vuoto"><b>Lettura dal database…</b></div>
+        }
+      </div>
+    </div>
+    }
+  </section>
+  }
+</div>

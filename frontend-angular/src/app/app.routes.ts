@@ -16,6 +16,8 @@ export const routes: Routes = [
       { path: 'caricamento', loadComponent: () => import('./features/vuota').then(m => m.Vuota) },
       { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard) },
       { path: 'articoli', loadComponent: () => import('./features/articoli/elenco-articoli').then(m => m.ElencoArticoli) },
+      { path: 'articoli/nuovo', loadComponent: () => import('./features/articoli/scheda-articolo').then(m => m.SchedaArticolo) },
+      { path: 'articoli/:codice', loadComponent: () => import('./features/articoli/scheda-articolo').then(m => m.SchedaArticolo) },
       { path: 'giacenze', loadComponent: () => import('./features/giacenze/giacenze').then(m => m.Giacenze) }
     ]
   },

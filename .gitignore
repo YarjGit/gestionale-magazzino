@@ -4,6 +4,8 @@ riferimenti/
 # Export dal gestionale attuale, se finiscono nella cartella
 *.json
 !prototipo/**/*.json
+# Configurazione del progetto Angular (versioni dei pacchetti, impostazioni: nessun dato)
+!frontend-angular/*.json
 
 # Articoli veri convertiti per il prototipo locale (strumenti/importa-articoli.ps1)
 prototipo/js/dati-articoli-reali.js

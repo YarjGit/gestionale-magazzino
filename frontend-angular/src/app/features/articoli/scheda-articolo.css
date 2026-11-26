@@ -1,0 +1,67 @@
+  /* Scelte a pulsanti (provenienza, unità di misura) */
+  .scelte { display: flex; flex-wrap: wrap; gap: 4px; }
+  .scelte label { display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fbfcfe; font-size: 0.82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .scelte input { display: none; }
+  .scelte label:has(input:checked) { background: #e8f1ff; border-color: #9cc2f5; color: #1f5fbf; }
+  .scelte label:has(input:disabled) { cursor: default; }
+  .barcode-box { display: flex; align-items: center; gap: 12px; }
+  .barcode-box ::ng-deep svg { height: 38px; width: auto; }
+  .dedotto { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 5px; background: #fff3dd; color: #b26a00; font-size: 0.68rem; font-weight: 600; }
+
+  /* Calcolo del prezzo: si legge dall'alto in basso come una ricetta */
+  .calcolo { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .calcolo h3 { padding: 12px 14px; margin: 0; background: #f6f8fb; border-bottom: 1px solid var(--line); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .passo-prezzo { display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
+  .passo-prezzo + .passo-prezzo { border-top: 1px dashed #edf0f5; }
+  .passo-prezzo label { flex: 1; font-size: 0.86rem; }
+  .passo-prezzo label small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .passo-prezzo input, .passo-prezzo select { width: 110px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: #f4f6f9; text-align: right; font: 500 0.88rem "JetBrains Mono", monospace; }
+  .in-modifica .passo-prezzo .mod:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+  .passo-prezzo.risultato input { background: #eef2f7; font-weight: 700; }
+  .passo-prezzo .op { width: 16px; color: var(--muted); font-weight: 700; text-align: center; }
+  .btn-arrot { padding: 4px 8px; border: none; border-radius: 6px; background: #e8f1ff; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+  .etichetta-prezzo { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: #fffbe6; border-top: 2px solid #f0d878; }
+  .etichetta-prezzo span { font-weight: 700; }
+  .etichetta-prezzo b { font: 700 1.5rem "JetBrains Mono", monospace; }
+  .nota-calcolo { padding: 8px 14px 12px; color: var(--muted); font-size: 0.75rem; background: #fffbe6; }
+
+  /* Dettagli come nel gestionale attuale: due righe di testata, poi prezzi a sinistra e fornitori a destra */
+  .det-riga { display: grid; grid-template-columns: 90px minmax(140px, 1fr) minmax(220px, 2.2fr) minmax(260px, 2fr); gap: 14px; align-items: end; margin-bottom: 12px; }
+  .det-riga .det-scorta { grid-column: 3; max-width: 200px; }
+  .det-interr .interr { margin: 6px 0 0; }
+  .det-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 10px; }
+  .prezzi { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .riga-prezzo { display: grid; grid-template-columns: 1fr 150px 38px; align-items: center; gap: 8px; padding: 6px 12px; }
+  .riga-prezzo + .riga-prezzo { border-top: 1px solid #edf0f5; }
+  .riga-prezzo label { font-size: 0.86rem; }
+  .riga-prezzo label small { display: block; color: var(--muted); font-size: 0.72rem; }
+  .riga-prezzo input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: #f4f6f9; text-align: right; font: 500 0.9rem "JetBrains Mono", monospace; }
+  .in-modifica .riga-prezzo input.mod:not(:disabled) { background: #fff; border-color: #b9cdf0; }
+  .riga-prezzo.calcolato input { background: #eef2f7; color: var(--muted); }
+  .riga-prezzo.finale { background: #fffbe6; }
+  .riga-prezzo.finale input { font-weight: 700; font-size: 1rem; }
+  .btn-riga-prezzo { padding: 5px 0; border: none; border-radius: 6px; background: #e8f1ff; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+  .det-destra { display: flex; flex-direction: column; gap: 12px; }
+  .det-due { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .det-sotto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 18px; }
+  @media (max-width: 1000px) { .det-riga, .det-corpo, .det-sotto, .det-due { grid-template-columns: 1fr; } .det-riga .det-scorta { grid-column: auto; } }
+
+  /* Movimenti dell'articolo */
+  .piu { color: var(--ok); font-weight: 700; } .meno { color: var(--ko); font-weight: 700; }
+  .freccia-giac { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--muted); }
+  .f.nascosto { display: none; }
+  .riga-inizio td { background: #f6f8fb; font-weight: 600; }
+  /* Giacenza prevista: oggi, in arrivo, prenotati, disponibile previsto */
+  .previsto { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .previsto div { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .previsto small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .previsto b { font-size: 1.15rem; }
+  .previsto .finale { background: #f1ecff; border-color: #c9b8ff; color: #4a2aa8; }
+  @media (max-width: 700px) { .previsto { grid-template-columns: 1fr 1fr; } }
+  .virtuale { color: #7c4dff; }
+  /* Scheda Materiali: righe scritte a mano */
+  .tab-materiali .in-mat { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; font: inherit; background: #fff; }
+  .tab-materiali .in-mat:focus { outline: 2px solid #cfe0ff; border-color: var(--accent); }
+
+/* Tasti della scheda (nel prototipo erano nella barra in alto) */
+.azioni-scheda { display: flex; justify-content: flex-end; gap: 8px; margin: 10px 0 12px; flex-wrap: wrap; }

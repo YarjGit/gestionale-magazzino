@@ -409,6 +409,146 @@ $$;
 grant execute on function articoli_elenco(text, text, uuid, text, text, int, numeric, numeric, numeric, text, boolean, text, boolean, int, int),
   articoli_conteggi(text) to authenticated;
 
+-- ============================================================================================================
+-- Scheda articolo: lotti per anno, movimenti, previsto per sede (calcolati nel database, come faceva la pagina del prototipo)
+-- ============================================================================================================
+-- Movimenti di un articolo in una sede in ordine di data, con giacenza prima/dopo e da quali lotti (anni di acquisto) escono i pezzi.
+-- Entrate nel lotto del loro anno (carico: anno della data; aumento/inventario: anno di acquisto; trasferimento ricevuto: anno della
+-- ricezione); uscite dal lotto più vecchio. Ordini a fornitore e da cliente definitivi compaiono con quantità 0 (ordinati / prenotati).
+create or replace function _articolo_fifo(p_articolo uuid, p_sede text)
+returns table (n int, data date, movimento_id bigint, tipo text, nome text, stato text, q numeric, prima numeric, dopo numeric,
+               lotti jsonb, ordinati numeric, prenotati numeric, a_sede boolean)
+language plpgsql stable security invoker set search_path = public as $$
+declare
+  e record; v_anni int[] := '{}'; v_rem numeric[] := '{}'; v_g numeric := 0; v_n int := 0;
+  v_resta numeric; v_x numeric; i int; v_lotti jsonb; v_pos int; v_anno int;
+begin
+  for e in
+    select ev.* from (
+      select m.data_movimento as d, m.id as mid, m.tipo as tp, t.nome as nm, m.stato as st, r.quantita * t.segno as qq,
+             coalesce(m.anno_acquisto, extract(year from m.data_movimento)::int) as lotto,
+             0::numeric as ord, 0::numeric as pren, false as asede
+      from movimenti_righe r join movimenti m on m.id = r.movimento_id join tipi_movimento t on t.codice = m.tipo
+      where r.articolo_id = p_articolo and m.sede_id = p_sede and m.stato in ('Definitivo', 'Evaso') and t.segno <> 0
+      union all
+      select m.ricevuto_il::date, m.id, 'trasferimento_ricevuto', 'Trasferimento da Filiale', m.stato, r.quantita,
+             extract(year from m.ricevuto_il)::int, 0, 0, false
+      from movimenti_righe r join movimenti m on m.id = r.movimento_id
+      where r.articolo_id = p_articolo and m.tipo = 'trasferimento_a_filiale' and m.sede_altra_id = p_sede
+        and m.stato in ('Definitivo', 'Evaso') and m.ricevuto_il is not null
+      union all
+      select m.data_movimento, m.id, m.tipo, t.nome, m.stato, 0, null,
+             case when m.tipo = 'ordine_fornitore' then r.quantita else 0 end, case when m.tipo = 'ordine_cliente' then r.quantita else 0 end,
+             coalesce((select f.sede_collegata is not null from fornitori f where f.id = m.fornitore_id), false)
+      from movimenti_righe r join movimenti m on m.id = r.movimento_id join tipi_movimento t on t.codice = m.tipo
+      where r.articolo_id = p_articolo and m.sede_id = p_sede and m.stato = 'Definitivo' and m.tipo in ('ordine_fornitore', 'ordine_cliente')
+    ) ev order by ev.d, ev.mid
+  loop
+    v_n := v_n + 1; v_lotti := '{}'::jsonb;
+    if e.qq > 0 then
+      v_pos := array_position(v_anni, e.lotto);
+      if v_pos is null then
+        v_anni := v_anni || e.lotto; v_rem := v_rem || e.qq;
+        select array_agg(a order by a), array_agg(rr order by a) into v_anni, v_rem from unnest(v_anni, v_rem) x(a, rr);
+      else
+        v_rem[v_pos] := v_rem[v_pos] + e.qq;
+      end if;
+      v_lotti := jsonb_build_object(e.lotto::text, e.qq);
+    elsif e.qq < 0 then
+      v_resta := -e.qq;
+      for i in 1..coalesce(array_length(v_anni, 1), 0) loop
+        exit when v_resta <= 0;
+        v_x := least(v_resta, greatest(0, v_rem[i]));
+        if v_x > 0 then
+          v_rem[i] := v_rem[i] - v_x; v_resta := v_resta - v_x;
+          v_lotti := v_lotti || jsonb_build_object(v_anni[i]::text, coalesce((v_lotti ->> v_anni[i]::text)::numeric, 0) - v_x);
+        end if;
+      end loop;
+      if v_resta > 0 then   -- più uscite che entrate (giacenza sotto zero): si toglie dall'anno di quel movimento
+        v_anno := extract(year from e.d)::int;
+        v_pos := array_position(v_anni, v_anno);
+        if v_pos is null then
+          v_anni := v_anni || v_anno; v_rem := v_rem || -v_resta;
+          select array_agg(a order by a), array_agg(rr order by a) into v_anni, v_rem from unnest(v_anni, v_rem) x(a, rr);
+        else
+          v_rem[v_pos] := v_rem[v_pos] - v_resta;
+        end if;
+        v_lotti := v_lotti || jsonb_build_object(v_anno::text, coalesce((v_lotti ->> v_anno::text)::numeric, 0) - v_resta);
+      end if;
+    end if;
+    n := v_n; data := e.d; movimento_id := e.mid; tipo := e.tp; nome := e.nm; stato := e.st; q := e.qq;
+    prima := v_g; v_g := v_g + e.qq; dopo := v_g; lotti := v_lotti; ordinati := e.ord; prenotati := e.pren; a_sede := e.asede;
+    return next;
+  end loop;
+end $$;
+
+-- Lotti per anno di acquisto dell'articolo nella sede: Iniziale (a inizio anno), Caricata, Venduta, Altre uscite (quest'anno), Finale
+create or replace function articolo_lotti(p_articolo uuid, p_sede text)
+returns table (anno int, iniziale numeric, caricata numeric, venduta numeric, altre_uscite numeric, finale numeric)
+language sql stable security invoker set search_path = public as $$
+  with mov as (
+    select f.data, f.tipo, (l.key)::int as anno, l.value::numeric as q
+    from _articolo_fifo(p_articolo, p_sede) f, jsonb_each_text(f.lotti) l
+  ), per_anno as (
+    select mov.anno,
+      sum(q) as finale,
+      coalesce(sum(q) filter (where q > 0 and data >= date_trunc('year', current_date)), 0) as caricata,
+      coalesce(-sum(q) filter (where q < 0 and data >= date_trunc('year', current_date) and tipo in ('vendite_giornaliere', 'scarico_cliente')), 0) as venduta,
+      coalesce(-sum(q) filter (where q < 0 and data >= date_trunc('year', current_date) and tipo not in ('vendite_giornaliere', 'scarico_cliente')), 0) as altre
+    from mov group by mov.anno
+  )
+  select per_anno.anno, finale - caricata + venduta + altre, caricata, venduta, altre, finale
+  from per_anno
+  where finale <> 0 or caricata <> 0 or venduta <> 0 or altre <> 0
+  order by per_anno.anno;
+$$;
+
+-- Movimenti dell'articolo nella sede, dal più recente, una pagina alla volta
+create or replace function articolo_movimenti(p_articolo uuid, p_sede text, p_da int default 0, p_quanti int default 50)
+returns table (movimento_id bigint, data date, tipo text, nome text, stato text, q numeric, prima numeric, dopo numeric, lotti jsonb,
+               ordinati numeric, prenotati numeric, totale bigint)
+language sql stable security invoker set search_path = public as $$
+  select f.movimento_id, f.data, f.tipo, f.nome, f.stato, f.q, f.prima, f.dopo, f.lotti, f.ordinati, f.prenotati, count(*) over ()
+  from _articolo_fifo(p_articolo, p_sede) f
+  order by f.n desc
+  limit greatest(1, least(p_quanti, 300)) offset greatest(0, p_da);
+$$;
+
+-- Per ogni sede attiva: giacenza, in arrivo (ordini a fornitore definitivi non caricati + inevasi da una sede), prenotati
+-- (ordini da cliente definitivi), disponibile previsto = giacenza + in arrivo − prenotati
+create or replace function articolo_previsto(p_articolo uuid)
+returns table (sede_id text, sede_nome text, giacenza numeric, in_arrivo numeric, prenotati numeric, previsto numeric)
+language sql stable security invoker set search_path = public as $$
+  with x as (
+    select s.id, s.nome,
+      coalesce((select g.quantita from giacenze g where g.sede_id = s.id and g.articolo_id = p_articolo), 0) as giac,
+      coalesce((select sum(r.quantita) from movimenti_righe r join movimenti m on m.id = r.movimento_id left join fornitori f on f.id = m.fornitore_id
+                where r.articolo_id = p_articolo and m.sede_id = s.id and m.tipo = 'ordine_fornitore' and m.stato = 'Definitivo' and f.sede_collegata is null), 0)
+      + coalesce((select sum(i.residuo) from inevasi i where i.articolo_id = p_articolo and i.sede_richiedente = s.id and i.residuo > 0), 0) as arrivo,
+      coalesce((select sum(r.quantita) from movimenti_righe r join movimenti m on m.id = r.movimento_id
+                where r.articolo_id = p_articolo and m.sede_id = s.id and m.tipo = 'ordine_cliente' and m.stato = 'Definitivo'), 0) as pren
+    from sedi s where s.attiva
+  )
+  select id, nome, giac, arrivo, pren, giac + arrivo - pren from x order by nome;
+$$;
+
+grant execute on function _articolo_fifo(uuid, text), articolo_lotti(uuid, text), articolo_movimenti(uuid, text, int, int), articolo_previsto(uuid) to authenticated;
+
+-- Prima di salvare un articolo: codici quasi uguali (stessi caratteri a parte spazi, slash, trattini, punti) e barcode già usati.
+-- Il controllo lo fa il database (gli articoli sono migliaia: la pagina non li legge tutti).
+create or replace function articoli_simili(p_codice text, p_barcode text, p_escludi uuid default null)
+returns table (codice text, descrizione text, motivo text)
+language sql stable security invoker set search_path = public as $$
+  select a.codice, a.descrizione, 'barcode' from articoli a
+  where coalesce(p_barcode, '') <> '' and a.barcode = p_barcode and a.id is distinct from p_escludi
+  union all
+  select a.codice, a.descrizione, 'codice' from articoli a
+  where coalesce(p_codice, '') <> '' and a.id is distinct from p_escludi
+    and regexp_replace(upper(a.codice), '[^A-Z0-9]', '', 'g') = regexp_replace(upper(p_codice), '[^A-Z0-9]', '', 'g')
+  limit 20;
+$$;
+grant execute on function articoli_simili(text, text, uuid) to authenticated;
+
 grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimento_ed_evadi(bigint, jsonb, jsonb, bigint[]),
   conferma_ricezione(bigint), annulla_movimento(bigint), annulla_inevaso(bigint, numeric, text), aggiorna_documento_movimento(bigint, jsonb),
   conferma_inventario(bigint), nuovo_barcode(), salva_articolo(uuid, jsonb, timestamptz), salva_fornitore(uuid, jsonb, text[]),
@@ -417,8 +557,8 @@ grant execute on function puo_scrivere_sede(text), ha_ruolo(text), salva_movimen
 -- funzioni di servizio: non si chiamano dalle pagine
 revoke execute on function _scrivi_anagrafica(text, text, jsonb, text[]), controlla_giacenza(text, uuid[]), blocca_articoli(text, uuid[]) from public, anon, authenticated;
 
--- Controllo: deve dare 17
+-- Controllo: deve dare 21
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in (
   'puo_scrivere_sede', 'ha_ruolo', 'salva_movimento_ed_evadi', 'conferma_ricezione', 'annulla_movimento', 'annulla_inevaso',
   'aggiorna_documento_movimento', 'conferma_inventario', 'nuovo_barcode', 'salva_articolo', 'salva_fornitore', 'salva_cliente',
-  'salva_utente', 'registra_evento', 'giacenze_sede', 'articoli_elenco', 'articoli_conteggi');
+  'salva_utente', 'registra_evento', 'giacenze_sede', 'articoli_elenco', 'articoli_conteggi', 'articolo_lotti', 'articolo_movimenti', 'articolo_previsto', 'articoli_simili');

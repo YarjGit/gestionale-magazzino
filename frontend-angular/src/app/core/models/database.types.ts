@@ -325,6 +325,48 @@ export interface RpcFunzioni {
   /** Elenco Articoli: una pagina con filtri, ricerca, schede e giacenza della sede. */
   articoli_elenco: { args: ArticoliElencoArgs; ritorno: ArticoloElencoRiga[] };
   articoli_conteggi: { args: { p_sede: SedeId }; ritorno: { tutti: number; disponibili: number; esauriti: number; negativi: number }[] };
+  /** Scheda articolo: lotti per anno di acquisto nella sede (uscite dal lotto più vecchio). */
+  articolo_lotti: { args: { p_articolo: string; p_sede: SedeId }; ritorno: LottoArticolo[] };
+  /** Scheda articolo: movimenti nella sede dal più recente, una pagina alla volta. */
+  articolo_movimenti: { args: { p_articolo: string; p_sede: SedeId; p_da: number; p_quanti: number }; ritorno: MovimentoArticolo[] };
+  /** Scheda articolo: giacenza, in arrivo, prenotati e disponibile previsto per ogni sede attiva. */
+  articolo_previsto: { args: { p_articolo: string }; ritorno: PrevistoSede[] };
+  /** Prima di salvare: codici quasi uguali e barcode già usati da altri articoli. */
+  articoli_simili: { args: { p_codice: string | null; p_barcode: string | null; p_escludi: string | null }; ritorno: { codice: string; descrizione: string; motivo: 'codice' | 'barcode' }[] };
+}
+
+export interface LottoArticolo {
+  anno: number;
+  iniziale: Numerico;
+  caricata: Numerico;
+  venduta: Numerico;
+  altre_uscite: Numerico;
+  finale: Numerico;
+}
+
+export interface MovimentoArticolo {
+  movimento_id: number;
+  data: string;
+  tipo: string;            // codice del tipo, o 'trasferimento_ricevuto'
+  nome: string;
+  stato: string;
+  q: Numerico;
+  prima: Numerico;
+  dopo: Numerico;
+  /** anno di acquisto → pezzi (+ entrati, − usciti) */
+  lotti: Record<string, number>;
+  ordinati: Numerico;
+  prenotati: Numerico;
+  totale: number;
+}
+
+export interface PrevistoSede {
+  sede_id: SedeId;
+  sede_nome: string;
+  giacenza: Numerico;
+  in_arrivo: Numerico;
+  prenotati: Numerico;
+  previsto: Numerico;
 }
 
 export type SchedaArticoli = '' | 'disp' | 'esauriti' | 'neg';

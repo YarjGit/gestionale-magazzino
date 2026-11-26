@@ -56,12 +56,12 @@ le scritture dirette servono funzioni `security definer` con i loro controlli di
 
 Ogni passo usa i pezzi di quelli prima. Le scritture passano solo da RPC (punto 2).
 
-1. **Ossatura e accesso** – layout (menu laterale, barra in alto, tasto sede colorato, cambio sede → Dashboard), accesso con
+1. ✅ **Ossatura e accesso** – layout (menu laterale, barra in alto, tasto sede colorato, cambio sede → Dashboard), accesso con
    password o link via email, "non autorizzato", scelta sede, registro attività di accesso/uscita. *(core già pronto)*
-2. **Articoli – elenco** (`articoli.html`): paginazione e ricerca lato server (codice, descrizione, barcode), filtri, campo
+2. ✅ **Articoli – elenco** (`articoli.html`): paginazione e ricerca lato server (codice, descrizione, barcode), filtri, campo
    pistola che cerca il barcode esatto. Da qui nascono i componenti condivisi: tabella paginata e ricerca articolo.
-3. **Giacenze** (`giacenze.html`): giacenza della sede per articolo e lotti per anno, paginata.
-4. **Scheda articolo** (`articolo.html`): dettagli, prezzo (costo, sconto, ricarico fisso, IVA, prezzo finale ai 10 cent),
+3. ✅ **Giacenze** (`giacenze.html`): giacenza della sede per articolo e lotti per anno, paginata.
+4. ✅ **Scheda articolo** (`articolo.html`): dettagli, prezzo (costo, sconto, ricarico fisso, IVA, prezzo finale ai 10 cent),
    barcode creato dal database, materiali, giacenza per anno, altre sedi, movimenti. *Serve `salva_articolo`.*
 5. **Anagrafiche**: sedi, fornitori (+ fornitori per sede), clienti, aliquote e tabelle di configurazione. *RPC di salvataggio.*
 6. **Dashboard** (`dashboard.html`): merce in arrivo da confermare, ordini delle filiali da preparare, inevasi.
