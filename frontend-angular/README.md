@@ -41,7 +41,7 @@ La versione da pubblicare si crea con `npm run build:cloudflare` (o `npm run bui
   per aprire direttamente le pagine interne). Il contenuto di `dist/frontend-angular/browser/` andrebbe copiato nella cartella
   `nuova/` della radice del repository. Anche qui l'indirizzo va aggiunto ai Redirect URLs di Supabase.
 
-Prima di pubblicare per l'uso vero: eseguire su Supabase i file `35` (subito), `36` (dopo aver spuntato le sedi di ogni persona)
+Prima di pubblicare per l'uso vero: su Supabase il `35` è già eseguito (26/11/2026); poi `36` (dopo aver spuntato le sedi di ogni persona)
 e, quando il prototipo non si usa più, `37` (vedi `MIGRAZIONE.md`, punti 5 e 7).
 
 ## Struttura

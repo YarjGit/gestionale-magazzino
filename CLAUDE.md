@@ -172,7 +172,7 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
 - Regole architetturali obbligatorie: `frontend-angular/CLAUDE.md` (scritture solo tramite RPC/transazioni PostgreSQL, mai calcoli di
   giacenza solo lato client, paginazione e ricerca lato server, tipi allineati allo schema, `core/` `features/` `shared/`).
 - Database per la nuova versione: `33-funzioni-sicure.sql` e `34-funzioni-angular.sql` (eseguiti il 26/11/2026; il 34 si riesegue
-  quando cambia), `35-indici-e-controlli.sql` (si può eseguire subito), `36-permessi-per-sede.sql` (dopo aver spuntato la sede di ogni
+  quando cambia), `35-indici-e-controlli.sql` (eseguito il 26/11/2026), `36-permessi-per-sede.sql` (dopo aver spuntato la sede di ogni
   persona in Utenti Sito), `37-solo-funzioni.sql` (**solo** quando il prototipo non si usa più).
 - Provarla: `Avvia versione Angular.bat` (serve Node.js); dati inventati con `http://localhost:4200/?anteprima=1`, veri con `?anteprima=0`.
 - Pubblicazione **preparata ma non attiva** (Cloudflare Pages o GitHub Pages: `frontend-angular/README.md`): la decide l'utente.
