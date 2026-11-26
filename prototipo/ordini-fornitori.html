@@ -26,6 +26,7 @@
     titolo: "Ordini a Fornitori",
     nuovo: "Nuovo ordine",
     dettaglio: "ordine.html",
+    senzaEtichette: true,   // le etichette si stampano dal carico (o dal trasferimento ricevuto), non dall'ordine
     csv: "ordini-fornitori",
     stati: [STATO.provvisorio, STATO.definitivo, STATO.conInevasi, STATO.evaso, STATO.annullato].filter(Boolean),   // filter: con un elenco.js vecchio in memoria la scheda Con inevasi manca, ma la pagina funziona
     statiBarrati: ["Annullato"],

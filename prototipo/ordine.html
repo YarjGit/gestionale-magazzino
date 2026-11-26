@@ -30,7 +30,6 @@
 
 <template id="top-actions">
   <span class="spacer"></span>
-  <button class="btn btn-light" id="btnEtichette">🏷️ Etichette movimento</button>
   <div class="dd" id="ddStampa" style="position:relative">
     <button class="btn btn-light" id="btnStampa">🖨️ Stampa ▾</button>
     <div class="row-menu" id="menuStampa" style="right:0;left:auto;top:calc(100% + 6px);position:absolute">
@@ -420,7 +419,7 @@
   // Modifica sblocca i campi; Annulla rimette i valori di prima, Salva torna in sola lettura.
   // Un ordine evaso (già preparato dalla sede che lo riceve) o annullato non si modifica più.
   const annullato = ord && ["Annullato", "Evaso"].includes(ord.stato);
-  const pulsantiLettura = ["btnEtichette", "ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
+  const pulsantiLettura = ["ddStampa", "btnExcel", "btnChiudi", "btnModifica"];
   let valoriPrima = [], righePrima = [], fornitorePrima = null;
   function modalita(modifica) {
     document.body.classList.toggle("in-modifica", modifica);
@@ -489,7 +488,7 @@
   $("btnSalva").onclick = () => salva(false);
   $("btnSalvaChiudi").onclick = () => salva(true);
   $("btnChiudi").onclick = () => location.href = "ordini-fornitori.html";
-  $("btnEtichette").onclick = () => avviso("Etichette dell'ordine: le definiamo insieme (di solito si stampano al carico della merce)");
+  // Niente tasto Etichette nell'ordine (chiesto dall'utente): si stampano dal carico della merce o, per gli ordini a una sede, dal trasferimento ricevuto
   // Excel come quello del gestionale attuale: Riepilogo (documento, fornitore, spese) e Dettaglio (articoli)
   $("btnExcel").onclick = async () => righe.excel({ sede: sedeLavoro, tipo: "Ordine a Fornitore", numero: ord ? ord.id : null,
     riepilogo: [["Data Documento", dataIt($("fData").value || oggi)], ["Numero ordine", $("fNumBolla").value],
