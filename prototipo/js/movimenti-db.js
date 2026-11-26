@@ -67,7 +67,8 @@ async function elencoTuttiMovimentiDb(db, sedeId) {
 // Giacenza di una sede divisa per anno di acquisto (lotti), per tutti gli articoli: Map articolo_id → Map anno → pezzi.
 // Stesse regole della scheda Giacenza dell'articolo (caricaGiacenzaVera in articolo.html): le entrate vanno nel loro anno
 // (anno_acquisto del movimento, altrimenti l'anno della data; i trasferimenti ricevuti nell'anno di ricezione), le uscite
-// tolgono dal lotto più vecchio; se si va sotto zero si toglie dall'anno in corso. Usata dagli Excel dell'inventario.
+// tolgono dal lotto più vecchio; se si va sotto zero si toglie dall'anno in corso. Usata dagli Excel dell'inventario e da Giacenze.
+// In più lotti.inizioAnno: Map articolo_id → giacenza al 1° gennaio dell'anno in corso (colonna "Q. iniz." di Giacenze).
 async function lottiSedeDb(db, sedeId) {
   const STATI_OK = ["Definitivo", "Evaso"], annoOggi = new Date().getFullYear();
   const { data: tipi, error: e1 } = await db.from("tipi_movimento").select("codice, segno");
@@ -99,8 +100,10 @@ async function lottiSedeDb(db, sedeId) {
     if (m.sede_id !== sedeId) eventi.push({ art: r.articolo_id, data: m.ricevuto_il.slice(0, 10), id: m.id, q: +r.quantita, anno: +m.ricevuto_il.slice(0, 4) });
   });
   eventi.sort((x, y) => x.data.localeCompare(y.data) || x.id - y.id);
-  const lotti = new Map();
+  const lotti = new Map(), inizio = `${annoOggi}-01-01`;
+  lotti.inizioAnno = new Map();
   eventi.forEach(e => {
+    if (e.data < inizio) lotti.inizioAnno.set(e.art, (lotti.inizioAnno.get(e.art) || 0) + e.q);
     if (!lotti.has(e.art)) lotti.set(e.art, new Map());
     const l = lotti.get(e.art);
     if (e.q > 0) { l.set(e.anno, (l.get(e.anno) || 0) + e.q); return; }

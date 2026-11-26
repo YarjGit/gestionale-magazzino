@@ -90,37 +90,8 @@
 <body data-page="giacenze">
 
 <template id="top-actions">
-  <button class="top-toggle" id="btnRicalcola" style="border:none;background:none" title="Ricalcola le giacenze dell'anno dai movimenti">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-    Ricalcola giacenze 2026
-  </button>
-  <label class="top-toggle" title="Funzione da definire">
-    <input type="checkbox" id="soloValidare"> Validazione
-  </label>
-  <label class="top-toggle" title="Funzione da definire">
-    <input type="checkbox" id="recordAttuali" checked> Record attuali
-  </label>
   <span class="spacer"></span>
-  <div class="dd" id="ddStrumenti">
-    <button class="btn btn-light" id="btnStrumenti">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
-      Strumenti ▾
-    </button>
-    <div class="dd-menu">
-      <button data-az="Ricalcola giacenze di tutte le sedi">🔄 Ricalcola giacenze di tutte le sedi</button>
-      <button data-az="Riporta giacenze all'anno successivo">📅 Riporta giacenze all'anno successivo</button>
-      <button data-az="esporta">📤 Esporta giacenze (Excel)</button>
-      <button data-az="Azzera giacenze negative" class="danger">⚠️ Azzera giacenze negative</button>
-    </div>
-  </div>
-  <button class="btn btn-light" id="btnInventario">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></svg>
-    Inventario
-  </button>
-  <button class="btn btn-primary" id="btnCrea">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-    Nuova rettifica
-  </button>
+  <button class="btn btn-light" id="btnEsportaTop" title="Scarica in Excel le giacenze mostrate (con i filtri scelti)">📊 Esporta giacenze (Excel)</button>
 </template>
 
 <main class="content">
@@ -144,11 +115,11 @@
     </div>
     <div class="filtri-body">
       <div class="grid-filtri">
-        <div class="f c2"><label for="fAnno">Anno</label><select id="fAnno"><option>2026</option><option>2025</option></select></div>
+        <div class="f c2"><label for="fAnno">Anno di acquisto</label><select id="fAnno"><option value="">Tutti</option></select></div>
         <div class="f c2"><label for="fCodDa">Codice da – a</label>
           <div class="coppia"><input id="fCodDa" type="text" placeholder="da" aria-label="Da codice"><input id="fCodA" type="text" placeholder="a" aria-label="A codice"></div>
         </div>
-        <div class="f c3"><label for="fProv">Provenienza</label><select id="fProv"><option value="">Tutte</option></select></div>
+        <div class="f c3" hidden><label for="fProv">Provenienza</label><select id="fProv"><option value="">Tutte</option></select></div>
         <div class="f c2"><label for="fSenzaCosto">Senza costo</label><label class="switch"><input type="checkbox" id="fSenzaCosto"><span></span></label></div>
         <div class="f c3"><label for="fCat">Categoria</label><select id="fCat"><option value="">Tutte</option></select></div>
       </div>
@@ -197,46 +168,70 @@
 <div class="row-menu" id="rowMenu">
   <button data-az="Vedi movimenti dell'articolo">Vedi movimenti dell'articolo</button>
   <button data-az="Giacenza nelle altre sedi">Giacenza nelle altre sedi</button>
-  <button data-az="Ricalcola giacenza">Ricalcola giacenza</button>
   <button data-az="Stampa etichetta">Stampa etichetta</button>
 </div>
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/categorie.js"></script>
-<script>
+<script src="js/dati-esempio.js"></script>
+<script src="js/dati-articoli-reali.js"></script>
+<script src="js/dati-articoli.js"></script>
+<script src="js/movimenti-db.js"></script>
+<script type="module">
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  // ---------- Dati di esempio ----------
-  // storico: [anno, carichi, scarichi] (significato da confermare); ric = la quantità va ricalcolata
-  const GIACENZE = [
-    { cod: "A01", descr: "Calici", storico: [[2026, 0, 0]], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "8030969000011", scorta: 0 },
-    { cod: "A01/P", descr: "Calice cer. avorio", storico: [[2025, 2, 0], [2026, 0, 1]], costo: 18.5, qIni: 2, qAtt: 1, forn: 0, cli: 0, barcode: "9770042735161", scorta: 2, ric: true },
-    { cod: "A01/P CHIRO'", descr: "Calice Chiro' avorio", storico: [], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "9770042738001", scorta: 0 },
-    { cod: "A0101", descr: "Calice H17 pietra oll/met", storico: [[2026, 0, 0]], costo: 0, qIni: 0, qAtt: 0, forn: 0, cli: 0, barcode: "", scorta: 0 },
-    { cod: "A0105A", descr: "Calice H15 argentato antica e nuova alleanza", storico: [[2025, 1, 1]], costo: 325, qIni: 1, qAtt: 1, forn: 1, cli: 0, barcode: "8030969000058", scorta: 1 },
-    { cod: "A0110/11", descr: "Calice ceram. Tutto a tutti", storico: [[2025, 1, 0], [2026, 0, 3]], costo: 21.5, qIni: 1, qAtt: 3, forn: -4, cli: 0, barcode: "8030969000126", scorta: 2 },
-    { cod: "A0110/12", descr: "Calice ceram. Riuniti dal risorto", storico: [[2025, 3, 1]], costo: 30.5, qIni: 3, qAtt: 1, forn: 0, cli: 0, barcode: "8030969134180", scorta: 2 },
-    { cod: "A0110/14", descr: "Calice ceram. H16/DM9,5 cm gioia", storico: [[2025, 2, 2], [2026, 0, 1]], costo: 34, qIni: 2, qAtt: 3, forn: 0, cli: 0, barcode: "8030969172953", scorta: 2 },
-    { cod: "A0110/16", descr: "Calice cer. rosso \"Sanguev.\"", storico: [[2025, 2, 2]], costo: 31.5, qIni: 2, qAtt: 2, forn: 2, cli: 0, barcode: "8030969741173", scorta: 1 },
-    { cod: "A0110/17", descr: "Calice \"La vera vite\" ceramica", storico: [[2025, 1, 0]], costo: 38.5, qIni: 1, qAtt: 0, forn: 1, cli: 0, barcode: "8030969750465", scorta: 1 },
-    { cod: "B0201", descr: "Pisside dorata con coperchio", storico: [[2026, 5, 0]], costo: 95, qIni: 0, qAtt: 5, forn: 0, cli: 2, barcode: "8030969200015", scorta: 2 },
-    { cod: "B0202", descr: "Patena argentata D16", storico: [[2026, 0, 1]], costo: 38, qIni: 0, qAtt: -1, forn: 3, cli: 0, barcode: "8030969200022", scorta: 1 },
-    { cod: "F1001", descr: "Stola ricamata bianca", storico: [[2025, 20, 8], [2026, 0, 0]], costo: 22.5, qIni: 12, qAtt: 12, forn: 0, cli: 0, barcode: "8030969300012", scorta: 5 },
-    { cod: "F2001", descr: "Casula in seta avorio", storico: [[2026, 2, 0]], costo: 180, qIni: 0, qAtt: 2, forn: 0, cli: 1, barcode: "8030969310011", scorta: 3 },
-    { cod: "R0501", descr: "Rosario in legno d'ulivo", storico: [[2025, 60, 14], [2026, 0, 0]], costo: 1.9, qIni: 46, qAtt: 46, forn: 0, cli: 0, barcode: "8030969400019", scorta: 20 },
-    { cod: "R0502", descr: "Rosario argento 925", storico: [[2026, 4, 0]], costo: 0, qIni: 0, qAtt: 4, forn: 0, cli: 0, barcode: "8030969400026", scorta: 2 }
-  ].map(g => ({ ...g, descr: g.descr.toUpperCase(), prov: "Magazzino Centrale" }));
+  // ---------- Dati veri dal database (sede di lavoro) ----------
+  // Un articolo compare se in questa sede ha avuto movimenti o ha giacenza. Per ognuno:
+  //   storico = pezzi per anno di acquisto [anno, pezzi] (lottiSedeDb in movimenti-db.js, come la scheda Giacenza dell'articolo)
+  //   qIni = giacenza al 1° gennaio, qAtt = giacenza di oggi (vista giacenze), scorta = scorta minima dell'articolo
+  //   forn = ordinato e non ancora arrivato (ordini a fornitore definitivi + inevasi degli ordini alle sedi), cli = prenotato dai clienti
+  // "Da ricalcolare" del gestionale vecchio non c'è: la giacenza si calcola sempre dai movimenti.
+  const GIACENZE = [];
+  const sedeLavoro = trovaSede(leggiSede()).nome;
+  const db = await dbPronto, sedeId = ID_SEDI_DB[sedeLavoro];
+  async function righeOrdini(tipo) {
+    const tutte = [];
+    for (let da = 0; ; da += 1000) {
+      const { data, error } = await db.from("movimenti_righe").select("articolo_id, quantita, movimenti!inner(tipo, stato, sede_id, fornitori(sede_collegata))")
+        .eq("movimenti.tipo", tipo).eq("movimenti.stato", "Definitivo").eq("movimenti.sede_id", sedeId).order("id").range(da, da + 999);
+      if (error) throw error;
+      tutte.push(...data);
+      if (data.length < 1000) break;
+    }
+    return tutte;
+  }
+  async function caricaGiacenze() {
+    const [, lotti, ordForn, ordCli, inev] = await Promise.all([
+      caricaArticoliDalDb(db, sedeId), lottiSedeDb(db, sedeId), righeOrdini("ordine_fornitore"), righeOrdini("ordine_cliente"),
+      db.from("inevasi").select("articolo_id, residuo, sede_fornitrice").eq("sede_richiedente", sedeId).gt("residuo", 0)
+    ]);
+    const somma = (m, id, q) => m.set(id, (m.get(id) || 0) + q);
+    const forn = new Map(), cli = new Map();
+    ordForn.forEach(r => { if (!(r.movimenti.fornitori && r.movimenti.fornitori.sede_collegata)) somma(forn, r.articolo_id, +r.quantita); });
+    (inev.data || []).filter(x => x.sede_fornitrice !== sedeId).forEach(x => somma(forn, x.articolo_id, +x.residuo));
+    ordCli.forEach(r => somma(cli, r.articolo_id, +r.quantita));
+    GIACENZE.length = 0;
+    ARTICOLI.forEach(a => {
+      if (!lotti.has(a.id) && !a.giac) return;
+      const storico = [...(lotti.get(a.id) || new Map())].filter(([, q]) => Math.abs(q) > 0.0001).sort((x, y) => x[0] - y[0]);
+      GIACENZE.push({ id: a.id, cod: a.codice, descr: String(a.descr || "").toUpperCase(), storico, costo: a.costo || 0,
+        qIni: Math.round((lotti.inizioAnno.get(a.id) || 0) * 100) / 100, qAtt: a.giac || 0,
+        forn: forn.get(a.id) || 0, cli: cli.get(a.id) || 0, barcode: a.barcode || "", scorta: +a.scorta || 0 });
+    });
+    const anni = [...new Set(GIACENZE.flatMap(g => g.storico.map(x => x[0])))].sort((x, y) => y - x);
+    $("fAnno").innerHTML = '<option value="">Tutti</option>' + anni.map(x => `<option>${x}</option>`).join("");
+  }
 
   const statoQ = g => g.qAtt < 0 ? "neg" : g.qAtt === 0 ? "zero" : g.qAtt <= g.scorta ? "scorta" : "ok";
 
   const COLONNE = [
     { k: "cod", t: "Articolo", sort: g => g.cod, html: g => `<td><div class="art" title="${esc(g.cod + ": " + g.descr)}"><span class="codice">${esc(g.cod)}</span><span class="descr">${esc(g.descr)}</span></div></td>` },
-    { k: "storico", t: "Anni", sort: g => g.storico.length, html: g => `<td><div class="storico">${g.storico.map(([a, c, s]) => `<span class="anno-chip"><b>${a}</b>${c} / ${s}</span>`).join("") || '<span class="anno-chip">–</span>'}</div></td>` },
+    { k: "storico", t: "Anni", sort: g => g.storico.length, html: g => `<td><div class="storico">${g.storico.map(([a, q]) => `<span class="anno-chip" title="Pezzi acquistati nel ${a}"><b>${a}</b>${+q.toFixed(2)}</span>`).join("") || '<span class="anno-chip">–</span>'}</div></td>` },
     { k: "costo", t: "Costo", num: true, sort: g => g.costo, html: g => `<td class="num">${g.costo ? numero(g.costo) : '<span style="color:var(--ko)" title="Costo mancante">—</span>'}</td>` },
     { k: "qIni", t: "Q. iniz.", num: true, sort: g => g.qIni, html: g => `<td class="num">${g.qIni}</td>` },
-    { k: "qAtt", t: "Q. attuale", num: true, sort: g => g.qAtt, html: g => `<td class="num"><span class="q ${statoQ(g)}" title="Scorta minima: ${g.scorta}">${g.qAtt}</span>${g.ric ? '<button class="ricalc" title="Quantità da ricalcolare" data-az="ricalcola">↻</button>' : ""}</td>` },
+    { k: "qAtt", t: "Q. attuale", num: true, sort: g => g.qAtt, html: g => `<td class="num"><span class="q ${statoQ(g)}" title="Scorta minima: ${g.scorta}">${g.qAtt}</span></td>` },
     { k: "valore", t: "Valore", num: true, sort: g => g.qAtt * g.costo, html: g => `<td class="num valore">${g.qAtt > 0 && g.costo ? numero(g.qAtt * g.costo) : ""}</td>` },
     { k: "ordini", t: "In ordine", sort: g => g.forn + g.cli, html: g => `<td><div class="ordini">${g.forn || g.cli ? (g.forn ? `<span class="ord ${g.forn < 0 ? "neg" : "forn"}" title="Ordinato ai fornitori">Forn ${g.forn}</span>` : "") + (g.cli ? `<span class="ord cli" title="Ordinato dai clienti">Cli ${g.cli}</span>` : "") : '<span class="ord">0</span>'}</div></td>` },
     { k: "barcode", t: "Barcode", sort: g => g.barcode, html: g => `<td><span class="barcode">${g.barcode}</span></td>` }
@@ -247,8 +242,7 @@
     { k: "disp", t: "Disponibili", colore: "#18a058", f: g => g.qAtt > g.scorta },
     { k: "scorta", t: "Sotto scorta", colore: "#e58a00", f: g => g.qAtt > 0 && g.qAtt <= g.scorta },
     { k: "zero", t: "Esauriti", colore: "#94a3b8", f: g => g.qAtt === 0 },
-    { k: "neg", t: "Negativi", colore: "#c62828", f: g => g.qAtt < 0 },
-    { k: "ric", t: "Da ricalcolare", colore: "#7c4dff", f: g => g.ric }
+    { k: "neg", t: "Negativi", colore: "#c62828", f: g => g.qAtt < 0 }
   ];
 
   let tab = "";
@@ -264,12 +258,11 @@
   function filtra() {
     const q = $("cerca").value.trim().toLowerCase();
     const t = TABS.find(x => x.k === tab);
-    const anno = +$("fAnno").value;
+    const anno = +$("fAnno").value;   // anno di acquisto: articoli che hanno pezzi di quell'anno
     return GIACENZE.filter(g => {
       if (!t.f(g)) return false;
-      if (anno === 2025 && !g.storico.some(s => s[0] === 2025)) return false;
+      if (anno && !g.storico.some(s => s[0] === anno)) return false;
       if ($("fSenzaCosto").checked && g.costo) return false;
-      if ($("fProv").value && g.prov !== $("fProv").value) return false;
       if ($("fCat").value && !g.cod.startsWith($("fCat").value)) return false;
       if ($("fCodDa").value && g.cod.toLowerCase() < $("fCodDa").value.toLowerCase()) return false;
       if ($("fCodA").value && g.cod.toLowerCase() > $("fCodA").value.toLowerCase() + "￿") return false;
@@ -316,7 +309,7 @@
     const pos = righe.filter(g => g.qAtt > 0);
     $("totali").innerHTML = `
       <span>Articoli: <b>${righe.length}</b></span>
-      <span>Pezzi: <b>${pos.reduce((s, g) => s + g.qAtt, 0)}</b></span>
+      <span>Pezzi: <b>${(+pos.reduce((s, g) => s + g.qAtt, 0).toFixed(2)).toLocaleString("it-IT")}</b></span>
       <span>Valore a costo: <b>${euro(pos.reduce((s, g) => s + g.qAtt * g.costo, 0))}</b></span>
       <span>Sotto scorta: <b>${righe.filter(g => g.qAtt <= g.scorta && g.scorta > 0).length}</b></span>`;
     $("paginaInfo").textContent = `Pagina ${pagina} di ${pagine}`;
@@ -346,11 +339,7 @@
   $("filtriHead").onclick = () => $("filtri").classList.toggle("chiusi");
   $("prec").onclick = () => { pagina--; disegna(); };
   $("succ").onclick = () => { pagina++; disegna(); };
-  $("aggiorna").onclick = () => { disegna(); avviso("Elenco aggiornato"); };
-  $("recordAttuali").onchange = $("soloValidare").onchange = () => avviso("Funzione da definire insieme");
-  $("btnRicalcola").onclick = () => avviso("Ricalcolo giacenze 2026: logica da definire insieme");
-  $("btnInventario").onclick = () => avviso("Inventario: schermata da costruire");
-  $("btnCrea").onclick = () => avviso("Nuova rettifica: schermata da costruire");
+  $("aggiorna").onclick = async () => { await caricaGiacenze().catch(err => avviso("Errore nel leggere le giacenze: " + err.message, true)); disegna(); avviso("Elenco aggiornato"); };
 
   // Selezione righe ed etichette
   $("righe").addEventListener("change", e => {
@@ -363,17 +352,11 @@
   $("btnEtichette").onclick = () => avviso("Seleziona gli articoli con le caselle a sinistra");
   $("etichetteSel").onclick = () => avviso(`Stampa etichette per ${selezionati.size} articoli: la definiamo insieme`);
 
-  const esporta = () => esportaExcel("giacenze", "Giacenze", [["Codice", "Descrizione", "Costo", "Q. iniziale", "Q. attuale", "Valore", "Ordinato fornitori", "Ordinato clienti", "Barcode"]]
-    .concat(filtra().map(g => [g.cod, g.descr, numero(g.costo), g.qIni, g.qAtt, numero(Math.max(0, g.qAtt) * g.costo), g.forn, g.cli, g.barcode])));
+  const esporta = () => esportaExcel(`${sedeLavoro.replace(/\s+/g, "_")}_Giacenze_${new Date().toISOString().slice(0, 10)}`, "Giacenze", [["Codice", "Descrizione", "Costo", "Q. iniziale", "Q. attuale", "Valore", "Ordinato fornitori", "Ordinato clienti", "Barcode"]]
+    .concat(filtra().map(g => [g.cod, g.descr, g.costo, g.qIni, g.qAtt, Math.round(Math.max(0, g.qAtt) * g.costo * 100) / 100, g.forn, g.cli, g.barcode])));
   $("esporta").onclick = esporta;
 
-  $("btnStrumenti").onclick = e => { e.stopPropagation(); $("ddStrumenti").classList.toggle("open"); };
-  $("ddStrumenti").querySelector(".dd-menu").onclick = e => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    $("ddStrumenti").classList.remove("open");
-    if (b.dataset.az === "esporta") esporta(); else avviso(`${b.dataset.az}: da definire insieme`);
-  };
+  $("btnEsportaTop").onclick = esporta;
 
   // Menu azioni della riga e ricalcolo singolo
   const rowMenu = $("rowMenu");
@@ -383,8 +366,7 @@
     if (!btn) return;
     e.stopPropagation();
     const cod = btn.closest("tr").dataset.cod;
-    if (btn.dataset.az === "apri") { location.href = "articoli.html"; return; }
-    if (btn.dataset.az === "ricalcola") { avviso(`Ricalcolo giacenza ${cod}: logica da definire insieme`); return; }
+    if (btn.dataset.az === "apri") { location.href = `articolo.html?cod=${encodeURIComponent(cod)}`; return; }
     rigaMenu = cod;
     const box = btn.getBoundingClientRect();
     rowMenu.classList.add("show");
@@ -393,12 +375,16 @@
   });
   rowMenu.onclick = e => {
     const b = e.target.closest("button");
-    if (b) avviso(`${b.dataset.az} ${rigaMenu}: da definire insieme`);
+    if (b && b.dataset.az === "Vedi movimenti dell'articolo") location.href = `articolo.html?cod=${encodeURIComponent(rigaMenu)}`;
+    else if (b) avviso(`${b.dataset.az} ${rigaMenu}: da definire insieme`);
     rowMenu.classList.remove("show");
   };
-  document.addEventListener("click", () => { rowMenu.classList.remove("show"); $("ddStrumenti").classList.remove("open"); });
+  document.addEventListener("click", () => rowMenu.classList.remove("show"));
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
+  // All'apertura: si leggono le giacenze vere della sede di lavoro (qualche secondo), poi si disegna
+  $("righe").innerHTML = `<tr><td colspan="${2 + COLONNE.length}"><div class="vuoto"><b>Lettura delle giacenze di ${esc(sedeLavoro)}…</b></div></td></tr>`;
+  await caricaGiacenze().catch(err => avviso("Errore nel leggere le giacenze: " + err.message, true));
   disegna();
 </script>
 </body>
