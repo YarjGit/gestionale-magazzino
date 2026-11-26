@@ -16,10 +16,10 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
-<script src="js/elenco.js?v=20261126"></script>
+<script src="js/elenco.js?v=20261126b"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js?v=20261126"></script>
+<script src="js/movimenti-db.js?v=20261126b"></script>
 <script>
   // Riepilogo di tutti i tipi di movimento della sede, come "Tutti i Movimenti" del gestionale attuale:
   // qui non si crea nulla, si consulta; un clic sulla riga apre il movimento nella sua scheda.
@@ -31,7 +31,7 @@
   const elenco = avviaElenco({
     titolo: "Tutti i Movimenti",
     csv: "tutti-movimenti",
-    senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
+    senzaEtichette: true,   // niente Etichette in alto (chiesto dall'utente)
     stati: [STATO.definitivo, STATO.provvisorio, STATO.conInevasi, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato].filter(Boolean),   // filter: con un elenco.js vecchio in memoria la scheda Con inevasi manca, ma la pagina funziona
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],

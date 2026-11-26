@@ -34,11 +34,11 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
-<script src="js/elenco.js"></script>
+<script src="js/elenco.js?v=20261126b"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-vendite.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js"></script>
+<script src="js/movimenti-db.js?v=20261126b"></script>
 <script src="js/excel.js"></script>
 <script>
   // ?canale=ecommerce → solo le giornate di vendite online (lista a parte); senza → solo le giornate del negozio
@@ -49,7 +49,7 @@
     titolo: ECOM ? "Vendite e-commerce" : "Vendite Giornaliere",
     nota: ECOM ? "🛒 Una giornata per ogni giorno di vendite online: la merce esce dalla giacenza della sede in cui lavori. Durante il giorno si aprono le <b>vendite di oggi</b> e si aggiungono gli articoli man mano, con l'ora." : undefined,
     nuovo: ECOM ? "Nuova vendita e-commerce" : "Nuova vendita",
-    senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
+    senzaEtichette: true,   // niente Etichette in alto (chiesto dall'utente)
     nuovoUrl: ECOM ? "vendita.html?nuovo=1&canale=ecommerce" : undefined,
     dettaglio: "vendita.html",
     csv: "vendite-giornaliere",
