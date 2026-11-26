@@ -371,7 +371,34 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function inevasi_annullati_sede(text) to authenticated;
 
--- Controllo: deve dare 14
+-- ---------- Clienti e ordini da cliente ----------
+-- Cliente nuovo o modificato. Codice automatico come nel prototipo: il successivo numerico a 6 cifre (es. 000480),
+-- come i clienti importati dal gestionale attuale. (Sostituisce la versione del file 33, che usava "C00001".)
+create or replace function salva_cliente(p_id uuid, p_dati jsonb) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare v_n int;
+begin
+  if not e_autorizzato() then raise exception 'Utente non autorizzato'; end if;
+  if p_id is null and coalesce(p_dati ->> 'codice', '') = '' then
+    perform pg_advisory_xact_lock(hashtext('codice:clienti'));
+    select coalesce(max(codice::int), 0) + 1 into v_n from clienti where codice ~ '^\d{1,9}$';
+    p_dati := p_dati || jsonb_build_object('codice', lpad(v_n::text, 6, '0'));
+  end if;
+  return _scrivi_anagrafica('clienti', p_id::text, p_dati, array['id_vecchio'])::uuid;
+end $$;
+grant execute on function salva_cliente(uuid, jsonb) to authenticated;
+
+-- Scarico a cliente (non annullato) già fatto per un ordine da cliente: null se l'ordine non è ancora stato scalato
+create or replace function scarico_di_ordine(p_ordine bigint) returns bigint
+language sql stable security invoker set search_path = public as $$
+  select max(m.id) from movimenti_righe r join movimenti m on m.id = r.movimento_id
+  where m.tipo = 'scarico_cliente' and m.stato <> 'Annullato'
+    and r.ordine_riga_id in (select id from movimenti_righe where movimento_id = p_ordine);
+$$;
+grant execute on function scarico_di_ordine(bigint) to authenticated;
+
+-- Controllo: deve dare 16
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
-  'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede');
+  'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede', 'salva_cliente',
+  'scarico_di_ordine');

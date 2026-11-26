@@ -7,13 +7,13 @@ import type { FornitoreBreve } from '../features/fornitori/fornitori-sede.servic
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="cerca-forn-campo" style="position:relative">
-      <input [placeholder]="vuoto() ? vuoto() + ' · scrivi nome o codice…' : 'Scrivi nome o codice del fornitore…'" autocomplete="off"
+      <input [placeholder]="vuoto() ? vuoto() + ' · scrivi nome o codice…' : 'Scrivi nome o codice del ' + cosa() + '…'" autocomplete="off"
              [value]="testo()" [disabled]="disabilitato()" (focus)="apri()" (input)="scrivi($event)" (keydown)="tasto($event)" (blur)="chiudi()">
       <div class="suggerimenti" [class.show]="aperto()">
         @for (f of trovati(); track f.id; let i = $index) {
           <div class="sugg" [class.attivo]="i === attivo()" (mousedown)="scegli(f)"><span class="codice">{{ f.codice }}</span>{{ f.nome }}</div>
         } @empty {
-          <div class="sugg" style="cursor:default;color:var(--muted)">Nessun fornitore trovato</div>
+          <div class="sugg" style="cursor:default;color:var(--muted)">Nessun {{ cosa() }} trovato</div>
         }
       </div>
     </div>
@@ -23,6 +23,8 @@ export class CercaFornitore {
   readonly fornitori = input.required<FornitoreBreve[]>();
   readonly valore = input<string | null>(null);
   readonly vuoto = input('');
+  /** cosa si cerca, per le scritte: "fornitore" o "cliente" */
+  readonly cosa = input('fornitore');
   readonly disabilitato = input(false);
   readonly cambiato = output<string | null>();
 

@@ -350,6 +350,8 @@ export interface RpcFunzioni {
   inevasi_dettaglio: { args: { p_sede_fornitrice: SedeId; p_ordine: number | null; p_righe: number[] | null; p_richiedente: SedeId | null; p_solo_evasi: boolean }; ritorno: InevasoDettaglio[] };
   /** Registro degli inevasi cancellati che riguardano la sede (mandati o ordinati). */
   inevasi_annullati_sede: { args: { p_sede: SedeId }; ritorno: { id: number; annullato_il: string; annullato_da: string | null; quantita: Numerico; motivo: string | null; ordine_id: number; codice: string; descrizione: string; filiale: string | null }[] };
+  /** Scarico a cliente già fatto per un ordine (null = non ancora scalato). */
+  scarico_di_ordine: { args: { p_ordine: number }; ritorno: number | null };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */

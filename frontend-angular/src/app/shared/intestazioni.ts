@@ -63,3 +63,25 @@ export function salvaPerStampa(chiave: 'stampa' | 'etichette', dati: DocumentoSt
 
 /** true se la sede ha la sua carta intestata scritta qui. */
 export const haIntestazione = (nome: string): boolean => nome in INTESTAZIONI;
+
+/** DDT da stampare (pagina /stampa-ddt, come stampa-ddt.html): "DA CONSEGNARE A" è sempre il cliente. */
+export interface DdtStampa {
+  titolo: string;
+  sede: string;
+  numBolla: string;
+  dataBolla: string;
+  consegna: string[];
+  codiceCliente: string;
+  colli: string;
+  contenuto: string;
+  peso: string;
+  porto: string;
+  corriere: string;
+  tracking: string;
+  quantitaTotale: string;
+  righe: { n: number; cod: string; descr: string; qta: string }[];
+  ritorno: string;
+}
+export function salvaDdt(d: DdtStampa): void {
+  try { sessionStorage.setItem('ddt', JSON.stringify(d)); } catch { /* senza memoria del browser la stampa non si apre */ }
+}

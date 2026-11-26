@@ -1,0 +1,112 @@
+<div [class.in-modifica]="modifica()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a [routerLink]="elenco()" style="color:var(--accent)">Torna all'elenco</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="nuovo ? 'Nuovo ' + nome().toLowerCase() : nome()" [numero]="id()" [stato]="stato()" [totale]="totale()" etichettaTotale="Totale IVA inclusa"
+    [sotto]="pezzi() + ' pezzi · ' + righe().length + ' righe'" [elenco]="elenco()" [nomeElenco]="scarico() ? 'Scarichi a Clienti' : 'Ordini da Clienti'"
+    [modifica]="modifica()" [modificabile]="statoSalvato() !== 'Annullato'" [salvataggio]="salvataggio()" [inventario]="scarico() ? inventario() : null"
+    [testoModifica]="nuovo ? 'Scegli il cliente e aggiungi gli articoli.' : 'Stai modificando. Ricordati di salvare.'"
+    (modificaClick)="modificaScheda()" (annulla)="annullaModifica()" (salva)="salva($event)">
+    <button class="btn btn-light" (click)="ddt()">🖨️ Stampa DDT</button>
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+  </app-testa-scheda>
+  @if (scarico()) {
+    <div class="banner" style="background:#fff7ed;border:1px solid #f5c58a;color:#9a4b00">📦 <span>Lo scarico <b>toglie la merce dalla giacenza</b> di {{ sede.sede()?.nome }} quando è Definitivo (o Evaso).
+      @if (ordineOrigine(); as o) { È nato dall'<a [routerLink]="['/ordine-cliente', o]" style="color:inherit;font-weight:700">ordine da cliente #{{ o }}</a>: se mandi meno pezzi, abbassa qui le quantità. }</span></div>
+  }
+  @if (scaricoId() && !scarico()) {
+    <div class="banner" style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Merce già scalata dalla giacenza con lo <a [routerLink]="['/ordine-cliente', scaricoId()]" style="color:inherit;font-weight:700">scarico #{{ scaricoId() }}</a>: gli articoli dell'ordine non si cambiano più.</span></div>
+  }
+
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="tab.set('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="tab.set('articoli')">📦 Articoli <span class="n">{{ righe().length }}</span></button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab"><div class="dettagli"><div>
+      <div class="gruppo"><h3>👤 Cliente</h3><div class="campi">
+        <div class="f s4"><label>Cliente <span style="color:var(--ko)">*</span></label>
+          <div style="display:flex;gap:6px"><div style="flex:1"><app-cerca-fornitore cosa="cliente" [fornitori]="clientiBrevi()" [valore]="cliente()" [disabilitato]="!modifica()" (cambiato)="cliente.set($event)" /></div>
+            @if (modifica()) { <button class="btn btn-light" type="button" (click)="apriNuovoCliente()">➕ Nuovo cliente</button> }</div>
+          <div class="cliente-ddt" [class.manca]="!clienteScelto()">
+            @if (clienteScelto(); as c) { <b>DA CONSEGNARE A (sul DDT)</b>@for (r of righeDdt(); track $index) { {{ r }}<br> }@if (!c.indirizzo) { <span style="color:#b42318">⚠ manca l'indirizzo del cliente</span> } }
+            @else { Nessun cliente scelto: il DDT si intesta sempre al cliente dell'ordine. }
+          </div></div>
+        <div class="f s2"><label>Sconto cliente %</label>
+          <div style="display:flex;gap:6px"><input type="number" min="0" max="100" step="0.5" placeholder="0" style="text-align:right;width:80px" [value]="sconto() || ''" [disabled]="!modifica()" (input)="sconto.set(+testo($event) || 0)">
+            @if (modifica()) { <button class="btn btn-light" type="button" title="Mette questo sconto su tutte le righe" (click)="applicaSconto()">Applica a tutte</button> }</div>
+          <span class="aiuto">es. librerie 35%: vale anche per gli articoli che aggiungi dopo</span></div>
+      </div></div>
+      <div class="gruppo"><h3>📄 Documento</h3><div class="campi">
+        <div class="f s2"><label>Stato movimento</label>
+          <select [disabled]="!modifica() || righeBloccate()" (change)="stato.set(testo($event))">
+            @for (s of ['Provvisorio', 'Definitivo', 'Evaso']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+            @if (stato() === 'Annullato') { <option selected>Annullato</option> }
+          </select></div>
+        <div class="f s2"><label>Data documento</label><input type="date" [value]="doc().data" [disabled]="!modifica()" (change)="campo('data', $event)"></div>
+        <div class="f s1"><label>Numero bolla</label><input placeholder="automatico" [value]="doc().numBolla" [disabled]="!modifica()" (input)="campo('numBolla', $event)"><span class="aiuto">es. 3/2026</span></div>
+        <div class="f s2"><label>Data bolla</label><input type="date" [value]="doc().dataBolla" [disabled]="!modifica()" (change)="campo('dataBolla', $event)"></div>
+      </div></div>
+      <div class="gruppo"><h3>🚚 Spedizione (sul DDT)</h3><div class="campi">
+        <div class="f s1"><label>N. colli</label><input type="number" min="0" style="text-align:right" [value]="doc().colli" [disabled]="!modifica()" (input)="campo('colli', $event)"></div>
+        <div class="f s2"><label>Colli contenenti</label><input placeholder="es. ARREDI SACRI" [value]="doc().contenuto" [disabled]="!modifica()" (input)="campo('contenuto', $event)"></div>
+        <div class="f s1"><label>Peso KG.</label><input style="text-align:right" [value]="doc().peso" [disabled]="!modifica()" (input)="campo('peso', $event)"></div>
+        <div class="f s1"><label>Porto</label><select [disabled]="!modifica()" (change)="campo('porto', $event)">@for (p of ['Franco', 'Assegnato']; track p) { <option [selected]="p === doc().porto">{{ p }}</option> }</select></div>
+        <div class="f s2"><label>Corriere</label><input placeholder="es. BRT, ritiro a mano…" [value]="doc().corriere" [disabled]="!modifica()" (input)="campo('corriere', $event)"></div>
+        <div class="f s2"><label>Tracking number</label><input [value]="doc().tracking" [disabled]="!modifica()" (input)="campo('tracking', $event)"></div>
+      </div></div>
+      <div class="gruppo"><h3>📝 Note</h3><div class="campi">
+        <div class="f s3"><label>Causale</label><textarea [value]="doc().causale" [disabled]="!modifica()" (input)="campo('causale', $event)"></textarea><span class="aiuto">non stampata sul documento</span></div>
+        <div class="f s3"><label>Annotazioni</label><textarea [value]="doc().annot" [disabled]="!modifica()" (input)="campo('annot', $event)"></textarea><span class="aiuto">non stampate sul DDT</span></div>
+      </div></div>
+    </div>
+    <aside class="riepilogo">
+      <h3>Riepilogo</h3>
+      <div class="voce-imp fissa"><label>Pezzi</label><input [value]="pezzi()" disabled></div>
+      <div class="totale-compl"><span>= Totale IVA inclusa</span><span class="v">{{ numero(totale()) }}</span></div>
+    </aside></div></div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      <app-righe-movimento [config]="config()" [(righe)]="righe" [modifica]="modifica() && !righeBloccate()" [sedeEstera]="estera()" [scontoNuovo]="sconto()" />
+    </div>
+    }
+  </section>
+
+  @if (chiediScala()) {
+    <div class="modal-bg show"><div class="modal" style="width:min(520px,100%)">
+      <h2>📦 Vuoi scalare la merce dalla giacenza?</h2>
+      <p>Se scegli <b>Sì</b>, i {{ pezzi() }} pezzi di questo ordine ({{ righe().length }} articoli) escono dalla giacenza di <b>{{ sede.sede()?.nome }}</b> e l'ordine diventa Evaso.<br>
+        Se scegli <b>No</b>, si stampa solo il DDT e la giacenza non cambia.</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-light" (click)="chiediScala.set(false)">Annulla</button>
+        <button class="btn btn-light" (click)="scalaNo()">No, stampa solo il DDT</button>
+        <button class="btn btn-primary" [disabled]="salvataggio()" (click)="scalaSi()">Sì, scala la merce</button>
+      </div>
+    </div></div>
+  }
+  @if (nuovoCliente(); as n) {
+    <div class="modal-bg show"><div class="modal" style="width:min(560px,100%)">
+      <h2>➕ Nuovo cliente</h2>
+      <div class="campi" style="margin-bottom:14px">
+        <div class="f s6"><label>Nome o ragione sociale *</label><input style="text-transform:uppercase" [value]="n.nome" (input)="campoNuovo('nome', $event)" autofocus></div>
+        <div class="f s4"><label>Indirizzo</label><input [value]="n.indirizzo" (input)="campoNuovo('indirizzo', $event)"></div>
+        <div class="f s2"><label>CAP</label><input [value]="n.cap" (input)="campoNuovo('cap', $event)"></div>
+        <div class="f s3"><label>Città</label><input [value]="n.citta" (input)="campoNuovo('citta', $event)"></div>
+        <div class="f s1"><label>Prov.</label><input maxlength="2" [value]="n.provincia" (input)="campoNuovo('provincia', $event)"></div>
+        <div class="f s2"><label>Telefono</label><input [value]="n.telefono" (input)="campoNuovo('telefono', $event)"></div>
+        <div class="f s3"><label>Partita IVA o codice fiscale</label><input [value]="n.piva" (input)="campoNuovo('piva', $event)"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-light" (click)="nuovoCliente.set(null)">Annulla</button>
+        <button class="btn btn-primary" (click)="salvaNuovoCliente()">💾 Salva cliente</button>
+      </div>
+    </div></div>
+  }
+}
+</div>
