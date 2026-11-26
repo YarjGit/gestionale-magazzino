@@ -64,6 +64,56 @@ async function elencoTuttiMovimentiDb(db, sedeId) {
   return gruppi.flat().concat(arrivi).sort((a, b) => (b.data || "").localeCompare(a.data || "") || b.id - a.id);
 }
 
+// Giacenza di una sede divisa per anno di acquisto (lotti), per tutti gli articoli: Map articolo_id → Map anno → pezzi.
+// Stesse regole della scheda Giacenza dell'articolo (caricaGiacenzaVera in articolo.html): le entrate vanno nel loro anno
+// (anno_acquisto del movimento, altrimenti l'anno della data; i trasferimenti ricevuti nell'anno di ricezione), le uscite
+// tolgono dal lotto più vecchio; se si va sotto zero si toglie dall'anno in corso. Usata dagli Excel dell'inventario.
+async function lottiSedeDb(db, sedeId) {
+  const STATI_OK = ["Definitivo", "Evaso"], annoOggi = new Date().getFullYear();
+  const { data: tipi, error: e1 } = await db.from("tipi_movimento").select("codice, segno");
+  if (e1) throw e1;
+  const segno = new Map((tipi || []).map(t => [t.codice, +t.segno || 0]));
+  const leggi = async filtro => {
+    const tutte = [];
+    for (let da = 0; ; da += 1000) {
+      const { data, error } = await filtro(db.from("movimenti_righe")
+        .select("id, articolo_id, quantita, movimenti!inner(id, tipo, stato, sede_id, sede_altra_id, data_movimento, anno_acquisto, ricevuto_il)"))
+        .order("id").range(da, da + 999);
+      if (error) throw error;
+      tutte.push(...data);
+      if (data.length < 1000) break;
+    }
+    return tutte;
+  };
+  const [proprie, ricevute] = await Promise.all([
+    leggi(q => q.eq("movimenti.sede_id", sedeId).in("movimenti.stato", STATI_OK)),
+    leggi(q => q.eq("movimenti.tipo", "trasferimento_a_filiale").eq("movimenti.sede_altra_id", sedeId).in("movimenti.stato", STATI_OK).not("movimenti.ricevuto_il", "is", null))
+  ]);
+  const eventi = [];
+  proprie.forEach(r => {
+    const m = r.movimenti, q = +r.quantita * (segno.get(m.tipo) || 0);
+    if (q) eventi.push({ art: r.articolo_id, data: m.data_movimento, id: m.id, q, anno: m.anno_acquisto || +m.data_movimento.slice(0, 4) });
+  });
+  ricevute.forEach(r => {
+    const m = r.movimenti;
+    if (m.sede_id !== sedeId) eventi.push({ art: r.articolo_id, data: m.ricevuto_il.slice(0, 10), id: m.id, q: +r.quantita, anno: +m.ricevuto_il.slice(0, 4) });
+  });
+  eventi.sort((x, y) => x.data.localeCompare(y.data) || x.id - y.id);
+  const lotti = new Map();
+  eventi.forEach(e => {
+    if (!lotti.has(e.art)) lotti.set(e.art, new Map());
+    const l = lotti.get(e.art);
+    if (e.q > 0) { l.set(e.anno, (l.get(e.anno) || 0) + e.q); return; }
+    let resta = -e.q;
+    [...l.keys()].sort((a, b) => a - b).forEach(anno => {
+      const x = Math.min(resta, Math.max(0, l.get(anno)));
+      if (x > 0) { l.set(anno, l.get(anno) - x); resta -= x; }
+    });
+    if (resta > 0) l.set(annoOggi, (l.get(annoOggi) || 0) - resta);
+  });
+  return lotti;
+}
+
 // Inventario in corso nella sede (riallineamento provvisorio): le pagine di vendita e scarico lo dicono in alto in rosso
 async function avvisaInventarioInCorso(db, sedeId) {
   if (!db) return;

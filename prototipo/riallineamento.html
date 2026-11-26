@@ -58,6 +58,8 @@
 <template id="top-actions">
   <span class="spacer"></span>
   <button class="btn btn-light" id="btnStampa">🖨️ Stampa differenze</button>
+  <button class="btn btn-light" id="btnExcelGiac" title="Giacenza di questa sede com'è adesso nel gestionale">📊 Excel giacenza attuale</button>
+  <button class="btn btn-light" id="btnExcelInv" title="Articoli contati in questo inventario, con le differenze">📊 Excel inventario</button>
   <button class="btn btn-light" id="btnChiudi">✕ Chiudi</button>
   <button class="btn btn-light" id="btnAnnullaInv" hidden>⛔ Annulla inventario</button>
   <button class="btn btn-primary" id="btnSalva" hidden>💾 Salva e continua dopo</button>
@@ -472,6 +474,56 @@
       note: $("fNote").value.trim(), nuovaScheda: true
     }));
     window.open("stampa-documento.html?auto=1", "_blank");
+  };
+
+  // ---------- Excel ----------
+  // Colonne chieste dall'utente: Codice art., Descrizione, Quantità, Costo, Totale, Anno (anno di acquisto).
+  // Un articolo con pezzi di anni diversi ha una riga per anno. Costo = costo d'acquisto attuale dell'articolo.
+  const nomeFile = parte => `${sedeLavoro.replace(/\s+/g, "_")}_${parte}`;
+  const INTESTAZIONE_EXCEL = ["Codice art.", "Descrizione", "Quantità", "Costo", "Totale", "Anno"];
+  const rigaExcel = (a, q, anno) => [a.codice, a.descr, q, a.costo || 0, Math.round(q * (a.costo || 0) * 100) / 100, anno];
+  const perCodice = (x, y) => x[0].localeCompare(y[0]) || x[5] - y[5];
+  // Lotti per anno letti una volta sola (servono a tutti e due gli Excel)
+  let lottiPronti = null;
+  const lotti = () => lottiPronti || (lottiPronti = lottiSedeDb(db, sedeId));
+
+  // Giacenza attuale della sede (com'è adesso nel gestionale), divisa per anno di acquisto: da scaricare prima di contare.
+  // Dopo la conferma di un inventario è già quella contata.
+  $("btnExcelGiac").onclick = async () => {
+    avviso("Preparo l'Excel della giacenza…");
+    try {
+      const L = await lotti(), righe = [];
+      ARTICOLI.filter(a => a.giac).forEach(a => {
+        const anni = [...(L.get(a.id) || new Map())].filter(([, q]) => Math.abs(q) > 0.0001);
+        if (anni.length) anni.forEach(([anno, q]) => righe.push(rigaExcel(a, q, anno)));
+        else righe.push(rigaExcel(a, a.giac, ""));
+      });
+      if (!righe.length) { avviso("In questa sede non ci sono articoli con giacenza"); return; }
+      esportaExcel(nomeFile(`Giacenza_${oggi}`), "Giacenza", [INTESTAZIONE_EXCEL].concat(righe.sort(perCodice)));
+    } catch (err) { avviso("Errore nel preparare l'Excel: " + err.message, true); }
+  };
+
+  // Nuovo inventario: la giacenza come sarà (o è) dopo la conferma.
+  // Articoli contati: i pezzi contati, sull'anno dell'inventario (regola dell'anno ancora da definire: per ora l'anno in corso).
+  // Solo per "tutto il magazzino": anche i non sparati lasciati come sono (con i loro anni); gli eliminati no.
+  $("btnExcelInv").onclick = async () => {
+    const annoInv = mov ? (mov.anno_acquisto || +mov.data_movimento.slice(0, 4)) : +oggi.slice(0, 4);
+    const contati = [...CONTATI.values()].filter(c => c.contati);
+    const lasciati = ambito === "tutto" && inCorso ? nonSparati().filter(a => SCELTE.get(a.id) !== "elimina") : [];
+    if (!contati.length && !lasciati.length) { avviso("Non ci sono ancora articoli contati"); return; }
+    avviso("Preparo l'Excel dell'inventario…");
+    try {
+      const righe = contati.map(c => rigaExcel(c.articolo, c.contati, annoInv));
+      if (lasciati.length) {
+        const L = await lotti();
+        lasciati.forEach(a => {
+          const anni = [...(L.get(a.id) || new Map())].filter(([, q]) => Math.abs(q) > 0.0001);
+          if (anni.length) anni.forEach(([anno, q]) => righe.push(rigaExcel(a, q, anno)));
+          else righe.push(rigaExcel(a, a.giac, ""));
+        });
+      }
+      esportaExcel(nomeFile(`Inventario_${mov ? "#" + mov.id : "nuovo"}`), "Inventario", [INTESTAZIONE_EXCEL].concat(righe.sort(perCodice)));
+    } catch (err) { avviso("Errore nel preparare l'Excel: " + err.message, true); }
   };
 
   disegna();

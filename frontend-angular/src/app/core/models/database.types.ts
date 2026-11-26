@@ -353,6 +353,7 @@ export interface RpcFunzioni {
   /** Scarico a cliente già fatto per un ordine (null = non ancora scalato). */
   scarico_di_ordine: { args: { p_ordine: number }; ritorno: number | null };
   /** Inventario di tutto il magazzino: articoli con giacenza non ancora sparati, una pagina alla volta. */
+  giacenza_per_anno: { args: { p_sede: SedeId }; ritorno: { articolo_id: string; codice: string; descrizione: string; costo: Numerico; anno: number; quantita: Numerico }[] };
   inventario_non_sparati: { args: { p_sede: SedeId; p_contati: string[]; p_da: number; p_quanti: number }; ritorno: { id: string; codice: string; descrizione: string; barcode: string | null; costo_netto: Numerico; giacenza: Numerico; totale: number }[] };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };

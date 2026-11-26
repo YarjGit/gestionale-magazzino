@@ -102,6 +102,9 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   disattivato se le altre sedi non ne hanno); alla conferma per ogni articolo una riga −giacenza e una +contati sull'anno in corso.
   Confermano solo amministratore e responsabile magazzino. Inventario in corso: avviso rosso in vendite, scarichi, diminuzioni, trasferimenti.
   Gli articoli disattivati non compaiono nella ricerca né con la pistola.
+  Tasti "📊 Excel giacenza attuale" (prima di contare) e "📊 Excel inventario" (contati sull'anno dell'inventario + non sparati lasciati):
+  colonne Codice art., Descrizione, Quantità, Costo, Totale, Anno, una riga per anno di acquisto (`lottiSedeDb` in `movimenti-db.js`;
+  in Angular `giacenza_per_anno` nel 34). Tasto "📖 Come si fa l'inventario" con le regole; regola dell'anno ancora da definire.
 - Scheda articolo `articolo.html?cod=…` con calcolo del prezzo: (costo netto + spese) × (1 + ricarico) + IVA + arrotondamento.
   Schede Giacenza / Giacenza altre sedi / Movimenti calcolate dai movimenti veri (`caricaGiacenzaVera`): lotti per anno di acquisto,
   le uscite tolgono dal lotto più vecchio; In arrivo (ordini definitivi non caricati + inevasi), Prenotati (ordini clienti), Disponibile previsto.

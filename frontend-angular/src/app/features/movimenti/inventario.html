@@ -13,6 +13,8 @@
   </div>
   <div class="azioni-scheda" style="display:flex;justify-content:flex-end;gap:8px;margin:10px 0 12px;flex-wrap:wrap">
     <button class="btn btn-light" (click)="stampa()">🖨️ Stampa differenze</button>
+    <button class="btn btn-light" (click)="excelGiacenza()" title="Giacenza di questa sede com'è adesso nel gestionale, per anno di acquisto">📊 Excel giacenza attuale</button>
+    <button class="btn btn-light" (click)="excelInventario()" title="Il nuovo inventario: articoli contati (e, per tutto il magazzino, i non sparati lasciati)">📊 Excel inventario</button>
     <button class="btn btn-light" (click)="chiudi()">✕ Chiudi</button>
     @if (inCorso()) {
       @if (id()) { <button class="btn btn-light" style="color:var(--ko)" [disabled]="salvataggio()" (click)="annullaInventario()">✕ Annulla inventario</button> }

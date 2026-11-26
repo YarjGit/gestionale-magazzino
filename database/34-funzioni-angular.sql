@@ -412,8 +412,24 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function inventario_non_sparati(text, uuid[], int, int) to authenticated;
 
--- Controllo: deve dare 17
+-- ---------- Inventario: giacenza della sede divisa per anno di acquisto (Excel "giacenza attuale" e "inventario") ----------
+-- Per ogni articolo attivo con giacenza nella sede: una riga per anno di acquisto con i pezzi di quell'anno (lotti calcolati
+-- da articolo_lotti di database/33: entrate nel loro anno, uscite dal lotto più vecchio). Colonne dell'Excel chieste
+-- dall'utente: Codice art., Descrizione, Quantità, Costo, Totale, Anno.
+create or replace function giacenza_per_anno(p_sede text)
+returns table (articolo_id uuid, codice text, descrizione text, costo numeric, anno int, quantita numeric)
+language sql stable security invoker set search_path = public as $$
+  select a.id, a.codice, a.descrizione, coalesce(a.costo_netto, 0)::numeric, l.anno, l.finale
+  from giacenze g
+  join articoli a on a.id = g.articolo_id
+  cross join lateral articolo_lotti(a.id, p_sede) l
+  where g.sede_id = p_sede and g.quantita <> 0 and a.attivo is not false and l.finale <> 0
+  order by a.codice, l.anno;
+$$;
+grant execute on function giacenza_per_anno(text) to authenticated;
+
+-- Controllo: deve dare 18
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
   'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede', 'salva_cliente',
-  'scarico_di_ordine', 'inventario_non_sparati');
+  'scarico_di_ordine', 'inventario_non_sparati', 'giacenza_per_anno');

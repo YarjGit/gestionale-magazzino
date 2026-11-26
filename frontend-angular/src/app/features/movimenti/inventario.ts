@@ -4,6 +4,7 @@ import type { MovimentoDaSalvare, RigaDaSalvare } from '../../core/models/databa
 import { toNumber } from '../../core/models/database.types';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { dataIt, leggiNumero } from '../../shared/formato';
+import { tabellaExcel, type Cella } from '../../shared/excel';
 import { salvaPerStampa } from '../../shared/intestazioni';
 import { articoloDaRicerca, type ArticoloRiga } from '../../shared/righe-movimento';
 import { SchedaBase } from '../../shared/scheda-movimento';
@@ -240,6 +241,50 @@ export class Inventario extends SchedaBase {
     });
   }
   protected chiudi(): void { this.esciDaModifica(); void this.router.navigateByUrl('/inventario'); }
+
+  // ---------- Excel (colonne chieste dall'utente: Codice art., Descrizione, Quantità, Costo, Totale, Anno di acquisto) ----------
+  // Un articolo con pezzi di anni diversi ha una riga per anno (lotti calcolati nel database: giacenza_per_anno, database/34).
+  private static readonly INTESTAZIONE_EXCEL: Cella[] = ['Codice art.', 'Descrizione', 'Quantità', 'Costo', 'Totale', 'Anno'];
+  private rigaExcel(codice: string, descrizione: string, q: number, costo: number, anno: number): Cella[] {
+    return [codice, descrizione, q, costo, Math.round(q * costo * 100) / 100, anno];
+  }
+  private nomeFile(parte: string): string { return `${this.nomeSede.replace(/\s+/g, '_')}_${parte}`; }
+
+  /** Giacenza attuale della sede (com'è adesso nel gestionale), per anno di acquisto: da scaricare prima di contare. */
+  protected async excelGiacenza(): Promise<void> {
+    this.avvisi.mostra("Preparo l'Excel della giacenza…");
+    try {
+      const r = await this.supabase.rpc('giacenza_per_anno', { p_sede: this.sedeId });
+      if (!r.length) { this.avvisi.mostra('In questa sede non ci sono articoli con giacenza'); return; }
+      tabellaExcel(this.nomeFile(`Giacenza_${this.oggi}`), 'Giacenza', [Inventario.INTESTAZIONE_EXCEL]
+        .concat(r.map(x => this.rigaExcel(x.codice, x.descrizione, toNumber(x.quantita), toNumber(x.costo), x.anno))));
+    } catch (e) { this.avvisi.errore(e); }
+  }
+
+  /**
+   * Nuovo inventario: la giacenza come sarà (o è) dopo la conferma. Contati sull'anno dell'inventario (regola dell'anno ancora
+   * da definire: per ora l'anno in corso); solo per "tutto il magazzino" in corso anche i non sparati lasciati come sono, con i
+   * loro anni (gli eliminati no).
+   */
+  protected async excelInventario(): Promise<void> {
+    const annoInv = this.annoInv() ?? +this.dataInv().slice(0, 4);
+    const contati = this.contati().filter(c => c.contati);
+    const conLasciati = this.ambito() === 'tutto' && this.inCorso();
+    if (!contati.length && !conLasciati) { this.avvisi.mostra('Non ci sono ancora articoli contati'); return; }
+    this.avvisi.mostra("Preparo l'Excel dell'inventario…");
+    try {
+      const righe = contati.map(c => this.rigaExcel(c.articolo.codice, c.articolo.descrizione, c.contati, c.articolo.costo || 0, annoInv));
+      if (conLasciati) {
+        const esclusi = new Set([...contati.map(c => c.articolo.id), ...this.daEliminare()]);
+        (await this.supabase.rpc('giacenza_per_anno', { p_sede: this.sedeId }))
+          .filter(x => !esclusi.has(x.articolo_id))
+          .forEach(x => righe.push(this.rigaExcel(x.codice, x.descrizione, toNumber(x.quantita), toNumber(x.costo), x.anno)));
+      }
+      if (!righe.length) { this.avvisi.mostra('Non ci sono ancora articoli contati'); return; }
+      righe.sort((x, y) => String(x[0]).localeCompare(String(y[0])) || +x[5] - +y[5]);
+      tabellaExcel(this.nomeFile(`Inventario_${this.id() ? '#' + this.id() : 'nuovo'}`), 'Inventario', [Inventario.INTESTAZIONE_EXCEL].concat(righe));
+    } catch (e) { this.avvisi.errore(e); }
+  }
 
   protected stampa(): void {
     const lista = this.contati().slice().sort((a, b) => a.articolo.codice.localeCompare(b.articolo.codice));
