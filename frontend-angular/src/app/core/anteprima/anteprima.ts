@@ -84,6 +84,15 @@ function rpc(nome: string, args: Riga): unknown {
         { movimento_id: 30, data: '2026-03-14', tipo: 'carico_fornitore', nome: 'Carico da Fornitore', stato: 'Definitivo', q: 4, prima: 1, dopo: 5, lotti: { '2026': 4 }, ordinati: 0, prenotati: 0 },
         { movimento_id: 12, data: '2026-01-01', tipo: 'esistenza', nome: 'Giacenza iniziale', stato: 'Definitivo', q: 2, prima: 0, dopo: 2, lotti: { '2024': 2 }, ordinati: 0, prenotati: 0 }
       ].map(r => ({ ...r, totale: 4 }));
+    case 'dashboard_sede':
+      return {
+        in_arrivo: [{ id: 30, prot: '2026-000030', data: '2026-11-10', nome: 'Candele Esempio & C.', righe: 3, pezzi: 40, tipo: 'Ordine a fornitore' },
+          { id: 31, prot: '#31', data: '2026-11-18', nome: 'Magazzino Centrale', righe: 2, pezzi: 6, tipo: 'Ordine a sede' }],
+        aperti: [{ id: 44, tipo: 'carico_fornitore', tipo_nome: 'Carico da Fornitore', stato: 'Provvisorio', data: '2026-11-24', nome: 'Candele Esempio & C.', totale: 120.5, pezzi: 12, in_arrivo: false }],
+        sotto_scorta: 2,
+        arrivi: [{ id: 50, data: '2026-11-25', da: 'Magazzino Centrale', articoli: 4, pezzi: 18 }],
+        ricevuti: [], inevasi: { ordini: 0, articoli: 0 }
+      };
     case 'fornitori_doppi':
       return [];
     case 'salva_fornitore':

@@ -332,11 +332,35 @@ export interface RpcFunzioni {
   /** Scheda articolo: giacenza, in arrivo, prenotati e disponibile previsto per ogni sede attiva. */
   articolo_previsto: { args: { p_articolo: string }; ritorno: PrevistoSede[] };
   /** Prima di salvare: codici quasi uguali e barcode già usati da altri articoli. */
+  /** Dashboard della sede, tutta calcolata dal database (database/34). */
+  dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */
   fornitori_doppi: { args: { p_nome: string | null; p_piva: string | null; p_escludi: string | null }; ritorno: { id: string; codice: string; ragione_sociale: string }[] };
   /** "Usalo anche a …": aggiunge un fornitore esistente ai fornitori della sede. */
   aggiungi_fornitore_sede: { args: { p_fornitore: string; p_sede: SedeId }; ritorno: null };
   articoli_simili: { args: { p_codice: string | null; p_barcode: string | null; p_escludi: string | null }; ritorno: { codice: string; descrizione: string; motivo: 'codice' | 'barcode' }[] };
+}
+
+export interface MovimentoAperto {
+  id: number;
+  tipo: TipoMovimentoCodice;
+  tipo_nome: string;
+  stato: string;
+  data: string;
+  nome: string;
+  totale: Numerico;
+  pezzi: Numerico;
+  /** trasferimento di un'altra sede verso questa */
+  in_arrivo: boolean;
+}
+
+export interface DashboardSede {
+  in_arrivo: { id: number; prot: string; data: string; nome: string; righe: number; pezzi: Numerico; tipo: 'Ordine a fornitore' | 'Ordine a sede' }[];
+  aperti: MovimentoAperto[];
+  sotto_scorta: number;
+  arrivi: { id: number; data: string; da: string; articoli: number; pezzi: Numerico }[];
+  ricevuti: { id: number; da: string; data: string; righe: number; pezzi: Numerico; disponibili: number }[];
+  inevasi: { ordini: number; articoli: number } | null;
 }
 
 export interface LottoArticolo {

@@ -1,0 +1,104 @@
+<h1 class="page-title">Dashboard</h1>
+<div class="crumbs"><span>⌂</span><span>-</span><span>Dashboard</span><span>-</span><span>{{ sede.sede()?.nome }}</span></div>
+
+<div class="stats">
+  @for (s of statistiche(); track s[0]) { <div class="stat"><div class="t">{{ s[0] }}</div><div class="n">{{ s[1] }}</div></div> }
+</div>
+
+@if (errore()) { <div class="avviso-accesso" style="margin-top:14px">⚠ Errore nel leggere la Dashboard: {{ errore() }}</div> }
+
+<div class="panel">
+  @if (dati(); as d) {
+    <!-- Merce in arrivo da altre sedi: entra in giacenza solo dopo "Conferma ricevuto" -->
+    @if (d.arrivi.length) {
+      <section class="section">
+        <h2 class="section-title">🚚 Merce in arrivo da confermare <span class="count">{{ d.arrivi.length }}</span></h2>
+        <div class="cards">
+          @for (a of d.arrivi; track a.id) {
+            <div class="card nuovo-ord" style="outline-color:#67c7dc" (click)="vai(['/trasferimento', a.id])" title="Apri, stampa le etichette e conferma l'arrivo">
+              <div class="card-head trasf"><span class="name">Da {{ a.da }} · trasferimento #{{ a.id }}</span><span class="tot">{{ q(a.pezzi) }} pezzi</span></div>
+              <div class="card-body three">
+                <div><div class="k">Spedito il</div><div class="v">{{ dataIt(a.data) }}</div></div>
+                <div><div class="k">Articoli</div><div class="v">{{ a.articoli }}</div></div>
+                <div class="r"><div class="k">Giacenza</div><div class="v">non ancora caricata</div></div>
+              </div>
+              <div class="card-apri"><span style="background:#0891b2">Apri e conferma ricevuto →</span></div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Ordini ricevuti dalle filiali: si prepara il trasferimento, quello che non c'è resta negli inevasi -->
+    @if (conRicevuti()) {
+      <section class="section">
+        <h2 class="section-title">📦 Ordini ricevuti dalle filiali (da preparare) <span class="count">{{ d.ricevuti.length }}</span></h2>
+        <div class="cards">
+          @for (o of d.ricevuti; track o.id) {
+            <div class="card nuovo-ord" (click)="vai(['/trasferimento', 'nuovo'], { ordine: o.id })" title="Apri l'ordine e prepara il trasferimento a filiale">
+              <div class="card-head trasf"><span class="name">{{ o.da }} · ordine #{{ o.id }}</span><span class="tot">{{ q(o.pezzi) }} pezzi</span></div>
+              <div class="card-body three">
+                <div><div class="k">Data ordine</div><div class="v">{{ dataIt(o.data) }}</div></div>
+                <div><div class="k">Articoli</div><div class="v">{{ o.righe }}</div></div>
+                <div class="r"><div class="k">Disponibili ora</div><div class="v">{{ o.disponibili }} di {{ o.righe }}</div></div>
+              </div>
+              <div class="card-apri"><span>Apri e prepara il trasferimento →</span></div>
+            </div>
+          } @empty { <p class="empty">Nessun ordine da preparare.</p> }
+        </div>
+        <a routerLink="/trasferimenti/inevasi" class="btn-inevasi" [class.zero]="!d.inevasi?.articoli">
+          <span class="ico">⏳</span>
+          <span class="t">Inevasi da mandare alle filiali
+            <small>{{ d.inevasi?.ordini ? d.inevasi?.ordini + ' ordini con ' + d.inevasi?.articoli + ' articoli non ancora mandati: aprili per vederli divisi per data e mandarli' : 'Nessun articolo in attesa di essere mandato' }}</small></span>
+          <span class="num">{{ d.inevasi?.ordini ?? 0 }}</span>
+        </a>
+      </section>
+    }
+
+    <section class="section">
+      <h2 class="section-title">🏪 I nostri ordini in arrivo <span class="count">{{ d.in_arrivo.length }}</span></h2>
+      <div class="cards">
+        @for (o of d.in_arrivo; track o.tipo + o.id) {
+          <div class="card" (click)="o.tipo === 'Ordine a sede' ? vai(['/trasferimenti/da-filiali']) : vai(['/carico', 'nuovo'], { ordine: o.id })"
+               [title]="o.tipo === 'Ordine a sede' ? 'Vedi in Trasferimenti da Filiali' : 'Crea carico'">
+            <div class="card-head trasf"><span class="name">{{ o.nome }} ({{ o.prot }})</span><span class="tot">{{ q(o.pezzi) }} pezzi</span></div>
+            <div class="card-body three">
+              <div><div class="k">Tipo di movimento</div><div class="v">{{ o.tipo }}</div></div>
+              <div><div class="k">Data ordine</div><div class="v">{{ dataIt(o.data) }}</div></div>
+              <div class="r"><div class="k">Articoli da arrivare</div><div class="v">{{ o.righe }}</div></div>
+            </div>
+            <div class="card-apri"><span>{{ o.tipo === 'Ordine a sede' ? 'Vedi in Trasferimenti da Filiali →' : 'Crea carico →' }}</span></div>
+          </div>
+        } @empty { <p class="empty">Nessun ordine in arrivo: tutto quello che avete ordinato è già arrivato.</p> }
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">🛠️ Movimenti da evadere o ancora in lavorazione <span class="count">{{ d.aperti.length }}</span></h2>
+      @if (d.aperti.length) {
+        <div class="filter">
+          <label for="esamina">Esamina movimento</label>
+          <select id="esamina" (change)="esamina($event)">
+            <option value="">[Seleziona il movimento da esaminare]</option>
+            @for (m of d.aperti; track m.id; let i = $index) { <option [value]="i">{{ m.nome }} – {{ m.tipo_nome }} del {{ dataIt(m.data) }}</option> }
+          </select>
+        </div>
+      }
+      <div class="cards">
+        @for (m of d.aperti; track m.id; let i = $index) {
+          <div class="card" [class.selected]="selezionato() === i" (click)="apriMovimento(m)" title="Apri il movimento">
+            <div class="card-head"><span>✎</span><span class="name">{{ m.nome }}</span><span class="tot">{{ euro(toNumber(m.totale)) }}</span></div>
+            <div class="card-body">
+              <div><div class="k">Tipo di movimento</div><div class="v">{{ m.in_arrivo ? 'Trasferimento da Filiale' : m.tipo_nome }}</div></div>
+              <div><div class="k">Data</div><div class="v">{{ dataIt(m.data) }}</div></div>
+              <div><div class="k">Stato</div><div class="v"><span class="pill prov">{{ m.stato }}</span></div></div>
+              <div class="r"><div class="k">Pezzi</div><div class="v">{{ q(m.pezzi) }}</div></div>
+            </div>
+          </div>
+        } @empty { <p class="empty">Nessun movimento da finire: sono tutti definitivi.</p> }
+      </div>
+    </section>
+  } @else if (!errore()) {
+    <p class="empty">Lettura della Dashboard…</p>
+  }
+</div>
