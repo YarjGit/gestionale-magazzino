@@ -323,6 +323,10 @@ export interface RpcFunzioni {
     args: { p_sede: SedeId; p_cerca: string | null; p_solo_presenti: boolean; p_sotto_scorta: boolean; p_da: number; p_quanti: number };
     ritorno: GiacenzaSedeRiga[];
   };
+  /** Pagina Giacenze (come prototipo/giacenze.html): una pagina con anni di acquisto, giacenza a inizio anno, ordinato e prenotato. */
+  giacenze_elenco: { args: GiacenzeArgs & { p_scheda: string; p_ordina: string; p_crescente: boolean; p_da: number; p_quanti: number }; ritorno: GiacenzaElencoRiga[] };
+  /** Numeri delle schede della pagina Giacenze e totali del piede, con gli stessi filtri. */
+  giacenze_riepilogo: { args: GiacenzeArgs; ritorno: { tutti: number; disp: number; scorta: number; zero: number; neg: number; pezzi: Numerico; valore: Numerico }[] };
   /** Elenco Articoli: una pagina con filtri, ricerca, schede e giacenza della sede. */
   articoli_elenco: { args: ArticoliElencoArgs; ritorno: ArticoloElencoRiga[] };
   articoli_conteggi: { args: { p_sede: SedeId }; ritorno: { tutti: number; disponibili: number; esauriti: number; negativi: number }[] };
@@ -339,6 +343,9 @@ export interface RpcFunzioni {
   ordini_da_caricare: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; fornitore: string; righe: number; pezzi: Numerico; fornitore_id: string | null }[] };
   ordini_da_preparare: { args: { p_sede: SedeId }; ritorno: { id: number; da: string; data: string; righe: number; pezzi: Numerico; disponibili: number }[] };
   ordini_alle_sedi: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; sede: string; righe: number; pezzi: Numerico; trasferimento_da_ricevere: number | null }[] };
+  ordini_alle_sedi_in_attesa: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; sede: string; righe: number; pezzi: Numerico; trasferimento_da_ricevere: number | null }[] };
+  annulla_ordine: { args: { p_id: number }; ritorno: null };
+  evadi_ordini_senza_trasferimento: { args: { p_ordini: number[] }; ritorno: null };
   inevasi_in_attesa: { args: { p_sede: SedeId }; ritorno: InevasoInAttesa[] };
   /** Ricerca articoli per le righe dei movimenti (anche pistola): codice o barcode esatto in cima. */
   cerca_articoli: { args: { p_testo: string; p_sede: SedeId; p_fornitore: string | null; p_solo_fornitore: boolean; p_sede_altra: SedeId | null; p_quanti: number }; ritorno: ArticoloTrovato[] };
@@ -472,7 +479,8 @@ export interface MovimentoAperto {
 }
 
 export interface DashboardSede {
-  in_arrivo: { id: number; prot: string; data: string; nome: string; righe: number; pezzi: Numerico; tipo: 'Ordine a fornitore' | 'Ordine a sede' }[];
+  /** tr = trasferimento già partito da ricevere (solo per gli ordini a una sede) */
+  in_arrivo: { id: number; prot: string; data: string; nome: string; righe: number; pezzi: Numerico; tipo: 'Ordine a fornitore' | 'Ordine a sede'; tr: number | null }[];
   aperti: MovimentoAperto[];
   sotto_scorta: number;
   arrivi: { id: number; data: string; da: string; articoli: number; pezzi: Numerico }[];
@@ -550,6 +558,16 @@ export interface ArticoloElencoRiga {
   totale: number;
 }
 
+/** Filtri della pagina Giacenze (giacenze_elenco / giacenze_riepilogo, database/34). */
+export interface GiacenzeArgs {
+  p_sede: SedeId; p_cerca: string | null; p_tutti: boolean; p_senza_costo: boolean;
+  p_categoria: string | null; p_cod_da: string | null; p_cod_a: string | null; p_anno: number | null;
+}
+/** Riga della pagina Giacenze: anni = pezzi per anno di acquisto, forn = ordinato e non arrivato, cli = prenotato dai clienti. */
+export interface GiacenzaElencoRiga {
+  articolo_id: string; codice: string; descrizione: string; barcode: string | null; costo: Numerico; scorta: number;
+  q_attuale: Numerico; q_iniziale: Numerico; anni: { anno: number; q: Numerico }[]; forn: Numerico; cli: Numerico; righe_totali: number;
+}
 export interface GiacenzaSedeRiga {
   articolo_id: string;
   codice: string;

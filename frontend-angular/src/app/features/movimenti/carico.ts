@@ -37,6 +37,8 @@ export class Carico extends SchedaBase {
   protected readonly numero = numero;
   protected readonly dataIt = dataIt;
   protected readonly perEstero = computed(() => this.sede.sedeId() === 'cal-roma-estero');
+  /** CAL SMM Roma non usa condizione di pagamento, sede che riceve e spedizione nei carichi (chiesto dall'utente, come nel prototipo) */
+  protected readonly caricoSemplice = computed(() => this.sede.sedeId() === 'cal-smm-roma');
 
   protected readonly stato = signal('Definitivo');
   protected readonly statoSalvato = signal('Definitivo');
@@ -119,6 +121,8 @@ export class Carico extends SchedaBase {
     const tutti = await this.supabase.rpc('ordini_da_caricare', { p_sede: this.sedeId });
     const o = tutti.find(x => x.id === ordineId);
     if (!o) { this.avvisi.mostra(`L'ordine #${ordineId} è già arrivato tutto: non c'è più niente da caricare`, true); return; }
+    // il fornitore dell'ordine c'è sempre, anche se non è tra quelli della sede (es. Magazzino Centrale → Clarisse, fornitore di CAL SMM Roma)
+    if (o.fornitore_id && !this.fornitori().some(f => f.id === o.fornitore_id)) this.fornitori.set(await this.fornitoriSede.elenco(this.sedeId, [o.fornitore_id]));
     await this.scegliFornitore(o.fornitore_id);
     await this.collega(o, true);
     this.testoModifica.set(`Carico dall'ordine ${o.prot} del ${dataIt(o.data)}: le quantità sono quelle ancora da arrivare. Correggile con − / +, metti lo sconto riga per riga o togli con il cestino quello che non è arrivato, poi salva.`);

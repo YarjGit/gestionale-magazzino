@@ -249,9 +249,14 @@ export class Trasferimento extends SchedaBase {
       const stato = this.stato();
       if (!daMandare.length) {
         if (!this.daOrdine()) { this.avvisi.mostra('Aggiungi almeno un articolo da mandare', true); return; }
+        if (!confirm("Non mandi niente: tutti gli articoli dell'ordine restano negli inevasi. Confermi?")) return;
         // Niente da mandare: NON si salva un trasferimento vuoto (prima nasceva e la filiale doveva "confermare" 0 articoli).
-        // Nel prototipo l'ordine passa a Evaso; qui non c'è ancora una funzione del database solo per quello, quindi resta com'è.
-        this.avvisi.mostra("Non c'è niente da mandare: nessun trasferimento creato, gli articoli dell'ordine restano in attesa", true);
+        // Gli ordini ancora da preparare passano a Evaso (evadi_ordini_senza_trasferimento, database/34): quello che manca resta negli inevasi.
+        const ordini = [...new Set(this.righe().filter(r => r.ordineId && r.sez !== 'vecchio').map(r => r.ordineId!))];
+        if (ordini.length) await this.supabase.rpc('evadi_ordini_senza_trasferimento', { p_ordini: ordini });
+        this.avvisi.mostra('Nessun trasferimento creato: gli articoli dell\'ordine restano negli inevasi');
+        this.esciDaModifica();
+        void this.router.navigateByUrl('/trasferimenti/a-filiali');
         return;
       }
       const sopra = daMandare.filter(r => r.ordinata != null && r.manda > r.ordinata);

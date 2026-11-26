@@ -11,6 +11,11 @@
     (modificaClick)="modificaOrdine()" (annulla)="annullaModifica()" (salva)="salva($event)">
     <button class="btn btn-light" (click)="stampa()">🖨️ Stampa</button>
     <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+    <!-- solo un ordine salvato e non ancora arrivato: i controlli veri li fa il database (annulla_ordine) -->
+    @if (id() && !modifica() && modificabile()) {
+      <button class="btn btn-light" style="color:var(--ko)" [disabled]="salvataggio()" (click)="annullaOrdine()"
+        title="L'ordine diventa Annullato: resta nell'elenco ma non è più da caricare o da preparare">⛔ Annulla ordine</button>
+    }
   </app-testa-scheda>
   @if (stato() === 'Provvisorio' && modifica()) {
     <div class="banner provv">◷ Ordine provvisorio: si può completare nei prossimi giorni.@if (sedeFornitrice()) { Il <b>{{ fornitoreScelto()?.nome }}</b> non lo vede finché non lo rendi definitivo. }</div>

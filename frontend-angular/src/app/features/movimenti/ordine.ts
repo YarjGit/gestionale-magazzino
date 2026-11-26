@@ -79,6 +79,20 @@ export class Ordine extends SchedaBase {
     void this.avvia();
   }
 
+  /**
+   * "⛔ Annulla ordine" (come nel prototipo): l'ordine diventa Annullato, non si cancella. Il database (annulla_ordine, database/34)
+   * controlla permessi, stato (solo Provvisorio o Definitivo) e che non sia arrivato niente.
+   */
+  protected annullaOrdine(): void {
+    const nome = this.protocollo() || '#' + this.id();
+    if (!confirm(`Annullare l'ordine ${nome}?\n\nResta nell'elenco come Annullato, ma non sarà più da caricare né da preparare.`)) return;
+    void this.conSalvataggio(async () => {
+      await this.supabase.rpc('annulla_ordine', { p_id: this.id()! });
+      this.avvisi.mostra('Ordine annullato');
+      this.stato.set('Annullato'); this.statoSalvato.set('Annullato');
+    });
+  }
+
   private async avvia(): Promise<void> {
     try {
       await this.sede.caricaSedi();

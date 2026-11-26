@@ -71,7 +71,7 @@ export class OrdiniFornitori {
   protected readonly mostraInevasi = computed(() => this.sede.sedeId() !== 'magazzino-centrale' || this.articoliInAttesa() > 0);
   protected readonly config: ConfigElencoMovimenti = {
     titolo: 'Ordini a Fornitori', tipo: 'ordine_fornitore', csv: 'ordini-fornitori', controparte: 'Fornitore',
-    stati: ['Provvisorio', 'Definitivo', 'Riordino', 'Evaso', 'Annullato'],
+    stati: ['Provvisorio', 'Definitivo', 'Con inevasi', 'Evaso', 'Annullato'],
     colonne: ['numero', 'stato', 'data', 'controparte', 'causale', 'arrivato', 'totale', 'pezzi'],
     titoli: { numero: 'Protocollo / Mov.', controparte: 'Fornitore' },
     nuovo: { testo: 'Nuovo ordine', percorso: ['/ordine', 'nuovo'] }
@@ -213,7 +213,7 @@ export class TrasferimentiDaFiliali {
   constructor() {
     const s = this.sede.sedeId() ?? '';
     this.supabase.rpc('inevasi_in_attesa', { p_sede: s }).then(r => this.attesa.set(r), () => this.attesa.set([]));
-    this.supabase.rpc('ordini_alle_sedi', { p_sede: s }).then(r => this.ordiniSedi.set(r), () => this.ordiniSedi.set([]));
+    this.supabase.rpc('ordini_alle_sedi_in_attesa', { p_sede: s }).then(r => this.ordiniSedi.set(r), () => this.ordiniSedi.set([]));
     this.supabase.rpc('movimenti_elenco', { p_sede: s, p_tipo: 'trasferimento_a_filiale', p_in_arrivo: true, p_canale: null, p_cerca: null, p_dal: null, p_al: null,
       p_anno: null, p_controparte: null, p_articolo: null, p_stato: 'Da ricevere', p_ordina: 'data', p_crescente: true, p_da: 0, p_quanti: 100 })
       .then(r => this.arrivi.set(r), () => this.arrivi.set([]));
@@ -405,7 +405,7 @@ export class Riallineamenti {
 export class TuttiMovimenti {
   protected readonly config: ConfigElencoMovimenti = {
     titolo: 'Tutti i Movimenti', tipo: null, csv: 'tutti-movimenti', controparte: 'Cliente / Fornitore / Sede',
-    stati: ['Definitivo', 'Provvisorio', 'Riordino', 'Evaso', 'Da ricevere', 'Ricevuto', 'Annullato'],
+    stati: ['Definitivo', 'Provvisorio', 'Con inevasi', 'Evaso', 'Da ricevere', 'Ricevuto', 'Annullato'],
     colonne: ['numero', 'tipo', 'stato', 'data', 'controparte', 'bolla', 'causale', 'tot_art', 'totale', 'pezzi'],
     titoli: { numero: 'Data / Numero', data: 'Data documento', controparte: 'Cliente / Fornitore', bolla: 'Data bolla', tot_art: 'Totale articoli', totale: 'Totale compless.', pezzi: 'Numero articoli' }
   };

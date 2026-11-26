@@ -72,6 +72,14 @@ function rpc(nome: string, args: Riga): unknown {
       return [{ tutti: 6, disponibili: 4, esauriti: 1, negativi: 1 }];
     case 'giacenze_sede':
       return ARTICOLI.map(a => ({ ...a, articolo_id: a['id'], totale: ARTICOLI.length }));
+    case 'giacenze_elenco': {
+      const righe = ARTICOLI.map((a, i) => ({ articolo_id: a['id'], codice: a['codice'], descrizione: a['descrizione'], barcode: a['barcode'],
+        costo: a['costo_netto'], scorta: 2, q_attuale: a['quantita'], q_iniziale: Math.max(0, Number(a['quantita']) - 1),
+        anni: Number(a['quantita']) ? [{ anno: 2025, q: 1 }, { anno: 2026, q: Number(a['quantita']) - 1 }].filter(x => x.q) : [], forn: i === 1 ? 4 : 0, cli: i === 2 ? 1 : 0 }));
+      return righe.map(r => ({ ...r, righe_totali: righe.length }));
+    }
+    case 'giacenze_riepilogo':
+      return [{ tutti: ARTICOLI.length, disp: 3, scorta: 1, zero: 1, neg: 1, pezzi: 18, valore: 412.5 }];
     case 'articolo_lotti':
       return [{ anno: 2024, iniziale: 2, caricata: 0, venduta: 1, altre_uscite: 0, finale: 1 },
         { anno: 2026, iniziale: 0, caricata: 4, venduta: 1, altre_uscite: 1, finale: 2 }];

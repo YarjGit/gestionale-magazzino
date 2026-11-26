@@ -182,7 +182,8 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
 - Provarla: `Avvia versione Angular.bat` (serve Node.js); dati inventati con `http://localhost:4200/?anteprima=1`, veri con `?anteprima=0`.
 - Pubblicazione **preparata ma non attiva** (Cloudflare Pages o GitHub Pages: `frontend-angular/README.md`): la decide l'utente.
 - E-commerce (Joomla 3 + VirtueMart): solo il piano in `frontend-angular/ECOMMERCE.md`, da non realizzare finché l'utente non lo chiede.
-- **Da portare in Angular** (fatti nel prototipo il 26/11/2026, da fare tutti insieme: servono funzioni nel database, poi rieseguire il 34):
+- **Portati in Angular il 26/11/2026** (34 rieseguito, "dà 24"; funzioni nuove: ordini_alle_sedi_in_attesa, annulla_ordine,
+  evadi_ordini_senza_trasferimento, _giacenze_filtrate / giacenze_elenco / giacenze_riepilogo; provate sui dati veri solo in lettura):
   scheda "Con inevasi" al posto di Riordini (Ordini a Fornitori, Tutti i Movimenti) e colonna "Arrivato" senza i pezzi inevasi;
   "I nostri ordini in arrivo" in Dashboard e "Ordini alle sedi in attesa": solo ordini da preparare o con merce partita ("Ricevi" apre il trasferimento),
   non quelli con soli inevasi; trasferimento da ordine senza niente da mandare → ordine Evaso senza trasferimento vuoto; pagina Giacenze

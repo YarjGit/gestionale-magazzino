@@ -31,18 +31,24 @@ language sql stable security invoker set search_path = public as $$
       and r.quantita - coalesce(c.arrivata, 0) > 0
     group by m.id, f.ragione_sociale
   ),
-  -- ordini alle altre sedi con articoli ancora da mandare
+  -- ordini alle altre sedi con articoli ancora da mandare: solo quelli da preparare o con merce partita da ricevere
+  -- (26/11/2026, deciso con l'utente: un ordine già preparato con soli inevasi non va in Dashboard; "tr" = trasferimento da ricevere)
   ord_sedi as (
-    select i.ordine_id as id, coalesce(i.protocollo, '#' || i.ordine_id) as prot, i.data_ordine as data, s.nome,
-           count(*) as righe, sum(i.residuo) as pezzi
-    from inevasi i left join sedi s on s.id = i.sede_fornitrice
-    where i.sede_richiedente = p_sede and i.sede_fornitrice <> p_sede and i.residuo > 0
-    group by i.ordine_id, i.protocollo, i.data_ordine, s.nome
+    select * from (
+      select i.ordine_id as id, coalesce(i.protocollo, '#' || i.ordine_id) as prot, i.data_ordine as data, s.nome,
+             count(*) as righe, sum(i.residuo) as pezzi, i.stato_ordine,
+             (select max(mt.id) from movimenti_righe rt join movimenti mt on mt.id = rt.movimento_id
+              where rt.ordine_riga_id in (select i2.ordine_riga_id from inevasi i2 where i2.ordine_id = i.ordine_id)
+                and mt.tipo = 'trasferimento_a_filiale' and mt.stato in ('Definitivo', 'Evaso') and mt.ricevuto_il is null) as tr
+      from inevasi i left join sedi s on s.id = i.sede_fornitrice
+      where i.sede_richiedente = p_sede and i.sede_fornitrice <> p_sede and i.residuo > 0
+      group by i.ordine_id, i.protocollo, i.data_ordine, i.stato_ordine, s.nome
+    ) o where o.stato_ordine <> 'Evaso' or o.tr is not null
   ),
   in_arrivo as (
-    select id, prot, data, nome, righe, pezzi, 'Ordine a fornitore' as tipo from ord_forn
+    select id, prot, data, nome, righe, pezzi, 'Ordine a fornitore' as tipo, null::bigint as tr from ord_forn
     union all
-    select id, prot, data, nome, righe, pezzi, 'Ordine a sede' from ord_sedi
+    select id, prot, data, nome, righe, pezzi, 'Ordine a sede', tr from ord_sedi
   ),
   aperti as (
     select m.id, m.tipo, t.nome as tipo_nome, m.stato, m.data_movimento as data,
@@ -124,7 +130,9 @@ language sql stable security invoker set search_path = public as $$
            else coalesce(c.nome, f.ragione_sociale, '') end as controparte,
       case when b.arrivo then sa.colore when b.sede_altra_id is not null then so.colore end as colore,
       coalesce(rr.tot, 0)::numeric as tot_art, (coalesce(rr.tot, 0) + b.spese)::numeric as totale, coalesce(rr.pezzi, 0)::numeric as pezzi,
-      (case when b.stato = 'Evaso' then coalesce(rr.pezzi, 0) else 0 end)::numeric as ricevuti,
+      -- "Arrivato": un ordine evaso è stato preparato; se a una sede restano inevasi, quei pezzi non sono arrivati (26/11/2026)
+      (case when b.stato = 'Evaso' then coalesce(rr.pezzi, 0) - coalesce((select sum(i.residuo) from inevasi i
+         where i.ordine_id = b.id and i.residuo > 0 and i.sede_fornitrice <> i.sede_richiedente), 0) else 0 end)::numeric as ricevuti,
       case when b.tipo = 'trasferimento_a_filiale' and not b.arrivo and b.stato in ('Definitivo', 'Evaso')
            then case when b.ricevuto_il is null then 'da confermare' else 'ricevuto' end end as etichetta,
       b.arrivo as in_arrivo
@@ -153,6 +161,8 @@ returns table (id bigint, tipo text, tipo_nome text, segno int, stato text, stat
 language sql stable security invoker set search_path = public as $$
   select f.*, count(*) over () from _movimenti_filtrati(p_sede, p_tipo, p_in_arrivo, p_canale, p_cerca, p_dal, p_al, p_anno, p_controparte, p_articolo) f
   where p_stato is null or f.stato = p_stato
+     -- scheda "Con inevasi" (prende il posto di Riordino): ordini già preparati (Evaso) con pezzi ancora da mandare
+     or (p_stato = 'Con inevasi' and f.tipo = 'ordine_fornitore' and f.stato_db = 'Evaso' and f.ricevuti < f.pezzi)
   order by
     case when p_crescente then case p_ordina when 'controparte' then f.controparte when 'causale' then f.causale when 'stato' then f.stato when 'tipo' then f.tipo_nome end end asc nulls last,
     case when not p_crescente then case p_ordina when 'controparte' then f.controparte when 'causale' then f.causale when 'stato' then f.stato when 'tipo' then f.tipo_nome end end desc nulls last,
@@ -169,9 +179,12 @@ create or replace function movimenti_riepilogo(p_sede text, p_tipo text, p_in_ar
   p_dal date, p_al date, p_anno int, p_controparte text, p_articolo text)
 returns table (stato text, movimenti bigint, pezzi numeric, totale numeric)
 language sql stable security invoker set search_path = public as $$
-  select f.stato, count(*), coalesce(sum(f.pezzi), 0)::numeric, coalesce(sum(f.totale), 0)::numeric
-  from _movimenti_filtrati(p_sede, p_tipo, p_in_arrivo, p_canale, p_cerca, p_dal, p_al, p_anno, p_controparte, p_articolo) f
-  group by f.stato;
+  with f as (select * from _movimenti_filtrati(p_sede, p_tipo, p_in_arrivo, p_canale, p_cerca, p_dal, p_al, p_anno, p_controparte, p_articolo))
+  select f.stato, count(*), coalesce(sum(f.pezzi), 0)::numeric, coalesce(sum(f.totale), 0)::numeric from f group by f.stato
+  union all
+  -- "Con inevasi" in più (gli stessi ordini sono anche negli Evasi: la pagina non lo somma in "Tutti")
+  select 'Con inevasi', count(*), coalesce(sum(f.pezzi), 0)::numeric, coalesce(sum(f.totale), 0)::numeric from f
+  where f.tipo = 'ordine_fornitore' and f.stato_db = 'Evaso' and f.ricevuti < f.pezzi having count(*) > 0;
 $$;
 
 -- Carichi da Fornitori: ordini a fornitori (o alla sede stessa) con merce ancora da arrivare
@@ -223,6 +236,15 @@ language sql stable security invoker set search_path = public as $$
   group by i.ordine_id, i.protocollo, i.data_ordine, i.stato_ordine, s.nome
   order by i.data_ordine desc, i.ordine_id desc;
 $$;
+
+-- Come ordini_alle_sedi, ma senza gli ordini già preparati con soli inevasi (riquadro "Ordini alle sedi in attesa", 26/11/2026):
+-- restano quelli da preparare e quelli con merce partita da ricevere. Gli inevasi si vedono con inevasi_in_attesa.
+create or replace function ordini_alle_sedi_in_attesa(p_sede text)
+returns table (id bigint, prot text, data date, stato text, sede text, righe bigint, pezzi numeric, trasferimento_da_ricevere bigint)
+language sql stable security invoker set search_path = public as $$
+  select * from ordini_alle_sedi(p_sede) o where o.stato <> 'Evaso' or o.trasferimento_da_ricevere is not null;
+$$;
+grant execute on function ordini_alle_sedi_in_attesa(text) to authenticated;
 
 -- Prodotti ordinati da questa sede ad altre sedi e non ancora partiti (scheda "In attesa", tasto INEVASI IN ATTESA)
 create or replace function inevasi_in_attesa(p_sede text)
@@ -428,8 +450,129 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function giacenza_per_anno(text) to authenticated;
 
--- Controllo: deve dare 18
+-- ---------- Pagina Giacenze (come prototipo/giacenze.html, 26/11/2026) ----------
+-- Articoli della sede con i filtri della pagina. Si vedono quelli che la sede ha o ha avuto (riga nella vista giacenze);
+-- con p_tutti anche tutti gli altri articoli attivi (a zero). Schede: '' tutti, disp (più della scorta), scorta (sotto o uguale
+-- alla scorta ma > 0), zero (esauriti), neg (negativi). p_anno = solo articoli con pezzi di quell'anno di acquisto.
+create or replace function _giacenze_filtrate(p_sede text, p_cerca text, p_tutti boolean, p_senza_costo boolean,
+  p_categoria text, p_cod_da text, p_cod_a text, p_anno int)
+returns table (articolo_id uuid, codice text, descrizione text, barcode text, costo numeric, scorta int, q numeric)
+language sql stable security invoker set search_path = public as $$
+  select a.id, a.codice, a.descrizione, a.barcode, coalesce(a.costo_netto, 0)::numeric, coalesce(a.scorta_minima, 0), coalesce(g.quantita, 0)::numeric
+  from articoli a left join giacenze g on g.articolo_id = a.id and g.sede_id = p_sede
+  where a.attivo is not false
+    and (p_tutti or g.articolo_id is not null)
+    and (not coalesce(p_senza_costo, false) or coalesce(a.costo_netto, 0) = 0)
+    and (coalesce(p_categoria, '') = '' or a.codice ilike p_categoria || '%')
+    and (coalesce(p_cod_da, '') = '' or lower(a.codice) >= lower(p_cod_da))
+    and (coalesce(p_cod_a, '') = '' or left(lower(a.codice), length(p_cod_a)) <= lower(p_cod_a))   -- "a" compreso (es. fino ad A01 = anche A01/P)
+    and (coalesce(trim(p_cerca), '') = '' or not exists (
+      select 1 from regexp_split_to_table(lower(trim(p_cerca)), '\s+') parola
+      where position(parola in lower(concat_ws(' ', a.codice, a.descrizione, a.barcode))) = 0))
+    and (p_anno is null or exists (select 1 from articolo_lotti(a.id, p_sede) l where l.anno = p_anno and l.finale <> 0));
+$$;
+
+-- Una pagina: anni di acquisto (lotti), giacenza al 1° gennaio, ordinato e non arrivato (fornitori + inevasi), prenotato dai clienti
+create or replace function giacenze_elenco(p_sede text, p_cerca text, p_scheda text, p_tutti boolean, p_senza_costo boolean,
+  p_categoria text, p_cod_da text, p_cod_a text, p_anno int, p_ordina text, p_crescente boolean, p_da int, p_quanti int)
+returns table (articolo_id uuid, codice text, descrizione text, barcode text, costo numeric, scorta int, q_attuale numeric,
+  q_iniziale numeric, anni jsonb, forn numeric, cli numeric, righe_totali bigint)
+language sql stable security invoker set search_path = public as $$
+  with f as (
+    select x.*, count(*) over () as tot from _giacenze_filtrate(p_sede, p_cerca, p_tutti, p_senza_costo, p_categoria, p_cod_da, p_cod_a, p_anno) x
+    where case coalesce(p_scheda, '') when 'disp' then x.q > x.scorta when 'scorta' then x.q > 0 and x.q <= x.scorta
+      when 'zero' then x.q = 0 when 'neg' then x.q < 0 else true end
+  ), pagina as (
+    select * from f
+    order by
+      case when p_crescente then case p_ordina when 'costo' then f.costo when 'q' then f.q when 'valore' then f.q * f.costo end end asc nulls last,
+      case when not p_crescente then case p_ordina when 'costo' then f.costo when 'q' then f.q when 'valore' then f.q * f.costo end end desc nulls last,
+      case when p_crescente then case p_ordina when 'barcode' then f.barcode else f.codice end end asc,
+      case when not p_crescente then case p_ordina when 'barcode' then f.barcode else f.codice end end desc
+    limit greatest(1, least(p_quanti, 500)) offset greatest(0, p_da)
+  )
+  select p.articolo_id, p.codice, p.descrizione, p.barcode, p.costo, p.scorta, p.q,
+    coalesce(l.iniziale, 0), coalesce(l.anni, '[]'::jsonb),
+    coalesce((select sum(r.quantita - coalesce((select sum(x.quantita) from movimenti_righe x join movimenti mx on mx.id = x.movimento_id
+               where x.ordine_riga_id = r.id and mx.tipo = 'carico_fornitore' and mx.stato in ('Definitivo', 'Evaso')), 0))
+              from movimenti_righe r join movimenti m on m.id = r.movimento_id left join fornitori fo on fo.id = m.fornitore_id
+              where r.articolo_id = p.articolo_id and m.sede_id = p_sede and m.tipo = 'ordine_fornitore' and m.stato = 'Definitivo'
+                and fo.sede_collegata is null), 0)
+      + coalesce((select sum(i.residuo) from inevasi i where i.articolo_id = p.articolo_id and i.sede_richiedente = p_sede
+                  and i.sede_fornitrice <> p_sede and i.residuo > 0), 0),
+    coalesce((select sum(r.quantita) from movimenti_righe r join movimenti m on m.id = r.movimento_id
+              where r.articolo_id = p.articolo_id and m.sede_id = p_sede and m.tipo = 'ordine_cliente' and m.stato = 'Definitivo'), 0),
+    p.tot
+  from pagina p
+  left join lateral (
+    select sum(al.iniziale) as iniziale,
+           jsonb_agg(jsonb_build_object('anno', al.anno, 'q', al.finale) order by al.anno) filter (where al.finale <> 0) as anni
+    from articolo_lotti(p.articolo_id, p_sede) al
+  ) l on true
+  order by
+    case when p_crescente then case p_ordina when 'costo' then p.costo when 'q' then p.q when 'valore' then p.q * p.costo end end asc nulls last,
+    case when not p_crescente then case p_ordina when 'costo' then p.costo when 'q' then p.q when 'valore' then p.q * p.costo end end desc nulls last,
+    case when p_crescente then case p_ordina when 'barcode' then p.barcode else p.codice end end asc,
+    case when not p_crescente then case p_ordina when 'barcode' then p.barcode else p.codice end end desc;
+$$;
+
+-- Numeri delle schede in alto e totali del piede (pezzi e valore a costo dei positivi), con gli stessi filtri
+create or replace function giacenze_riepilogo(p_sede text, p_cerca text, p_tutti boolean, p_senza_costo boolean,
+  p_categoria text, p_cod_da text, p_cod_a text, p_anno int)
+returns table (tutti bigint, disp bigint, scorta bigint, zero bigint, neg bigint, pezzi numeric, valore numeric)
+language sql stable security invoker set search_path = public as $$
+  select count(*), count(*) filter (where q > scorta), count(*) filter (where q > 0 and q <= scorta),
+         count(*) filter (where q = 0), count(*) filter (where q < 0),
+         coalesce(sum(q) filter (where q > 0), 0), coalesce(round(sum(q * costo) filter (where q > 0), 2), 0)
+  from _giacenze_filtrate(p_sede, p_cerca, p_tutti, p_senza_costo, p_categoria, p_cod_da, p_cod_a, p_anno);
+$$;
+grant execute on function _giacenze_filtrate(text, text, boolean, boolean, text, text, text, int),
+  giacenze_elenco(text, text, text, boolean, boolean, text, text, text, int, text, boolean, int, int),
+  giacenze_riepilogo(text, text, boolean, boolean, text, text, text, int) to authenticated;
+
+-- ---------- Annulla un ordine a fornitore (tasto "⛔ Annulla ordine") ----------
+-- Solo Provvisorio o Definitivo e solo se non è arrivato niente (nessun carico o trasferimento non annullato collegato alle sue righe).
+-- Si annulla, non si cancella: resta nell'elenco barrato e il registro attività annota chi l'ha fatto.
+create or replace function annulla_ordine(p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare m movimenti; v_altro bigint;
+begin
+  select * into m from movimenti where id = p_id for update;
+  if not found or m.tipo <> 'ordine_fornitore' then raise exception 'Ordine % non trovato', p_id; end if;
+  if not puo_scrivere_sede(m.sede_id) then raise exception 'Utente non autorizzato a scrivere in questa sede'; end if;
+  if m.stato = 'Annullato' then return; end if;
+  if m.stato not in ('Provvisorio', 'Definitivo') then raise exception 'L''ordine è % : non si può più annullare', m.stato; end if;
+  select mx.id into v_altro from movimenti_righe x join movimenti mx on mx.id = x.movimento_id
+  where x.ordine_riga_id in (select r.id from movimenti_righe r where r.movimento_id = p_id) and mx.stato <> 'Annullato' limit 1;
+  if v_altro is not null then
+    raise exception 'Non si può annullare: una parte dell''ordine è già arrivata (movimento #%). Gli articoli che mancano si tolgono dagli inevasi.', v_altro;
+  end if;
+  update movimenti set stato = 'Annullato', modificato_il = now(), modificato_da = auth.jwt() ->> 'email' where id = p_id;
+end $$;
+grant execute on function annulla_ordine(bigint) to authenticated;
+
+-- ---------- Preparazione di un ordine di una filiale senza niente da mandare ----------
+-- Niente trasferimento vuoto: gli ordini (ancora Definitivi) passano a Evaso e quello che manca resta negli inevasi.
+-- Solo la sede che deve mandare la merce (il fornitore-sede dell'ordine) può farlo.
+create or replace function evadi_ordini_senza_trasferimento(p_ordini bigint[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare o record;
+begin
+  for o in
+    select m.id, f.sede_collegata from movimenti m join fornitori f on f.id = m.fornitore_id
+    where m.id = any(coalesce(p_ordini, '{}')) and m.tipo = 'ordine_fornitore' and m.stato = 'Definitivo' for update of m
+  loop
+    if o.sede_collegata is null or not puo_scrivere_sede(o.sede_collegata) then
+      raise exception 'Solo la sede che deve mandare la merce può chiudere l''ordine #%', o.id;
+    end if;
+    update movimenti set stato = 'Evaso', modificato_il = now(), modificato_da = auth.jwt() ->> 'email' where id = o.id;
+  end loop;
+end $$;
+grant execute on function evadi_ordini_senza_trasferimento(bigint[]) to authenticated;
+
+-- Controllo: deve dare 24
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
   'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede', 'salva_cliente',
-  'scarico_di_ordine', 'inventario_non_sparati', 'giacenza_per_anno');
+  'scarico_di_ordine', 'inventario_non_sparati', 'giacenza_per_anno', 'ordini_alle_sedi_in_attesa', 'annulla_ordine', 'evadi_ordini_senza_trasferimento',
+  '_giacenze_filtrate', 'giacenze_elenco', 'giacenze_riepilogo');

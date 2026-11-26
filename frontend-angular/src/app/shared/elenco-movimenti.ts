@@ -15,6 +15,8 @@ export const STATI: Record<string, { plurale: string; colore: string; icona: str
   Definitivo: { plurale: 'Definitivi', colore: '#18a058', icona: '✔' },
   Provvisorio: { plurale: 'Provvisori', colore: '#e58a00', icona: '◷' },
   Riordino: { plurale: 'Riordini', colore: '#7c4dff', icona: '↻' },
+  // non è uno stato: ordini preparati con articoli ancora da mandare (movimenti_elenco / movimenti_riepilogo, database/34)
+  'Con inevasi': { plurale: 'Con inevasi', colore: '#db2777', icona: '⏳' },
   Evaso: { plurale: 'Evasi', colore: '#64748b', icona: '■' },
   Annullato: { plurale: 'Annullati', colore: '#c62828', icona: '✕' },
   'Da ricevere': { plurale: 'Da ricevere', colore: '#0891b2', icona: '📦' },
@@ -108,11 +110,12 @@ export class ElencoMovimenti {
   protected readonly filtriAttivi = computed(() => [this.dal(), this.al(), this.controparte(), this.articolo()].filter(Boolean).length);
   protected readonly conteggio = computed(() => {
     const m = new Map(this.riepilogo().map(r => [r.stato, r.movimenti]));
-    return (stato: string): number => (stato ? m.get(stato) ?? 0 : this.riepilogo().reduce((s, r) => s + r.movimenti, 0));
+    // "Con inevasi" non si somma in Tutti: gli stessi ordini sono già negli Evasi
+    return (stato: string): number => (stato ? m.get(stato) ?? 0 : this.riepilogo().filter(r => r.stato !== 'Con inevasi').reduce((s, r) => s + r.movimenti, 0));
   });
   /** totali del piede: senza gli annullati */
   protected readonly totali = computed(() => {
-    const sel = this.riepilogo().filter(r => (!this.scheda() || r.stato === this.scheda()));
+    const sel = this.riepilogo().filter(r => (this.scheda() ? r.stato === this.scheda() : r.stato !== 'Con inevasi'));
     const validi = sel.filter(r => r.stato !== 'Annullato');
     return { movimenti: sel.reduce((s, r) => s + r.movimenti, 0), pezzi: validi.reduce((s, r) => s + r.pezzi, 0), totale: validi.reduce((s, r) => s + r.totale, 0) };
   });

@@ -37,11 +37,12 @@
         <div class="f s2"><label>Data bolla</label><input type="date" [value]="doc().dataBolla" [disabled]="!modifica()" (change)="campo('dataBolla', $event)"></div>
         <div class="f s2"><label>Numero bolla</label><input [value]="doc().numBolla" [disabled]="!modifica()" (input)="campo('numBolla', $event)"></div>
         <div class="f s1"><label>Porto</label><select [disabled]="!modifica()" (change)="campo('porto', $event)">@for (p of ['Franco', 'Assegnato']; track p) { <option [selected]="p === doc().porto">{{ p }}</option> }</select></div>
-        <div class="f s3"><label>Condizione di pagamento</label><select [disabled]="!modifica()" (change)="campo('condPag', $event)"><option value=""></option>
+        <!-- CAL SMM Roma non usa pagamento e spedizione nei carichi (come nel prototipo): restano solo per le altre sedi -->
+        <div class="f s3" [hidden]="caricoSemplice()"><label>Condizione di pagamento</label><select [disabled]="!modifica()" (change)="campo('condPag', $event)"><option value=""></option>
           @for (p of ['Contrassegno', 'Già effettuato', 'Ricevimento fattura', 'Bonifico a 30 gg.', 'Bonifico a 60 gg.', 'Bonifico a 90 gg.']; track p) { <option [selected]="p === doc().condPag">{{ p }}</option> }</select></div>
-        <div class="f s2"><label>Sede che riceve</label><input [value]="sede.sede()?.nome ?? ''" disabled></div>
+        <div class="f s2" [hidden]="caricoSemplice()"><label>Sede che riceve</label><input [value]="sede.sede()?.nome ?? ''" disabled></div>
       </div></div>
-      <div class="gruppo"><h3>🚚 Spedizione</h3><div class="campi">
+      <div class="gruppo" [hidden]="caricoSemplice()"><h3>🚚 Spedizione</h3><div class="campi">
         <div class="f s2"><label>Spedizioniere</label><select [disabled]="!modifica()" (change)="campo('sped', $event)"><option value=""></option>@for (p of ['Euroitaly', 'BRT Corriere Espresso']; track p) { <option [selected]="p === doc().sped">{{ p }}</option> }</select></div>
         <div class="f s2"><label>Tracking number</label><input [value]="doc().tracking" [disabled]="!modifica()" (input)="campo('tracking', $event)"></div>
       </div></div>
