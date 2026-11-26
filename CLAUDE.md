@@ -184,6 +184,7 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   scheda "Con inevasi" al posto di Riordini (Ordini a Fornitori, Tutti i Movimenti) e colonna "Arrivato" senza i pezzi inevasi;
   "I nostri ordini in arrivo" in Dashboard e "Ordini alle sedi in attesa": solo ordini da preparare o con merce partita ("Ricevi" apre il trasferimento),
   non quelli con soli inevasi; trasferimento da ordine senza niente da mandare → ordine Evaso senza trasferimento vuoto; pagina Giacenze
-  (dati veri, anni di acquisto, "Anche senza giacenza", niente Ricalcola) da confrontare col prototipo. Su questo PC manca Node.js (Angular non si prova).
+  (dati veri, anni di acquisto, "Anche senza giacenza", niente Ricalcola) da confrontare col prototipo; carico da ordine con il fornitore
+  dell'ordine anche se non è della sede; tasto "⛔ Annulla ordine" (Provvisorio/Definitivo senza niente arrivato → Annullato, non cancellato). Su questo PC manca Node.js (Angular non si prova).
 - Nel prototipo "Validazione" e "Record attuali" sono nascoste negli elenchi dei movimenti e in Configurazione (restano in Articoli, Categorie, Sottocategorie);
   i file `js/layout.js`, `js/elenco.js`, `js/movimenti-db.js` si caricano con `?v=…` (cambiarlo quando cambiano, se no il browser usa quelli vecchi).
