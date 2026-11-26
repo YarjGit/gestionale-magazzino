@@ -15,6 +15,8 @@
 //   dettaglio              pagina della scheda (es. "carico.html"): la riga si apre con ?id=…
 //   senzaModifica         nasconde la matita di modifica (es. riallineamenti)
 //   senzaEtichette        nasconde il tasto Etichette in alto (es. inventario)
+//   senzaValidazione      nasconde la spunta "Validazione" in alto (es. Tutti i Movimenti)
+//   senzaRecordAttuali    nasconde la spunta "Record attuali" in alto (es. Tutti i Movimenti)
 //   nuovoIcona             disegno svg diverso per il pulsante "Nuovo …"; senza "nuovo" il pulsante sparisce
 //   filtriExtra            [{ id, label, campo, opzioni }] tendine di filtro in più
 //   nota                   testo (HTML) mostrato in un riquadro sotto il titolo, per spiegare come funziona la pagina
@@ -404,6 +406,8 @@ function avviaElenco(cfg) {
   window.addEventListener("scroll", () => rowMenu.classList.remove("show"), true);
 
   if (cfg.senzaEtichette) $("btnEtichette").hidden = true;
+  if (cfg.senzaValidazione) $("soloValidare").closest("label").hidden = true;
+  if (cfg.senzaRecordAttuali) $("recordAttuali").closest("label").hidden = true;
   $("btnEtichette").onclick = () => cfg.paginaEtichette ? location.href = cfg.paginaEtichette : avviso("Stampa etichette: la definiamo insieme");
   // cfg.nuovoUrl: indirizzo del pulsante "Nuovo …" quando non è dettaglio?nuovo=1
   $("btnCrea").onclick = () => cfg.nuovoUrl ? location.href = cfg.nuovoUrl : cfg.dettaglio ? location.href = `${cfg.dettaglio}?nuovo=1` : avviso(`${cfg.nuovo}: schermata da costruire`);

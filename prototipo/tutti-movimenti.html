@@ -31,6 +31,7 @@
   const elenco = avviaElenco({
     titolo: "Tutti i Movimenti",
     csv: "tutti-movimenti",
+    senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
     stati: [STATO.definitivo, STATO.provvisorio, STATO.riordino, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato],
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],
