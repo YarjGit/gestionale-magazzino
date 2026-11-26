@@ -15,6 +15,8 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 ## Come lavoriamo
 - L'utente manda uno screenshot per ogni schermata del gestionale attuale; si rifà la schermata **simile ma mai identica**: cambiare sempre qualcosa nella grafica e dire cosa è cambiato.
 - Prima la grafica (prototipo), la logica si decide insieme dopo. I pulsanti che salvano o stampano mostrano un avviso.
+- **Ogni modifica: prima nel prototipo JS** (l'utente la prova), **poi in Angular** rispettando le 7 regole di `frontend-angular/CLAUDE.md`
+  (funzioni del database per scrivere, giacenza dal database, ecc.) e `npx ng build` senza errori (deciso dall'utente il 26/11/2026).
 - **Prezzi sempre con due decimali**: arrotondare prezzi unitari e totali al centesimo (anche quelli scritti a mano).
 - **Prezzo di vendita finale (etichetta) ai 10 centesimi**: fino a 10,04 → 10,00, da 10,05 → 10,10 (anche scritto a mano e sulle etichette: mai 10,03).
 - **IVA**: 22% per tutto, 4% solo per le ostie, 0% per i libri (codici Q, IVA pagata dall'editore) e per le sedi estere (`SEDI_ESTERE` in `js/sedi.js`).
@@ -185,6 +187,7 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   "I nostri ordini in arrivo" in Dashboard e "Ordini alle sedi in attesa": solo ordini da preparare o con merce partita ("Ricevi" apre il trasferimento),
   non quelli con soli inevasi; trasferimento da ordine senza niente da mandare → ordine Evaso senza trasferimento vuoto; pagina Giacenze
   (dati veri, anni di acquisto, "Anche senza giacenza", niente Ricalcola) da confrontare col prototipo; carico da ordine con il fornitore
-  dell'ordine anche se non è della sede; tasto "⛔ Annulla ordine" (Provvisorio/Definitivo senza niente arrivato → Annullato, non cancellato). Su questo PC manca Node.js (Angular non si prova).
+  dell'ordine anche se non è della sede; tasto "⛔ Annulla ordine" (Provvisorio/Definitivo senza niente arrivato → Annullato, non cancellato).
+  Node.js 26 installato anche sul PC di lavoro (26/11/2026, con winget): `npm install` in `frontend-angular/` (cambia package-lock.json: non salvarlo) e `npx ng build` compila senza errori. Su questo PC manca Node.js (Angular non si prova).
 - Nel prototipo "Validazione" e "Record attuali" sono nascoste negli elenchi dei movimenti e in Configurazione (restano in Articoli, Categorie, Sottocategorie);
   i file `js/layout.js`, `js/elenco.js`, `js/movimenti-db.js` si caricano con `?v=…` (cambiarlo quando cambiano, se no il browser usa quelli vecchi).
