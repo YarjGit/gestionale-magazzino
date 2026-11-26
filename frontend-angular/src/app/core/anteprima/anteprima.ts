@@ -98,13 +98,28 @@ function rpc(nome: string, args: Riga): unknown {
     case 'movimenti_riepilogo':
       return [{ stato: 'Definitivo', movimenti: 2, pezzi: 2, totale: 86 }, { stato: 'Provvisorio', movimenti: 1, pezzi: 12, totale: 120.5 }, { stato: 'Da ricevere', movimenti: 1, pezzi: 18, totale: 90 }];
     case 'ordini_da_caricare':
-      return [{ id: 30, prot: '2026-000030', data: '2026-11-10', stato: 'Definitivo', fornitore: 'Candele Esempio & C.', righe: 3, pezzi: 40 }];
+      return [{ id: 30, prot: '2026-000030', data: '2026-11-10', stato: 'Definitivo', fornitore: 'Candele Esempio & C.', righe: 3, pezzi: 40, fornitore_id: 'f-2' }];
     case 'ordini_da_preparare':
       return [];
     case 'ordini_alle_sedi':
       return [{ id: 31, prot: '#31', data: '2026-11-18', stato: 'Definitivo', sede: 'Magazzino Centrale', righe: 2, pezzi: 6, trasferimento_da_ricevere: null }];
     case 'inevasi_in_attesa':
       return [{ ordine_riga_id: 1, ordine_id: 31, data_ordine: '2026-11-18', stato_ordine: 'Definitivo', sede: 'Magazzino Centrale', articolo_id: 'a1', codice: 'B0701', descrizione: 'STOLA RICAMATA VERDE', ordinata: 4, trasferita: 0, residuo: 4 }];
+    case 'ordine_da_caricare_righe':
+      return [{ ordine_riga_id: 301, articolo_id: ARTICOLI[4]['id'], prezzo: 9.8, ordinata: 30, arrivata: 0, residuo: 30 },
+        { ordine_riga_id: 302, articolo_id: ARTICOLI[3]['id'], prezzo: 1.9, ordinata: 10, arrivata: 0, residuo: 10 }];
+    case 'giacenze_articoli':
+      return ((args['p_articoli'] as string[]) ?? []).map((id, i) => ({ articolo_id: id, quantita: [3, 0, 5][i % 3] }));
+    case 'cerca_articoli': {
+      const t = String(args['p_testo'] ?? '').toLowerCase();
+      return ARTICOLI.filter(a => `${a['codice']} ${a['descrizione']} ${a['barcode']}`.toLowerCase().includes(t))
+        .map(a => ({ ...a, iva: 22, giacenza: a['quantita'], giacenza_altra: 10, altro_fornitore: false, esatto: a['barcode'] === t || String(a['codice']).toLowerCase() === t }))
+        .sort((x, y) => Number(y.esatto) - Number(x.esatto));
+    }
+    case 'salva_carico':
+    case 'salva_movimento':
+    case 'salva_movimento_ed_evadi':
+      return 99;
     case 'dashboard_sede':
       return {
         in_arrivo: [{ id: 30, prot: '2026-000030', data: '2026-11-10', nome: 'Candele Esempio & C.', righe: 3, pezzi: 40, tipo: 'Ordine a fornitore' },

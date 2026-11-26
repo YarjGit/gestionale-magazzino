@@ -72,7 +72,7 @@ export class MovimentiService {
   daSalvare(righe: RigaMovimento[], o: { spedita?: boolean; conOrdinata?: boolean; conOra?: boolean } = {}): RigaDaSalvare[] {
     return righe.filter(r => r.articolo && (o.spedita ? r.sped : r.qta) > 0).map(r => ({
       articolo_id: r.articolo!.id, quantita: o.spedita ? r.sped : r.qta, prezzo: r.prezzo, sconto: r.sconto || 0, etichette: r.etichette,
-      quantita_ordinata: o.conOrdinata ? (r.ordinata ?? (o.spedita ? r.qta : null)) : null, ordine_riga_id: r.ordineRigaId,
+      quantita_ordinata: o.conOrdinata ? r.ordinata : null, ordine_riga_id: r.ordineRigaId,
       ...(o.conOra ? { aggiunto_il: r.ora } : {})
     }));
   }

@@ -57,11 +57,15 @@ export interface ConfigRighe {
   nelMovimento: string;
   /** prezzo già IVA inclusa (vendite) */
   ivaInclusa?: boolean;
+  /** totale di riga senza IVA (carichi, come il prototipo) */
+  senzaIva?: boolean;
   /** colonna Spedita (quanto è uscito davvero) */
   spedita?: boolean;
   /** con spedita: Ordinata vuota, si scrive solo Spedita (vendite) */
   soloSpedita?: boolean;
   senzaOrdinata?: boolean;
+  /** Ordinata solo per le righe arrivate da un ordine (carichi, trasferimenti): le altre mostrano "—" */
+  ordinataDaOrdine?: boolean;
   senzaSconto?: boolean;
   senzaAnno?: boolean;
   /** colonna Etichette (carichi): seguono la quantità finché non si cambiano a mano */
@@ -92,7 +96,7 @@ export const articoloDaRicerca = (a: ArticoloTrovato): ArticoloRiga => ({
 /** Totale della riga al centesimo: acquisti con l'IVA aggiunta, vendite già IVA inclusa; con Spedita conta quella. */
 export function totaleRiga(r: RigaMovimento, cfg: ConfigRighe): number {
   const pezzi = cfg.spedita ? r.sped : r.qta;
-  const iva = cfg.ivaInclusa ? 1 : 1 + percIvaRiga(r.iva) / 100;
+  const iva = cfg.ivaInclusa || cfg.senzaIva ? 1 : 1 + percIvaRiga(r.iva) / 100;
   return cent(pezzi * r.prezzo * (1 - (r.sconto || 0) / 100) * iva);
 }
 

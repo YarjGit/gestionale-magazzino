@@ -50,6 +50,7 @@
               <td class="num">
                 @if (config().soloSpedita) { <span style="color:var(--muted)">—</span> }
                 @else if (r.ordinata != null && config().spedita) { {{ pezziIt(r.ordinata) }} }
+                @else if (config().ordinataDaOrdine) { <span style="color:var(--muted)">—</span> }
                 @else if (modifica()) { <span class="passo"><button class="btn-riga" (click)="passo(r, 'qta', -1)">−</button><input class="num-mod" [value]="r.qta" (change)="cambia(r, 'qta', $event)"><button class="btn-riga" (click)="passo(r, 'qta', 1)">+</button></span> }
                 @else { {{ pezziIt(r.qta) }} }
               </td>

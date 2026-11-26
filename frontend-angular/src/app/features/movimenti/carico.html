@@ -1,0 +1,127 @@
+<div [class.in-modifica]="modifica()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a routerLink="/movimenti/carichi-fornitori" style="color:var(--accent)">Torna all'elenco dei carichi</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura del carico…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="nuovo ? 'Nuovo carico da fornitore' : 'Carico da fornitore'" [numero]="id()" [stato]="stato()" [totale]="totArt()"
+    [sotto]="pezzi() + ' pezzi · ' + righe().length + ' righe'" elenco="/movimenti/carichi-fornitori" nomeElenco="Carichi da Fornitori"
+    [modifica]="modifica()" [modificabile]="statoSalvato() !== 'Annullato'" [salvataggio]="salvataggio()" [testoModifica]="testoModifica()"
+    (modificaClick)="modificaCarico()" (annulla)="annullaModifica()" (salva)="salva($event)">
+    <button class="btn btn-light" (click)="etichette()">🏷️ Etichette movimento</button>
+    <button class="btn btn-light" (click)="stampa()">🖨️ Stampa</button>
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+  </app-testa-scheda>
+
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'collegati'" (click)="apriTab('collegati')">🚚 Movimenti collegati <span class="n">{{ ordiniCollegati().length + (collegatoDaOrdine() ? 1 : 0) }}</span></button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="apriTab('articoli')">📦 Articoli <span class="n">{{ righe().length }}</span></button>
+      <button class="scheda-tab" [class.active]="tab() === 'riordini'" (click)="apriTab('riordini')">🧩 Riordini <span class="n">{{ mancanti().length }}</span></button>
+      <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab"><div class="dettagli"><div>
+      <div class="gruppo"><h3>📄 Documento</h3><div class="campi">
+        <div class="f s3"><label>Fornitore <span style="color:var(--ko)">*</span></label>
+          <app-cerca-fornitore [fornitori]="fornitori()" [valore]="fornitore()" [disabilitato]="!modifica()" (cambiato)="scegliFornitore($event)" /></div>
+        <div class="f s2"><label>Stato movimento</label>
+          <select [disabled]="!modifica()" (change)="stato.set(testo($event))">
+            @for (s of ['Provvisorio', 'Definitivo', 'Annullato']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+          </select></div>
+        <div class="f s1"><label>Anno</label><input [value]="anno()" disabled style="text-align:right" title="Anno di acquisto: si stampa sulle etichette"></div>
+        <div class="f s2"><label>Data carico</label><input type="date" [value]="doc().data" [disabled]="!modifica()" (change)="campo('data', $event)"></div>
+        <div class="f s2"><label>Data documento</label><input type="date" [value]="doc().dataDoc" [disabled]="!modifica()" (change)="campo('dataDoc', $event)"></div>
+        <div class="f s2"><label>Data bolla</label><input type="date" [value]="doc().dataBolla" [disabled]="!modifica()" (change)="campo('dataBolla', $event)"></div>
+        <div class="f s2"><label>Numero bolla</label><input [value]="doc().numBolla" [disabled]="!modifica()" (input)="campo('numBolla', $event)"></div>
+        <div class="f s1"><label>Porto</label><select [disabled]="!modifica()" (change)="campo('porto', $event)">@for (p of ['Franco', 'Assegnato']; track p) { <option [selected]="p === doc().porto">{{ p }}</option> }</select></div>
+        <div class="f s3"><label>Condizione di pagamento</label><select [disabled]="!modifica()" (change)="campo('condPag', $event)"><option value=""></option>
+          @for (p of ['Contrassegno', 'Già effettuato', 'Ricevimento fattura', 'Bonifico a 30 gg.', 'Bonifico a 60 gg.', 'Bonifico a 90 gg.']; track p) { <option [selected]="p === doc().condPag">{{ p }}</option> }</select></div>
+        <div class="f s2"><label>Sede che riceve</label><input [value]="sede.sede()?.nome ?? ''" disabled></div>
+      </div></div>
+      <div class="gruppo"><h3>🚚 Spedizione</h3><div class="campi">
+        <div class="f s2"><label>Spedizioniere</label><select [disabled]="!modifica()" (change)="campo('sped', $event)"><option value=""></option>@for (p of ['Euroitaly', 'BRT Corriere Espresso']; track p) { <option [selected]="p === doc().sped">{{ p }}</option> }</select></div>
+        <div class="f s2"><label>Tracking number</label><input [value]="doc().tracking" [disabled]="!modifica()" (input)="campo('tracking', $event)"></div>
+      </div></div>
+      <div class="gruppo"><h3>📝 Note</h3><div class="campi">
+        <div class="f s3"><label>Causale</label><textarea [value]="doc().causale" [disabled]="!modifica()" [placeholder]="perEstero() ? 'es. FILIPPINE' : ''" (input)="campo('causale', $event)"></textarea>
+          <span class="aiuto">{{ perEstero() ? 'paese di spedizione (sede estera che ha chiesto la merce)' : 'non stampata sul documento' }}</span></div>
+        <div class="f s3"><label>Annotazioni</label><textarea [value]="doc().annot" [disabled]="!modifica()" (input)="campo('annot', $event)"></textarea><span class="aiuto">stampate sul documento</span></div>
+      </div></div>
+    </div>
+    <aside class="riepilogo">
+      <h3>Riepilogo importi</h3>
+      <div class="voce-imp fissa"><label>+ Totale articoli</label><input [value]="numero(totArt())" disabled></div>
+      @for (s of SPESE; track s; let i = $index) {
+        <div class="voce-imp"><label>+ {{ s }}</label><input placeholder="0,00" [value]="spese()[i] ? numero(spese()[i]) : ''" [disabled]="!modifica()" (change)="cambiaSpesa(i, $event)"></div>
+      }
+      <div class="totale-compl"><span>= Totale complessivo</span><span class="v">{{ numero(totArt() + totSpese()) }}</span></div>
+    </aside></div></div>
+    }
+
+    @if (tab() === 'collegati') {
+    <div class="pannello-tab">
+      @if (nuovo) {
+        <div class="nota-viola">💡 È importante collegare le consegne agli ordini corrispondenti (se ci sono): così gli articoli arrivati risultano evasi e la giacenza virtuale resta giusta.</div>
+        <div class="collega">
+          <div class="f" style="flex:2"><label>Fornitore</label>
+            <app-cerca-fornitore [fornitori]="fornitori()" [valore]="fornitore()" (cambiato)="scegliFornitore($event)" /></div>
+          <div class="f" style="flex:2"><label>Ordine a fornitore</label>
+            <select [disabled]="!ordiniFornitore().length" (change)="ordineScelto.set(+testo($event) || null)">
+              <option value="">{{ !fornitore() ? '— prima scegli il fornitore —' : ordiniFornitore().length ? '— scegli l\'ordine —' : 'Nessun ordine aperto per questo fornitore' }}</option>
+              @for (o of ordiniFornitore(); track o.id) { <option [value]="o.id">{{ o.prot }} del {{ dataIt(o.data) }} · {{ o.pezzi }} pezzi da arrivare{{ o.stato === 'Provvisorio' ? ' (provvisorio)' : '' }}</option> }
+            </select></div>
+          <button class="btn btn-primary" [disabled]="!ordineScelto()" (click)="collegaScelto()">🔗 Collega ordine</button>
+          <button class="btn btn-light" (click)="apriTab('articoli')">Salta ›</button>
+        </div>
+      }
+      @for (o of ordiniCollegati(); track o.id) {
+        <div class="collegato"><div class="ico">📋</div><div class="testo"><b>Ordine a fornitore {{ o.prot }} del {{ dataIt(o.data) }}</b><span>{{ o.fornitore }} · {{ o.righe }} articoli da arrivare, ora nella scheda Articoli</span></div>
+          <span class="pill" style="background:#ddf5e8;color:var(--ok)">✔ Collegato</span></div>
+      }
+      @if (!nuovo) {
+        @if (collegatoDaOrdine()) {
+          <div class="collegato"><div class="ico">📋</div><div class="testo"><b>Carico collegato a un ordine a fornitore</b><span>{{ righe().filter(r => r.ordineRigaId).length }} righe arrivate da un ordine (colonna Ordinata)</span></div><a class="btn btn-light" routerLink="/movimenti/ordini-fornitori">Ordini</a></div>
+        } @else { <div class="vuoto"><b>Nessun ordine collegato</b><span>Questo carico è stato fatto senza collegare un ordine.</span></div> }
+      }
+    </div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      @if (modifica()) { <div class="nota-viola">💶 In questa scheda si indicano i <b>prezzi di acquisto</b>. Etichette da stampare: {{ etichetteTot() }}.</div> }
+      <app-righe-movimento [config]="config" [(righe)]="righe" [modifica]="modifica()" [fornitore]="fornitore()" [annoGiac]="anno()"
+        [puoAggiungere]="!!fornitore()" motivoBlocco="Scegli prima il fornitore (in Dettagli): si cercano solo i suoi articoli" />
+    </div>
+    }
+
+    @if (tab() === 'riordini') {
+    <div class="pannello-tab">
+      @if (mancanti().length) {
+        <div class="nota-viola">🧩 Questi articoli erano negli ordini collegati ma non sono arrivati tutti: restano da arrivare (l'ordine non diventa Evaso finché non arriva tutto).</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Arrivata</th><th class="num">Da riordinare</th></tr></thead>
+          <tbody>@for (r of mancanti(); track r.pos) { <tr><td class="art-cella"><span class="codice">{{ r.articolo?.codice }}</span><b>{{ r.articolo?.descrizione }}</b></td><td class="num">{{ r.ordinata }}</td><td class="num">{{ r.sped }}</td><td class="num"><span class="arrivo parziale">{{ (r.ordinata ?? 0) - r.sped }}</span></td></tr> }</tbody>
+        </table></div>
+      } @else { <div class="vuoto"><b>Nessun riordino</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa manca.</span></div> }
+    </div>
+    }
+
+    @if (tab() === 'storico') {
+    <div class="pannello-tab">
+      @if (nuovo) { <div class="vuoto"><b>Carico non ancora salvato</b><span>Dopo il salvataggio qui comparirà chi lo ha creato e modificato.</span></div> }
+      @else {
+        <div class="timeline">
+          @if (storico(); as ev) {
+            @for (e of ev; track e.id) { <div class="evento" [class.ok]="e.attivita === 'Nuovo movimento'"><div class="quando">{{ oraIt(e.quando) }} · {{ e.email ?? 'Sistema' }}</div><div class="cosa">{{ e.attivita }}</div>@if (e.dettagli) { <div class="dett">{{ e.dettagli }}</div> }</div> }
+            @empty { <div class="vuoto"><b>Nessuna modifica registrata</b></div> }
+          } @else { <div class="vuoto"><b>Lettura…</b></div> }
+        </div>
+      }
+    </div>
+    }
+  </section>
+}
+</div>
