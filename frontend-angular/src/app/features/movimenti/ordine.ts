@@ -40,8 +40,8 @@ export class Ordine extends SchedaBase {
   protected readonly perEstero = computed(() => this.sede.sedeId() === 'cal-roma-estero');
   protected readonly estera = computed(() => SEDI_ESTERE.includes(this.nomeSede));
 
-  protected readonly stato = signal('Provvisorio');
-  protected readonly statoSalvato = signal('Provvisorio');
+  protected readonly stato = signal('Definitivo');   // come il prototipo: un ordine nuovo parte Definitivo (inviato)
+  protected readonly statoSalvato = signal('Definitivo');
   protected readonly protocollo = signal<string | null>(null);
   protected readonly fornitore = signal<string | null>(null);
   protected readonly fornitori = signal<FornitoreBreve[]>([]);
