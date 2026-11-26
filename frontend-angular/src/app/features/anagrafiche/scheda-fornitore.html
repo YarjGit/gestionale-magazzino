@@ -38,8 +38,11 @@
   <section class="panel">
     <div class="schede">
       <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">📄 Dettagli</button>
-      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="apriTab('articoli')">📦 Articoli <span class="n">{{ artTotale() }}</span></button>
-      <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+      <!-- fornitore nuovo: solo Dettagli (non ha ancora articoli né modifiche) -->
+      @if (!nuovo) {
+        <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="apriTab('articoli')">📦 Articoli <span class="n">{{ artTotale() }}</span></button>
+        <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+      }
     </div>
 
     @if (tab() === 'dettagli') {

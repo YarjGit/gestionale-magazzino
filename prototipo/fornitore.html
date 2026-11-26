@@ -114,8 +114,9 @@
     <section class="panel">
       <div class="schede" id="schede">
         <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
-        <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n">${articoli.length}</span></button>
-        <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
+        <!-- Fornitore nuovo: serve solo Dettagli (non ha ancora articoli né modifiche: chiesto dall'utente) -->
+        <button class="scheda-tab" data-t="articoli" ${nuovo ? "hidden" : ""}>📦 Articoli <span class="n">${articoli.length}</span></button>
+        <button class="scheda-tab" data-t="storico" ${nuovo ? "hidden" : ""}>🕑 Storico modifiche</button>
       </div>
 
       <div class="pannello-tab" id="tab-dettagli">
