@@ -1,0 +1,129 @@
+<div class="opzioni">
+  @if (modifica()) {
+    <button class="btn-riga nuova" title="Aggiungi un articolo: si scrive il codice o si spara con la pistola" (click)="nuovaRiga()">＋</button>
+    @if (config().conFornitore) {
+      <label class="interr" title="Di solito si cercano solo gli articoli del fornitore scelto"><span class="switch"><input type="checkbox" [checked]="tuttiFornitori()" (change)="tuttiFornitori.set(spuntato($event))"><span></span></span> anche articoli di altri fornitori</label>
+    }
+  }
+  <label class="interr"><span class="switch"><input type="checkbox" [checked]="nuoviInAlto()" (change)="nuoviInAlto.set(spuntato($event))"><span></span></span> Nuovi articoli in alto</label>
+  <label class="interr"><span class="switch"><input type="checkbox" [checked]="ordinaCodice()" (change)="ordinaCodice.set(spuntato($event))"><span></span></span> Ordina per codice</label>
+  <ng-content />
+</div>
+<div class="table-wrap">
+  <table>
+    <thead><tr>
+      @if (modifica()) { <th style="width:96px"></th> }
+      <th>#</th><th>Articolo</th>
+      @if (!config().senzaOrdinata) { <th class="num">Ordinata</th> }
+      @if (config().spedita) { <th class="num" title="Quanto è uscito o arrivato davvero">Spedita</th> }
+      <th class="num" title="Giacenza attuale nella sede">Giac.</th>
+      @if (!config().senzaAnno) { <th class="num">Anno giac.</th> }
+      @if (config().etichette) { <th class="num">Etichette</th> }
+      <th class="num">{{ config().etichettaPrezzo }}</th><th>IVA</th>
+      @if (!config().senzaSconto) { <th class="num">Sconto %</th> }
+      <th class="num">{{ config().perPezzo ? 'Costo + IVA (1 pezzo)' : 'Prezzo totale' }}</th>
+    </tr></thead>
+    <tbody #corpo>
+      @for (r of inOrdine(); track r.pos; let i = $index, ultimo = $last) {
+        <tr [class.lampeggia]="r.pos === ultima()">
+          @if (modifica()) {
+            <td><div class="comandi">
+              <button class="btn-riga cestino" title="Elimina riga" (click)="togli(r.pos)">🗑</button>
+              <div class="frecce">
+                <button class="btn-riga" title="Sposta su" [disabled]="ordinaCodice() || i === 0" (click)="sposta(r, -1)">▲</button>
+                <button class="btn-riga" title="Sposta giù" [disabled]="ordinaCodice() || ultimo" (click)="sposta(r, 1)">▼</button>
+              </div>
+            </div></td>
+          }
+          <td style="color:var(--muted)">{{ r.pos }}</td>
+          @if (r.articolo; as a) {
+            <td class="art-cella" [title]="'Barcode ' + (a.barcode ?? '')">
+              <span class="codice">{{ a.codice }}</span>
+              @if (modifica()) { <button class="apri-art" title="Cambia articolo" (click)="cambiaArticolo(r)">✎</button> }
+              @if (modifica() && a.altroFornitore) { <span class="altro-forn"> · di un altro fornitore</span> }
+              @if (notaArticolo()(a); as n) { <span class="nota-art"> · {{ n }}</span> }
+              @if (r.oltreAttesa) { <span class="tag-piu">IN PIÙ</span> }
+              @if (config().righeSeparate) { <span class="nota-art" title="Ora in cui è stata aggiunta la vendita"> · ore {{ ora(r) }}</span> }
+              <b>{{ a.descrizione }}</b>
+            </td>
+            @if (!config().senzaOrdinata) {
+              <td class="num">
+                @if (config().soloSpedita) { <span style="color:var(--muted)">—</span> }
+                @else if (r.ordinata != null && config().spedita) { {{ pezziIt(r.ordinata) }} }
+                @else if (modifica()) { <span class="passo"><button class="btn-riga" (click)="passo(r, 'qta', -1)">−</button><input class="num-mod" [value]="r.qta" (change)="cambia(r, 'qta', $event)"><button class="btn-riga" (click)="passo(r, 'qta', 1)">+</button></span> }
+                @else { {{ pezziIt(r.qta) }} }
+              </td>
+            }
+            @if (config().spedita) {
+              <td class="num">
+                @if (modifica()) { <span class="passo"><button class="btn-riga" (click)="passo(r, 'sped', -1)">−</button><input class="num-mod" [value]="r.sped" (change)="cambia(r, 'sped', $event)"><button class="btn-riga" (click)="passo(r, 'sped', 1)">+</button></span> }
+                @else { <span class="arrivo" [class]="'arrivo ' + classeArrivo(r)">{{ pezziIt(r.sped) }}</span> }
+              </td>
+            }
+            <td class="num">
+              @if (sedeAltra()) {
+                <div class="giac-doppia"><span class="giac-sugg" [class.zero]="(a.giacenza ?? 0) <= 0">{{ sigla() }} {{ pezziIt(a.giacenza) }}</span><span class="giac-sugg altra" [class.zero-altra]="(a.giacenzaAltra ?? 0) <= 0">{{ siglaAltra() }} {{ pezziIt(a.giacenzaAltra ?? 0) }}</span></div>
+              } @else { {{ a.giacenza == null ? '—' : pezziIt(a.giacenza) }} }
+            </td>
+            @if (!config().senzaAnno) { <td class="num" style="color:var(--muted)">{{ annoGiac() ?? a.anno ?? '' }}</td> }
+            @if (config().etichette) {
+              <td class="num">@if (modifica()) { <input class="num-mod" [value]="r.etichette" (change)="cambia(r, 'etichette', $event)"> } @else { {{ r.etichette }} }</td>
+            }
+            <td class="num">
+              @if (config().costoFisso) {
+                <span title="Costo d'acquisto della scheda articolo: non si modifica qui">{{ numero(r.prezzo) }}</span><span class="costo-lettere" title="Costo in lettere, come sulle etichette">{{ costoInLettere(r.prezzo) }}</span>
+              } @else if (modifica()) {
+                <span class="costo-riga"><input class="num-mod largo" [value]="numero(r.prezzo)" (change)="cambia(r, 'prezzo', $event)"><button class="btn-riga" [title]="'Riprendi il prezzo dall\'anagrafica articolo (' + numero(config().prezzoDi(a)) + ')'" (click)="riprezzo(r)">↻</button></span>
+              } @else { {{ numero(r.prezzo) }} }
+            </td>
+            <td>
+              @if (modifica()) {
+                <select class="sel-iva" [class.diversa]="r.iva !== '22'" (change)="cambia(r, 'iva', $event)">
+                  @for (q of ALIQUOTE; track q[0]) { <option [value]="q[0]" [selected]="q[0] === r.iva">{{ q[1] }}</option> }
+                </select>
+              } @else { <span class="sel-iva" [class.diversa]="r.iva !== '22'" style="border-color:transparent">{{ nomeIva(r.iva) }}</span> }
+            </td>
+            @if (!config().senzaSconto) {
+              <td class="num">@if (modifica()) { <input class="num-mod" [value]="r.sconto" (change)="cambia(r, 'sconto', $event)"> } @else { {{ r.sconto || '' }} }</td>
+            }
+            <td class="num"><b>{{ config().perPezzo ? numero(costoPezzo(r)) : numero(totRiga(r)) }}</b></td>
+          } @else {
+            <td [attr.colspan]="colonne() - 1">
+              <div class="cerca-riga"><input data-cerca placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off"
+                (input)="scrivi(r.pos, $event)" (keydown)="tasto(r.pos, $event)" (blur)="chiudiLista()"></div>
+            </td>
+          }
+        </tr>
+      } @empty {
+        <tr><td [attr.colspan]="colonne() + (modifica() ? 1 : 0)"><div class="vuoto"><b>Nessun articolo</b><span>{{ config().testoVuoto ?? 'Aggiungi gli articoli con il tasto ＋ o sparandoli con la pistola.' }}</span></div></td></tr>
+      }
+    </tbody>
+    <tfoot><tr>
+      @if (modifica()) { <td></td> }
+      <td colspan="2">Totale</td>
+      @if (!config().senzaOrdinata) { <td class="num">{{ config().soloSpedita ? '' : pezziIt(totOrdinata()) }}</td> }
+      @if (config().spedita) { <td class="num">{{ pezziIt(pezzi()) }}</td> }
+      <td [attr.colspan]="(config().senzaAnno ? 1 : 2)"></td>
+      @if (config().etichette) { <td class="num">{{ totEtichette() }}</td> }
+      <td [attr.colspan]="config().senzaSconto ? 2 : 3"></td>
+      <td class="num">{{ config().perPezzo ? '' : numero(totale()) }}</td>
+    </tr></tfoot>
+  </table>
+</div>
+
+@if (rigaCerca() !== null && posBox(); as p) {
+  <div class="sugg-box" [style.left.px]="p.left" [style.width.px]="p.width" [style.max-height.px]="p.max" [style.top.px]="p.top" [style.bottom.px]="p.bottom">
+    @for (a of trovati(); track a.id; let i = $index) {
+      <div class="sugg" [class.attivo]="i === attivo()" (mousedown)="scegli(rigaCerca()!, a)">
+        <span class="codice">{{ a.codice }}</span>{{ a.descrizione }}
+        @if (a.altroFornitore) { <span class="altro-forn">&nbsp;· altro fornitore</span> }
+        @if (notaArticolo()(a); as n) { <span class="nota-art">&nbsp;· {{ n }}</span> }
+        <span class="giac-sugg" [class.zero]="(a.giacenza ?? 0) <= 0" [class.ignota]="a.giacenza == null">{{ sedeAltra() ? sigla() : 'giac.' }} {{ pezziIt(a.giacenza) }}</span>
+        @if (sedeAltra()) { <span class="giac-sugg altra" [class.zero-altra]="(a.giacenzaAltra ?? 0) <= 0">{{ siglaAltra() }} {{ pezziIt(a.giacenzaAltra ?? 0) }}</span> }
+        <small>{{ a.barcode }}</small>
+      </div>
+    } @empty {
+      @if (messaggio()) { <div class="sugg" style="cursor:default;color:var(--muted)">{{ messaggio() }}</div> }
+    }
+  </div>
+}

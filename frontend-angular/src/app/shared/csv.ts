@@ -1,11 +1,8 @@
-// Esporta una tabella in un file CSV che Excel apre direttamente (separatore ";" e accenti corretti).
+// Tasto "Esporta" degli elenchi: un vero file Excel (.xlsx), mai CSV (regola del progetto, come il prototipo).
+// Il nome resta "esportaCsv" per non cambiare tutte le pagine che lo usano.
+import { tabellaExcel } from './excel';
+
 export function esportaCsv(nomeFile: string, righe: (string | number | null | undefined)[][]): void {
-  const testo = righe
-    .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
-    .join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['﻿' + testo], { type: 'text/csv;charset=utf-8' }));
-  a.download = nomeFile.endsWith('.csv') ? nomeFile : `${nomeFile}.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  const foglio = nomeFile.replace(/[-_]/g, ' ').replace(/^\w/, c => c.toUpperCase()).slice(0, 31) || 'Elenco';
+  tabellaExcel(nomeFile, foglio, righe.map(r => r.map(v => v ?? '')));
 }

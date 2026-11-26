@@ -175,11 +175,13 @@ language sql stable security invoker set search_path = public as $$
 $$;
 
 -- Carichi da Fornitori: ordini a fornitori (o alla sede stessa) con merce ancora da arrivare
+-- (drop: la versione di prima non aveva fornitore_id e una funzione non può cambiare le colonne restituite)
+drop function if exists ordini_da_caricare(text);
 create or replace function ordini_da_caricare(p_sede text)
-returns table (id bigint, prot text, data date, stato text, fornitore text, righe bigint, pezzi numeric)
+returns table (id bigint, prot text, data date, stato text, fornitore text, righe bigint, pezzi numeric, fornitore_id uuid)
 language sql stable security invoker set search_path = public as $$
   select m.id, coalesce(m.protocollo, '#' || m.id), m.data_movimento, m.stato, coalesce(f.ragione_sociale, ''),
-         count(*), sum(r.quantita - coalesce(c.arrivata, 0))::numeric
+         count(*), sum(r.quantita - coalesce(c.arrivata, 0))::numeric, m.fornitore_id
   from movimenti m
   left join fornitori f on f.id = m.fornitore_id
   join movimenti_righe r on r.movimento_id = m.id
@@ -239,6 +241,92 @@ grant execute on function _movimenti_filtrati(text, text, boolean, text, text, d
   ordini_da_caricare(text), ordini_da_preparare(text), ordini_alle_sedi(text), inevasi_in_attesa(text) to authenticated;
 
 
--- Controllo: deve dare 8
+-- ---------- Ricerca articoli per le righe dei movimenti (anche con la pistola) ----------
+-- Come cercaArticoli del prototipo, ma nel database: ogni parola deve comparire (anche a metà) in codice, descrizione o barcode.
+-- In cima il codice o il barcode esatto (la pistola prende sempre quello giusto), poi gli articoli del fornitore scelto,
+-- poi i codici che iniziano col testo, quelli che lo contengono, infine il resto. Solo articoli attivi. Al massimo 50.
+--   p_fornitore    fornitore della scheda (gli altri articoli si segnano "altro fornitore"); p_solo_fornitore = solo i suoi
+--   p_sede_altra   sede di cui mostrare anche la giacenza (es. il Magazzino Centrale a cui si ordina)
+create or replace function cerca_articoli(p_testo text, p_sede text, p_fornitore uuid default null, p_solo_fornitore boolean default false,
+  p_sede_altra text default null, p_quanti int default 50)
+returns table (id uuid, codice text, descrizione text, barcode text, fornitore_id uuid, costo_netto numeric, prezzo_vendita_ivato numeric,
+  iva numeric, anno_listino int, unita_misura text, giacenza numeric, giacenza_altra numeric, altro_fornitore boolean, esatto boolean)
+language sql stable security invoker set search_path = public as $$
+  with t as (select lower(trim(coalesce(p_testo, ''))) as testo),
+  parole as (select array_remove(regexp_split_to_array((select testo from t), '\s+'), '') as p),
+  trovati as (
+    select a.*,
+      (lower(coalesce(a.barcode, '')) = (select testo from t) or lower(a.codice) = (select testo from t)) as e_esatto,
+      case when lower(a.codice) like (select testo from t) || '%' then 1 when lower(a.codice) like '%' || (select testo from t) || '%' then 2 else 3 end as posto
+    from articoli a
+    where a.attivo is not false
+      and (select testo from t) <> ''
+      and not exists (select 1 from unnest((select p from parole)) w
+                      where position(w in lower(a.codice || ' ' || coalesce(a.descrizione, '') || ' ' || coalesce(a.barcode, ''))) = 0)
+      and (not p_solo_fornitore or p_fornitore is null or a.fornitore_id = p_fornitore or a.fornitore2_id = p_fornitore
+           or lower(coalesce(a.barcode, '')) = (select testo from t) or lower(a.codice) = (select testo from t))
+  )
+  select x.id, x.codice, x.descrizione, x.barcode, x.fornitore_id, x.costo_netto::numeric, x.prezzo_vendita_ivato::numeric,
+    coalesce(ai.aliquota, 22)::numeric, x.anno_listino::int, x.unita_misura,
+    g.quantita::numeric, ga.quantita::numeric,
+    (p_fornitore is not null and x.fornitore_id is distinct from p_fornitore and x.fornitore2_id is distinct from p_fornitore),
+    x.e_esatto
+  from trovati x
+  left join aliquote_iva ai on ai.codice = x.aliquota_iva
+  left join giacenze g on g.sede_id = p_sede and g.articolo_id = x.id
+  left join giacenze ga on p_sede_altra is not null and ga.sede_id = p_sede_altra and ga.articolo_id = x.id
+  order by x.e_esatto desc,
+    (p_fornitore is not null and x.fornitore_id is distinct from p_fornitore and x.fornitore2_id is distinct from p_fornitore),
+    x.posto, x.codice
+  limit greatest(1, least(p_quanti, 100));
+$$;
+
+-- Giacenza attuale di alcuni articoli in una sede (righe di un movimento aperto)
+create or replace function giacenze_articoli(p_sede text, p_articoli uuid[])
+returns table (articolo_id uuid, quantita numeric)
+language sql stable security invoker set search_path = public as $$
+  select g.articolo_id, g.quantita::numeric from giacenze g where g.sede_id = p_sede and g.articolo_id = any(p_articoli);
+$$;
+
+grant execute on function cerca_articoli(text, text, uuid, boolean, text, int), giacenze_articoli(text, uuid[]) to authenticated;
+
+-- ---------- Carico da fornitore collegato a ordini ----------
+-- Salva il carico (salva_movimento: tutto o niente, versione, giacenza) e, se è Definitivo, mette "Evaso" gli ordini collegati
+-- in cui è arrivato tutto (stessa transazione: nel prototipo era un secondo passaggio fatto dalla pagina).
+create or replace function salva_carico(p_id bigint, p_mov jsonb, p_righe jsonb, p_ordini bigint[])
+returns bigint
+language plpgsql security invoker set search_path = public as $$
+declare v_id bigint;
+begin
+  v_id := salva_movimento(p_id, p_mov, p_righe);
+  if coalesce(p_mov ->> 'stato', '') = 'Definitivo' and coalesce(array_length(p_ordini, 1), 0) > 0 then
+    update movimenti m set stato = 'Evaso', modificato_il = now(), modificato_da = auth.jwt() ->> 'email'
+    where m.id = any(p_ordini) and m.tipo = 'ordine_fornitore' and m.stato in ('Provvisorio', 'Definitivo')
+      and not exists (
+        select 1 from movimenti_righe r
+        where r.movimento_id = m.id
+          and r.quantita > coalesce((select sum(x.quantita) from movimenti_righe x join movimenti mx on mx.id = x.movimento_id
+                                     where x.ordine_riga_id = r.id and mx.tipo = 'carico_fornitore' and mx.stato in ('Definitivo', 'Evaso')), 0));
+  end if;
+  return v_id;
+end $$;
+
+-- Righe ancora da arrivare di un ordine a fornitore (per riempire il carico: "Spedita = quanto manca")
+create or replace function ordine_da_caricare_righe(p_ordine bigint)
+returns table (ordine_riga_id bigint, articolo_id uuid, prezzo numeric, ordinata numeric, arrivata numeric, residuo numeric)
+language sql stable security invoker set search_path = public as $$
+  select r.id, r.articolo_id, r.prezzo::numeric, r.quantita::numeric, coalesce(c.arrivata, 0)::numeric, (r.quantita - coalesce(c.arrivata, 0))::numeric
+  from movimenti_righe r
+  left join (select x.ordine_riga_id, sum(x.quantita) as arrivata from movimenti_righe x join movimenti mx on mx.id = x.movimento_id
+             where mx.tipo = 'carico_fornitore' and mx.stato in ('Definitivo', 'Evaso') and x.ordine_riga_id is not null group by x.ordine_riga_id) c
+    on c.ordine_riga_id = r.id
+  where r.movimento_id = p_ordine and r.quantita - coalesce(c.arrivata, 0) > 0
+  order by r.id;
+$$;
+
+grant execute on function salva_carico(bigint, jsonb, jsonb, bigint[]), ordine_da_caricare_righe(bigint) to authenticated;
+
+-- Controllo: deve dare 12
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
-  'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa');
+  'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
+  'salva_carico', 'ordine_da_caricare_righe');

@@ -217,6 +217,7 @@ export interface MovimentoRiga {
 export type RigaDaSalvare = Pick<MovimentoRiga, 'articolo_id'> &
   Partial<Pick<MovimentoRiga, 'quantita_ordinata' | 'quantita_contata' | 'azione' | 'ordine_riga_id' | 'sconto' | 'etichette'>> & {
     quantita: number;
+    aggiunto_il?: string | null;
     prezzo: number;
   };
 
@@ -335,10 +336,16 @@ export interface RpcFunzioni {
   /** Elenchi dei movimenti (database/34): una pagina con i filtri, e il riepilogo per stato. */
   movimenti_elenco: { args: MovimentiFiltri & { p_stato: string | null; p_ordina: string; p_crescente: boolean; p_da: number; p_quanti: number }; ritorno: MovimentoElencoRiga[] };
   movimenti_riepilogo: { args: MovimentiFiltri; ritorno: { stato: string; movimenti: number; pezzi: Numerico; totale: Numerico }[] };
-  ordini_da_caricare: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; fornitore: string; righe: number; pezzi: Numerico }[] };
+  ordini_da_caricare: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; fornitore: string; righe: number; pezzi: Numerico; fornitore_id: string | null }[] };
   ordini_da_preparare: { args: { p_sede: SedeId }; ritorno: { id: number; da: string; data: string; righe: number; pezzi: Numerico; disponibili: number }[] };
   ordini_alle_sedi: { args: { p_sede: SedeId }; ritorno: { id: number; prot: string; data: string; stato: string; sede: string; righe: number; pezzi: Numerico; trasferimento_da_ricevere: number | null }[] };
   inevasi_in_attesa: { args: { p_sede: SedeId }; ritorno: InevasoInAttesa[] };
+  /** Ricerca articoli per le righe dei movimenti (anche pistola): codice o barcode esatto in cima. */
+  cerca_articoli: { args: { p_testo: string; p_sede: SedeId; p_fornitore: string | null; p_solo_fornitore: boolean; p_sede_altra: SedeId | null; p_quanti: number }; ritorno: ArticoloTrovato[] };
+  giacenze_articoli: { args: { p_sede: SedeId; p_articoli: string[] }; ritorno: { articolo_id: string; quantita: Numerico }[] };
+  /** Carico: salva e mette Evasi gli ordini collegati arrivati per intero, nella stessa transazione. */
+  salva_carico: { args: { p_id: number | null; p_mov: MovimentoDaSalvare; p_righe: RigaDaSalvare[]; p_ordini: number[] }; ritorno: number };
+  ordine_da_caricare_righe: { args: { p_ordine: number }; ritorno: { ordine_riga_id: number; articolo_id: string; prezzo: Numerico; ordinata: Numerico; arrivata: Numerico; residuo: Numerico }[] };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */
@@ -346,6 +353,24 @@ export interface RpcFunzioni {
   /** "Usalo anche a …": aggiunge un fornitore esistente ai fornitori della sede. */
   aggiungi_fornitore_sede: { args: { p_fornitore: string; p_sede: SedeId }; ritorno: null };
   articoli_simili: { args: { p_codice: string | null; p_barcode: string | null; p_escludi: string | null }; ritorno: { codice: string; descrizione: string; motivo: 'codice' | 'barcode' }[] };
+}
+
+export interface ArticoloTrovato {
+  id: string;
+  codice: string;
+  descrizione: string;
+  barcode: string | null;
+  fornitore_id: string | null;
+  costo_netto: Numerico;
+  prezzo_vendita_ivato: Numerico;
+  iva: Numerico;
+  anno_listino: number | null;
+  unita_misura: string | null;
+  /** null = mai movimentato nella sede */
+  giacenza: Numerico | null;
+  giacenza_altra: Numerico | null;
+  altro_fornitore: boolean;
+  esatto: boolean;
 }
 
 export interface MovimentiFiltri {
