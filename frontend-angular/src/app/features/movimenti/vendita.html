@@ -1,0 +1,87 @@
+<div [class.in-modifica]="modifica()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a [routerLink]="'/movimenti/vendite-giornaliere'" style="color:var(--accent)">Torna all'elenco delle vendite</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura della giornata…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="nuovo ? (ecom() ? 'Nuova giornata di vendite e-commerce' : 'Nuova giornata di vendite') : (ecom() ? 'Vendite e-commerce del ' : 'Vendite del ') + (nuovo ? '' : giornoIt(giorno()))"
+    [numero]="id()" [stato]="stato()" [totale]="totale()" etichettaTotale="Totale venduto" [sotto]="pezzi() + ' pezzi · ' + righe().length + ' righe'"
+    [elenco]="elenco()" [nomeElenco]="ecom() ? 'Vendite e-commerce' : 'Vendite Giornaliere'" [modifica]="modifica()" [modificabile]="statoSalvato() !== 'Annullato'"
+    [salvataggio]="salvataggio()" [testoModifica]="nuovo ? '' : 'Stai modificando la giornata. Ricordati di salvare.'" [inventario]="inventario()"
+    (modificaClick)="modificaGiornata()" (annulla)="annullaModifica()" (salva)="salva($event)">
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+  </app-testa-scheda>
+  @if (stato() === 'Provvisorio') { <div class="banner provv">◷ La giornata è <b>provvisoria</b>: si può ancora completare e <b>non viene scaricata</b> dalle giacenze.</div> }
+  @if (ecom()) {
+    <div class="banner" style="background:#f5f0ff;border:1px solid #cdb8f5;color:#5b21b6">🛒 <span>Vendite <b>online</b> di <b>un solo giorno</b>: la merce esce dalla giacenza di {{ sede.sede()?.nome }} con la data della vendita. Il giorno dopo se ne fa una nuova: mai righe aggiunte a una giornata vecchia.</span></div>
+  }
+  @if (modifica() && vecchia()) {
+    <div class="banner provv">⚠ <span>Questa giornata è del <b>{{ giornoIt(giornoSalvato()!) }}</b>: aggiungi qui solo articoli venduti <b>quel giorno</b>. Le vendite di oggi vanno nella giornata di oggi:
+      @if (giornataOggi(); as g) { <a [routerLink]="['/vendita', g]" style="color:inherit;font-weight:700">aprila →</a> }
+      @else { <a [routerLink]="['/vendita', 'nuovo']" [queryParams]="ecom() ? { canale: 'ecommerce' } : {}" style="color:inherit;font-weight:700">aprila →</a> }</span></div>
+  }
+
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="tab.set('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="tab.set('articoli')">📦 Articoli <span class="n">{{ righe().length }}</span></button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab"><div class="dettagli"><div>
+      <div class="gruppo"><h3>📄 Giornata</h3><div class="campi">
+        <div class="f s2"><label>Tipo di movimento</label><select disabled><option>{{ ecom() ? 'Vendita e-commerce' : 'Vendita giornaliera' }}</option></select></div>
+        <div class="f s4"><label>Stato movimento</label>
+          <div class="stato-sel">
+            <select [disabled]="!modifica() || stato() === 'Annullato'" (change)="stato.set(testo($event))">
+              @for (s of ['Provvisorio', 'Definitivo']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+              @if (stato() === 'Annullato') { <option selected>Annullato</option> }
+            </select>
+            @if (modifica() && stato() !== 'Annullato') {
+              <button class="btn" [class.btn-giallo]="stato() === 'Provvisorio'" [class.btn-primary]="stato() === 'Definitivo'" style="padding:6px 10px;font-size:0.8rem;white-space:nowrap"
+                (click)="stato.set(stato() === 'Definitivo' ? 'Provvisorio' : 'Definitivo')">{{ stato() === 'Provvisorio' ? 'Rendi definitivo' : 'Rendi provvisorio' }}</button>
+            }
+          </div><span class="aiuto">provvisoria = ancora da completare</span></div>
+        <div class="f s2"><label>Giorno</label><input type="date" [value]="giorno()" [disabled]="!modifica()" (change)="cambiaGiorno($event)"></div>
+        <div class="f s2"><label>Sede</label><input [value]="sede.sede()?.nome ?? ''" disabled></div>
+        <div class="f s1"><label>Anno</label><input [value]="giorno().slice(0, 4)" disabled style="text-align:right"></div>
+      </div></div>
+      <div class="gruppo"><h3>📝 Note</h3><div class="campi">
+        <div class="f s3"><label>Causale</label><textarea [value]="causale()" [disabled]="!modifica()" (input)="causale.set(testo($event))"></textarea><span class="aiuto">non stampata sul documento</span></div>
+        <div class="f s3"><label>Annotazioni</label><textarea [value]="annot()" [disabled]="!modifica()" (input)="annot.set(testo($event))"></textarea><span class="aiuto">stampate sul riepilogo</span></div>
+      </div></div>
+    </div>
+    <aside class="riepilogo">
+      <h3>Riepilogo importi</h3>
+      <div class="voce-imp fissa"><label>+ Totale venduto <small>IVA incl.</small></label><input [value]="numero(totale())" disabled></div>
+      <div class="totale-compl"><span>= Totale complessivo</span><span class="v">{{ numero(totale() + spese()) }}</span></div>
+    </aside></div></div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      <app-righe-movimento [config]="config()" [(righe)]="righe" [modifica]="modifica()" [sedeEstera]="estera()" [annoGiac]="null"
+        [puoAggiungere]="nuovo || giorno() === oggi || okGiornoVecchio()" motivoBlocco="Giornata di un altro giorno: usa il tasto «＋ articolo venduto quel giorno» qui sotto" />
+      @if (modifica() && vecchia() && !okGiornoVecchio()) { <p class="aiuto" style="margin-top:8px">Per aggiungere a una giornata vecchia usa <button class="btn btn-light" style="padding:3px 8px" (click)="nuovaRigaControllata()">＋ articolo venduto quel giorno</button></p> }
+    </div>
+    }
+  </section>
+
+  @if (doppione(); as d) {
+    <div class="modal-bg show"><div class="modal" style="width:min(520px,100%)">
+      <h2>{{ ecom() ? 'Vendite e-commerce' : 'Vendite giornaliere' }} {{ d.giorno === oggi ? 'di oggi' : 'del ' + giornoIt(d.giorno) }} già create</h2>
+      <p>Vuoi riaprire quelle {{ d.giorno === oggi ? 'di oggi' : 'del ' + giornoIt(d.giorno) }} (#{{ d.g.id }}) e aggiungere lì gli articoli?
+        @if (d.unire) { <br><small>Se scegli Sì, gli articoli che hai inserito qui vengono aggiunti a quella giornata.</small> }</p>
+      @if (d.nota) {
+        <div class="f" style="margin-bottom:12px"><label>Nota per distinguere questa giornata (obbligatoria)</label>
+          <input [value]="notaDoppia()" (input)="notaDoppia.set(testo($event))" placeholder="es. fiera parrocchiale, mercatino…" autofocus></div>
+      }
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-light" (click)="doppioneNo()">{{ d.nota ? 'Annulla' : 'No' }}</button>
+        @if (d.nota) { <button class="btn btn-primary" (click)="doppioneCrea()">Crea un'altra giornata</button> }
+        @else { <button class="btn btn-primary" (click)="doppioneSi()">{{ d.unire ? 'Sì, aggiungi i miei articoli a quella' : 'Sì, riapri quelle ' + (d.giorno === oggi ? 'di oggi' : 'del ' + giornoIt(d.giorno)) }}</button> }
+      </div>
+    </div></div>
+  }
+}
+</div>
