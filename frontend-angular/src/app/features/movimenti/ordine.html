@@ -1,0 +1,121 @@
+<div [class.in-modifica]="modifica()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a routerLink="/movimenti/ordini-fornitori" style="color:var(--accent)">Torna all'elenco degli ordini</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura dell'ordine…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="nuovo ? 'Nuovo ordine a fornitore' : 'Ordine a fornitore'" [numero]="id()" [stato]="stato()" [totale]="totArt()"
+    [sotto]="pezzi() + ' pezzi · ' + righe().length + ' righe'" elenco="/movimenti/ordini-fornitori" nomeElenco="Ordini a Fornitori"
+    [modifica]="modifica()" [modificabile]="modificabile()" [salvataggio]="salvataggio()"
+    [testoModifica]="nuovo ? 'Nuovo ordine: scegli il fornitore (obbligatorio) e aggiungi gli articoli nella scheda Articoli.' : 'Stai modificando l\'ordine. Ricordati di salvare.'"
+    (modificaClick)="modificaOrdine()" (annulla)="annullaModifica()" (salva)="salva($event)">
+    <button class="btn btn-light" (click)="stampa()">🖨️ Stampa</button>
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+  </app-testa-scheda>
+  @if (stato() === 'Provvisorio' && modifica()) {
+    <div class="banner provv">◷ Ordine provvisorio: si può completare nei prossimi giorni.@if (sedeFornitrice()) { Il <b>{{ fornitoreScelto()?.nome }}</b> non lo vede finché non lo rendi definitivo. }</div>
+  }
+
+  <section class="panel">
+    <div class="schede">
+      <button class="scheda-tab" [class.active]="tab() === 'dettagli'" (click)="apriTab('dettagli')">📄 Dettagli</button>
+      <button class="scheda-tab" [class.active]="tab() === 'articoli'" (click)="apriTab('articoli')">📦 Articoli <span class="n">{{ righe().length }}</span></button>
+      <button class="scheda-tab" [class.active]="tab() === 'storico'" (click)="apriTab('storico')">🕑 Storico modifiche</button>
+    </div>
+
+    @if (tab() === 'dettagli') {
+    <div class="pannello-tab"><div class="dettagli"><div>
+      <div class="gruppo"><h3>📄 Documento</h3><div class="campi">
+        <div class="f s3"><label>Fornitore <span style="color:var(--ko)">*</span></label>
+          <app-cerca-fornitore [fornitori]="fornitori()" [valore]="fornitore()" [disabilitato]="!modifica()" (cambiato)="scegliFornitore($event)" /></div>
+        <div class="f s2"><label>Stato movimento</label>
+          <div class="stato-sel">
+            <select [disabled]="!modifica() || !['Provvisorio', 'Definitivo'].includes(stato())" (change)="stato.set(testo($event))">
+              @for (s of ['Provvisorio', 'Definitivo']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+              @if (!['Provvisorio', 'Definitivo'].includes(stato())) { <option selected>{{ stato() }}</option> }
+            </select>
+            @if (modifica() && ['Provvisorio', 'Definitivo'].includes(stato())) {
+              <button class="btn" [class.btn-giallo]="stato() === 'Provvisorio'" [class.btn-primary]="stato() === 'Definitivo'" style="padding:6px 10px;font-size:0.8rem"
+                (click)="stato.set(stato() === 'Definitivo' ? 'Provvisorio' : 'Definitivo')">{{ stato() === 'Provvisorio' ? 'Rendi definitivo' : 'Rendi provvisorio' }}</button>
+            }
+          </div></div>
+        <div class="f s1"><label>Data</label><input type="date" [value]="doc().data" [disabled]="!modifica()" (change)="campo('data', $event)"></div>
+        <div class="f s2"><label>N. ordine fornitore</label><input [value]="doc().numOrdine" [disabled]="!modifica()" (input)="campo('numOrdine', $event)"></div>
+        <div class="f s2"><label>Data bolla</label><input type="date" [value]="doc().dataBolla" [disabled]="!modifica()" (change)="campo('dataBolla', $event)"></div>
+        <div class="f s1"><label>Porto</label><select [disabled]="!modifica()" (change)="campo('porto', $event)">@for (p of ['Franco', 'Assegnato']; track p) { <option [selected]="p === doc().porto">{{ p }}</option> }</select></div>
+        <div class="f s3"><label>Condizione di pagamento</label><select [disabled]="!modifica()" (change)="campo('condPag', $event)"><option value=""></option>
+          @for (p of ['Contrassegno', 'Già effettuato', 'Ricevimento fattura', 'Bonifico a 30 gg.', 'Bonifico a 60 gg.', 'Bonifico a 90 gg.']; track p) { <option [selected]="p === doc().condPag">{{ p }}</option> }</select></div>
+      </div></div>
+      <div class="gruppo"><h3>📝 Note</h3><div class="campi">
+        <div class="f s3"><label>Causale</label><textarea [value]="doc().causale" [disabled]="!modifica()" [placeholder]="perEstero() ? 'es. FILIPPINE' : ''" (input)="campo('causale', $event)"></textarea>
+          <span class="aiuto">{{ perEstero() ? 'paese di spedizione (sede estera che ha chiesto la merce)' : 'non stampata sul documento' }}</span></div>
+        <div class="f s3"><label>Annotazioni</label><textarea [value]="doc().annot" [disabled]="!modifica()" (input)="campo('annot', $event)"></textarea><span class="aiuto">stampate sul documento</span></div>
+      </div></div>
+    </div>
+    <aside class="riepilogo">
+      <h3>Riepilogo importi</h3>
+      <div class="voce-imp fissa"><label>+ Totale articoli <small>IVA incl.</small></label><input [value]="numero(totArt())" disabled></div>
+      @for (s of SPESE; track s; let i = $index) {
+        <div class="voce-imp"><label>+ {{ s }}</label><input placeholder="0,00" [value]="spese()[i] ? numero(spese()[i]) : ''" [disabled]="!modifica()" (change)="cambiaSpesa(i, $event)"></div>
+      }
+      <div class="totale-compl"><span>= Totale complessivo</span><span class="v">{{ numero(totArt() + totSpese()) }}</span></div>
+    </aside></div></div>
+    }
+
+    @if (tab() === 'articoli') {
+    <div class="pannello-tab">
+      @if (inAttesa().length) {
+        <div class="box-attesa">
+          <div class="testa">⏳ <b>Già in attesa dal {{ fornitoreScelto()?.nome }}: {{ attesaPerArticolo().size }} articoli</b>
+            <small>sono già messi da parte per voi: <b>non rimetteteli nell'ordine</b>, arrivano da soli</small><span class="spazio"></span>
+            <button class="btn btn-light" style="padding:5px 10px;font-size:0.8rem" (click)="attesaAperta.set(!attesaAperta())">{{ attesaAperta() ? 'Nascondi elenco' : 'Mostra elenco' }}</button>
+            <a class="btn btn-light" style="padding:5px 10px;font-size:0.8rem" routerLink="/trasferimenti/inevasi" [queryParams]="{ vista: 'attesa' }">Tutti gli inevasi →</a></div>
+          @if (attesaAperta()) {
+            <div class="table-wrap"><table><thead><tr><th>Articolo</th><th>Ordine</th><th class="num">In attesa</th></tr></thead>
+              <tbody>@for (r of inAttesa(); track r.ordine_riga_id) {
+                <tr><td class="art-cella"><span class="codice">{{ r.codice }}</span><b>{{ r.descrizione }}</b></td>
+                  <td style="white-space:nowrap">#{{ r.ordine_id }} <small style="color:var(--muted)">del {{ dataIt(r.data_ordine) }}{{ r.stato_ordine === 'Definitivo' ? ' · non ancora preparato' : '' }}</small></td>
+                  <td class="num"><span class="q-attesa">{{ toNumber(r.residuo) }}</span></td></tr>
+              }</tbody></table></div>
+          }
+        </div>
+      }
+      <app-righe-movimento [config]="config" [(righe)]="righe" [modifica]="modifica()" [fornitore]="fornitore()" [sedeAltra]="sedeFornitrice()" [siglaAltra]="sigla()"
+        [sedeEstera]="estera()" [puoAggiungere]="!!fornitore()" motivoBlocco="Prima scegli il fornitore: è obbligatorio"
+        [notaArticolo]="notaArticolo" [fermaArticolo]="fermaArticolo" />
+    </div>
+    }
+
+    @if (tab() === 'storico') {
+    <div class="pannello-tab">
+      @if (nuovo) { <div class="vuoto"><b>Ordine non ancora salvato</b></div> }
+      @else {
+        <div class="timeline">
+          @if (storico(); as ev) {
+            @for (e of ev; track e.id) { <div class="evento" [class.ok]="e.attivita === 'Nuovo movimento'"><div class="quando">{{ oraIt(e.quando) }} · {{ e.email ?? 'Sistema' }}</div><div class="cosa">{{ e.attivita }}</div>@if (e.dettagli) { <div class="dett">{{ e.dettagli }}</div> }</div> }
+            @empty { <div class="vuoto"><b>Nessuna modifica registrata</b></div> }
+          } @else { <div class="vuoto"><b>Lettura…</b></div> }
+        </div>
+      }
+    </div>
+    }
+  </section>
+
+  @if (chiedi(); as c) {
+    <div class="modal-bg show"><div class="modal" style="width:min(520px,100%)">
+      <h2>⏳ Questo articolo è già in attesa</h2>
+      <p><b>{{ c.a.codice }} – {{ c.a.descrizione }}</b>: dal {{ fornitoreScelto()?.nome }} ne aspettate già <b>{{ attesaPerArticolo().get(c.a.id) }}</b>.
+        Sono già messi da parte per voi e arriveranno da soli: <b>non serve riordinarlo</b>.</p>
+      <div style="margin-bottom:14px">
+        @for (r of righeAttesaDi(c.a); track r.ordine_riga_id) {
+          <div style="padding:6px 10px;border-radius:8px;background:#f1ecff;color:#4a2aa8;margin-top:6px">Ordine #{{ r.ordine_id }} del {{ dataIt(r.data_ordine) }}: <b>{{ toNumber(r.residuo) }} in attesa</b>{{ r.stato_ordine === 'Definitivo' ? ' (non ancora preparato)' : '' }}</div>
+        }
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-light" title="Servono altri pezzi oltre a quelli già in attesa" (click)="rispondiAttesa(true)">➕ Ne servono di più</button>
+        <button class="btn btn-primary" (click)="rispondiAttesa(false)" autofocus>✔ Va bene, non lo aggiungo</button>
+      </div>
+    </div></div>
+  }
+}
+</div>

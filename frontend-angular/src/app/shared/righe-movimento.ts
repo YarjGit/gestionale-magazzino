@@ -4,7 +4,7 @@ import { toNumber } from '../core/models/database.types';
 import { SedeService } from '../core/services/sede.service';
 import { SupabaseService } from '../core/services/supabase.service';
 import { AvvisiService } from './avvisi.service';
-import { cent, leggiNumero, numero } from './formato';
+import { cent, leggiNumero, numero, siglaSede } from './formato';
 import { costoInLettere } from './prezzi';
 
 /** Articolo come lo usano le righe (dalla ricerca o da un movimento salvato). */
@@ -217,7 +217,7 @@ export class RigheMovimentoComponent {
   protected costoPezzo(r: RigaMovimento): number { return cent(r.prezzo * (1 + percIvaRiga(r.iva) / 100)); }
   protected nomeIva(k: string): string { return ALIQUOTE_RIGA.find(a => a[0] === k)?.[1] ?? k; }
   protected pezziIt(q: number | null): string { return q == null ? '?' : q.toLocaleString('it-IT', { maximumFractionDigits: 2 }); }
-  protected sigla(): string { const n = this.sede.sede()?.nome ?? ''; return n.replace(/^CAL /, '').split(' ').map(p => p[0]).join('').toUpperCase(); }
+  protected sigla(): string { return siglaSede(this.sede.sede()?.nome ?? ''); }
   protected ora(r: RigaMovimento): string { return new Date(r.ora).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); }
   protected classeArrivo(r: RigaMovimento): string {
     return r.ordinata == null ? '' : r.sped === r.ordinata ? 'completo' : r.sped < r.ordinata ? 'parziale' : 'troppo';

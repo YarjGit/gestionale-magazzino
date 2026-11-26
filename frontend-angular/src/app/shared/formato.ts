@@ -25,3 +25,8 @@ export function coloreTesto(hex: string | null | undefined): string {
 }
 /** Numero scritto all'italiana ("1.234,5") → 1234.5 */
 export const leggiNumero = (s: string): number => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+
+/** Sigla di una sede accanto alle giacenze (prototipo/js/dati-articoli.js): "MAG. CENTRALE", "SMM", "ROMA"… */
+export const siglaSede = (nome: string): string => (/magazzino centrale/i.test(nome) ? 'MAG. CENTRALE' : String(nome).replace(/^CAL\s+/i, '').split(' ')[0].toUpperCase());
+/** Sedi estere: righe con IVA 0% (oggi nessuna, come SEDI_ESTERE in prototipo/js/sedi.js). */
+export const SEDI_ESTERE: string[] = [];
