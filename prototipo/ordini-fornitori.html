@@ -16,10 +16,10 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
-<script src="js/elenco.js"></script>
+<script src="js/elenco.js?v=20261126"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js"></script>
+<script src="js/movimenti-db.js?v=20261126"></script>
 <script src="js/dati-ordini.js"></script>
 <script>
   const elenco = avviaElenco({
@@ -27,7 +27,7 @@
     nuovo: "Nuovo ordine",
     dettaglio: "ordine.html",
     csv: "ordini-fornitori",
-    stati: [STATO.provvisorio, STATO.definitivo, STATO.conInevasi, STATO.evaso, STATO.annullato],
+    stati: [STATO.provvisorio, STATO.definitivo, STATO.conInevasi, STATO.evaso, STATO.annullato].filter(Boolean),   // filter: con un elenco.js vecchio in memoria la scheda Con inevasi manca, ma la pagina funziona
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],
     controparte: { filtro: "Fornitore", elenco: FORNITORI },
@@ -45,6 +45,10 @@
     dati: []
   });
 
+  // "Con inevasi": se il browser ha ancora in memoria un movimenti-db.js vecchio (senza ordiniConInevasiDb) o la lettura
+  // non riesce, gli ordini si vedono lo stesso (la scheda resta a 0)
+  const conInevasiSicuro = (db, sedeId) => typeof ordiniConInevasiDb === "function" ? ordiniConInevasiDb(db, sedeId).catch(() => new Map()) : Promise.resolve(new Map());
+
   // Dopo l'accesso: gli ordini salvati nel database della sede di lavoro
   dbPronto.then(async db => {
     if (!db) return;
@@ -57,7 +61,7 @@
         <a href="inevasi.html?vista=attesa" class="btn-inevasi-top${nArt ? "" : " zero"}" title="Articoli ordinati e non ancora arrivati: non vanno riordinati">⏳ INEVASI IN ATTESA <span class="num">${nArt}</span></a>
         <span class="spacer"></span>`);
     }
-    const [righe, conInevasi] = await Promise.all([elencoMovimentiDb(db, "ordine_fornitore", sedeId, "ordine.html"), ordiniConInevasiDb(db, sedeId)]);
+    const [righe, conInevasi] = await Promise.all([elencoMovimentiDb(db, "ordine_fornitore", sedeId, "ordine.html"), conInevasiSicuro(db, sedeId)]);
     righe.forEach(r => {
       r.conInevasi = conInevasi.has(r.id);
       if (r.conInevasi) r.ricevuti = Math.max(0, r.nArt - conInevasi.get(r.id));   // "Arrivato": senza i pezzi ancora da mandare

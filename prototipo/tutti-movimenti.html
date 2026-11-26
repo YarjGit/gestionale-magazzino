@@ -16,10 +16,10 @@
 
 <script src="js/sedi.js"></script>
 <script src="js/layout.js"></script>
-<script src="js/elenco.js"></script>
+<script src="js/elenco.js?v=20261126"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js"></script>
+<script src="js/movimenti-db.js?v=20261126"></script>
 <script>
   // Riepilogo di tutti i tipi di movimento della sede, come "Tutti i Movimenti" del gestionale attuale:
   // qui non si crea nulla, si consulta; un clic sulla riga apre il movimento nella sua scheda.
@@ -32,7 +32,7 @@
     titolo: "Tutti i Movimenti",
     csv: "tutti-movimenti",
     senzaValidazione: true, senzaRecordAttuali: true, senzaEtichette: true,   // niente spunte né Etichette in alto (chiesto dall'utente)
-    stati: [STATO.definitivo, STATO.provvisorio, STATO.conInevasi, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato],
+    stati: [STATO.definitivo, STATO.provvisorio, STATO.conInevasi, STATO.evaso, STATO.daRicevere, STATO.ricevuto, STATO.annullato].filter(Boolean),   // filter: con un elenco.js vecchio in memoria la scheda Con inevasi manca, ma la pagina funziona
     statiBarrati: ["Annullato"],
     statiValidazione: ["Provvisorio", "Riordino"],
     controparte: {
@@ -56,11 +56,15 @@
     dati: []
   });
 
+  // "Con inevasi": se il browser ha ancora in memoria un movimenti-db.js vecchio (senza ordiniConInevasiDb) o la lettura
+  // non riesce, gli ordini si vedono lo stesso (la scheda resta a 0)
+  const conInevasiSicuro = (db, sedeId) => typeof ordiniConInevasiDb === "function" ? ordiniConInevasiDb(db, sedeId).catch(() => new Map()) : Promise.resolve(new Map());
+
   // Dopo l'accesso: tutti i movimenti della sede salvati nel database
   dbPronto.then(async db => {
     if (!db) return;
     const sedeId = ID_SEDI_DB[trovaSede(leggiSede()).nome];
-    const [righe, conInevasi] = await Promise.all([elencoTuttiMovimentiDb(db, sedeId), ordiniConInevasiDb(db, sedeId)]);
+    const [righe, conInevasi] = await Promise.all([elencoTuttiMovimentiDb(db, sedeId), conInevasiSicuro(db, sedeId)]);
     righe.forEach(r => r.conInevasi = r.tipo === "Ordine a Fornitore" && conInevasi.has(r.id));
     if (righe.length) elenco.aggiungi(righe);
   }).catch(err => avviso("Errore nel leggere dal database: " + err.message));
