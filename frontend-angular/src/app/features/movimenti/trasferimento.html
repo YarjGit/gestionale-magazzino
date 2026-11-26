@@ -1,0 +1,125 @@
+<div [class.in-modifica]="modifica$()">
+@if (errore()) {
+  <div class="panel"><div class="vuoto"><b>{{ errore() }}</b><span><a routerLink="/trasferimenti/a-filiali" style="color:var(--accent)">Torna all'elenco</a></span></div></div>
+} @else if (caricamento()) {
+  <section class="panel"><div class="vuoto"><b>Lettura del trasferimento…</b></div></section>
+} @else {
+  <app-testa-scheda [titolo]="ricevente() ? 'Trasferimento da ' + nomeSede_(mittenteId()) : salvato() ? 'Trasferimento a filiale' : 'Nuovo trasferimento a filiale'"
+    [numero]="id()" [stato]="statoMostrato()" [totale]="valore()" etichettaTotale="Valore a costo"
+    [sotto]="pezzi() + (pezzi() === 1 ? ' pezzo ' : ' pezzi ') + (ricevente() ? (ricevuto() ? 'ricevuti' : 'in arrivo') : 'da mandare')"
+    [elenco]="ricevente() ? '/trasferimenti/da-filiali' : '/trasferimenti/a-filiali'" [nomeElenco]="ricevente() ? 'Trasferimenti da Filiali' : 'Trasferimenti a Filiali'"
+    [modifica]="modifica$()" [modificabile]="false" [salvataggio]="salvataggio()" [inventario]="ricevente() ? null : inventario()"
+    (annulla)="annullaNuovo()" (salva)="salva($event)">
+    <button class="btn btn-light" (click)="stampaNota()">🖨️ Stampa nota</button>
+    <button class="btn btn-light" (click)="excel()">📤 Excel</button>
+    @if (ricevente() && spedito()) { <button class="btn btn-light" (click)="etichette()">🏷️ Stampa etichette</button> }
+    @if (daRicevere()) { <button class="btn btn-verde" [disabled]="salvataggio()" (click)="confermaRicevuto()" title="La merce entra nella giacenza di questa sede">✔ Conferma ricevuto</button> }
+    @if (salvato() && statoSalvato() !== 'Annullato' && !ricevente() && !ricevuto()) { <button class="btn btn-light" style="color:var(--ko)" [disabled]="salvataggio()" (click)="annullaTrasferimento()">✕ Annulla trasferimento</button> }
+  </app-testa-scheda>
+  @if (modifica$()) { <div class="azioni-scheda" style="display:flex;justify-content:flex-end;gap:8px;margin:-6px 0 12px"><button class="btn btn-light" (click)="stampaNota()">🖨️ Stampa nota</button></div> }
+
+  @if (statoSalvato() === 'Annullato') { <div class="banner ann">✕ Trasferimento annullato: la merce non risulta uscita e gli inevasi sono tornati come prima.</div> }
+  @if (daRicevere()) { <div class="banner" style="background:#ecfaff;border:2px solid #67c7dc;color:#0b5566">📦 <span><b>Merce in arrivo da {{ nomeSede_(mittenteId()) }}.</b> Controlla gli articoli, stampa le etichette e premi <b>Conferma ricevuto</b>: solo allora la merce entra nella giacenza di {{ sede.sede()?.nome }}.</span></div> }
+  @if (ricevente() && statoSalvato() === 'Provvisorio') { <div class="banner provv">◷ <span>{{ nomeSede_(mittenteId()) }} sta ancora preparando questo trasferimento: lo potrai ricevere quando sarà definitivo.</span></div> }
+  @if (!ricevente() && spedito() && !ricevuto()) { <div class="banner provv">⏳ <span>In attesa che <b>{{ nomeSede_(destinazione()) }}</b> confermi l'arrivo: finché non conferma, la merce non è ancora nella sua giacenza.</span></div> }
+  @if (ricevuto() && ricevutoIl()) { <div class="banner" style="background:#effaf3;border:1px solid #9fd8b9;color:#13804a">✔ <span>Ricevuto il <b>{{ oraIt(ricevutoIl()!) }}</b>{{ ricevutoDa() ? ' da ' + ricevutoDa() : '' }}: la merce è nella giacenza di {{ ricevente() ? sede.sede()?.nome : nomeSede_(destinazione()) }}.</span></div> }
+
+  <section class="panel">
+    <div class="campi" style="margin-bottom:12px">
+      <div class="f s2"><label>{{ ricevente() ? 'Da sede' : 'Sede che riceve' }} <span style="color:var(--ko)">*</span></label>
+        @if (ricevente()) { <input [value]="nomeSede_(mittenteId())" disabled> }
+        @else {
+          <select [disabled]="!modifica$() || daOrdine()" (change)="destinazione.set(testo($event))">
+            <option value="">— scegli la sede —</option>
+            @for (s of sediDest(); track s.id) { <option [value]="s.id" [selected]="s.id === destinazione()">{{ s.nome }}</option> }
+          </select>
+        }
+      </div>
+      <div class="f s1"><label>Stato</label>
+        <select [disabled]="!modifica$()" (change)="stato.set(testo($event))">@for (s of ['Definitivo', 'Provvisorio']; track s) { <option [selected]="s === stato()">{{ s }}</option> }
+          @if (!['Definitivo', 'Provvisorio'].includes(stato())) { <option selected>{{ stato() }}</option> }</select></div>
+      <div class="f s1"><label>Data</label><input type="date" [value]="data()" [disabled]="!modifica$()" (change)="data.set(testo($event))"></div>
+      <div class="f s2"><label>Causale</label><input [value]="causale()" [disabled]="!modifica$()" (input)="causale.set(testo($event))"></div>
+    </div>
+    @if (info()) { <div class="nota-viola">{{ info() }}</div> }
+
+    @if (modifica$()) {
+      <div class="art-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn-riga nuova" title="Aggiungi un articolo: si scrive il codice o si spara con la pistola" (click)="cercaAperta.set(true)">＋</button>
+        @if (daOrdine()) {
+          <button class="btn btn-light" (click)="tuttoDisponibile()">✔ Tutto il disponibile</button>
+          <button class="btn btn-light" (click)="azzera()">0 Azzera</button>
+        }
+      </div>
+      @if (cercaAperta()) {
+        <div class="riga-nuova" style="position:relative">
+          <div class="cerca-riga" style="flex:1"><input placeholder="Scrivi il codice o la descrizione, o spara il barcode…" autocomplete="off" (input)="scrivi($event)" (keydown)="tasto($event)" autofocus></div>
+          <button class="btn-riga" title="Chiudi la riga di ricerca" (click)="cercaAperta.set(false); trovati.set([])">✕</button>
+          @if (trovati().length) {
+            <div class="suggerimenti show" style="position:absolute;left:10px;right:60px;top:100%;z-index:40">
+              @for (a of trovati(); track a.id; let i = $index) {
+                <div class="sugg" [class.attivo]="i === attivo()" (mousedown)="aggiungi(a)"><span class="codice">{{ a.codice }}</span>{{ a.descrizione }}<small>giac. {{ a.giacenza ?? 0 }}</small></div>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <div class="table-wrap"><table>
+      <thead><tr>
+        @if (conInevasi && modifica$()) { <th class="chk"></th> }
+        @if (conInevasi) { <th>Ordine</th> }
+        <th>Articolo</th><th class="num" title="Giacenza di chi manda">Giac.</th>
+        @if (daOrdine()) { <th class="num">{{ ricevente() ? 'Ordinati' : 'Ordinata' }}</th> }
+        <th class="num">{{ ricevente() ? 'Ricevuti' : 'Da mandare' }}</th>
+        @if (daOrdine()) { <th class="num" [title]="ricevente() ? 'Ordinati ma non mandati questa volta: arriveranno più avanti (inevasi)' : 'Quello che non si manda resta negli inevasi'">{{ ricevente() ? 'Mancano' : 'Inevaso' }}</th> }
+        <th class="num">Costo</th><th class="num">Totale</th>
+        @if (modifica$()) { <th style="width:40px"></th> }
+      </tr></thead>
+      <tbody>
+        @if (conInevasi) {
+          @for (z of sezioni(); track z.k) {
+            <tr class="sez" [class]="'sez sez-' + z.k"><td colspan="11">{{ z.titolo }}<span class="n">{{ righeSez(z.k).length }}</span><small>{{ z.aiuto }}</small>
+              @if (z.k === 'vecchio' && righeSez(z.k).length) { <button class="btn btn-light" style="margin-left:12px;padding:3px 10px;font-size:0.8rem" (click)="vecchiAperti.set(!vecchiAperti())">{{ vecchiAperti() ? 'Nascondi elenco' : 'Mostra elenco' }}</button> }</td></tr>
+            @if (!sezioneChiusa(z.k)) {
+              @for (r of righeSez(z.k); track r.pos) { <ng-container *ngTemplateOutlet="riga; context: { $implicit: r }" /> }
+              @empty { <tr class="sez-vuota"><td colspan="11">{{ z.vuoto }}</td></tr> }
+            }
+          }
+        } @else {
+          @for (r of righe(); track r.pos) { <ng-container *ngTemplateOutlet="riga; context: { $implicit: r }" /> }
+          @empty { <tr><td colspan="11"><div class="vuoto"><b>Nessun articolo</b><span>Usa il ＋ qui sopra e scrivi o spara il codice degli articoli da mandare.</span></div></td></tr> }
+        }
+      </tbody>
+    </table></div>
+    <div class="riepilogo-tr">
+      <span>Articoli: <b>{{ righe().filter(x => x.manda > 0).length }}</b></span><span>Pezzi: <b>{{ pezzi() }}</b></span><span>Valore a costo: <b>{{ euro(valore()) }}</b></span>
+      @if (daOrdine()) { <span>{{ ricevente() ? 'Mancano ancora (arriveranno più avanti)' : 'Restano inevasi' }}: <b style="color:var(--ko)">{{ restano().length }} articoli</b></span> }
+    </div>
+  </section>
+
+  <ng-template #riga let-r>
+    <tr [class.manca]="inevasoDi(r) > 0 && (!(conInevasi && r.sez !== 'A') || r.scelto)" [class.non-scelto]="conInevasi && r.sez !== 'A' && !r.scelto">
+      @if (conInevasi && modifica$()) { <td class="chk">@if (r.sez !== 'A') { <input type="checkbox" [checked]="r.scelto" (change)="scegli(r, $event)" title="Spunta per mandarlo in questo trasferimento"> }</td> }
+      @if (conInevasi) { <td style="white-space:nowrap">@if (r.ordineId) { #{{ r.ordineId }} <small style="color:var(--muted)">{{ dataIt(r.dataOrdine) }}</small> } @else { <small style="color:var(--muted)">a mano</small> }</td> }
+      <td class="art-cella"><span class="codice">{{ r.articolo.codice }}</span>
+        @if (r.sez === 'nuovo') { <span class="tag-inev nuovo">NUOVO INEVASO</span> }
+        @if (r.sez === 'vecchio') { <span class="tag-inev vecchio">INEVASO dal {{ dataIt(r.dataOrdine) }}</span> }
+        @if (ancheVecchi(r); as n) { <span class="tag-inev vecchio" title="Questi pezzi sono in più rispetto a quelli già in attesa">IN PIÙ · altri {{ n }} già in attesa</span> }
+        <b>{{ r.articolo.descrizione }}</b></td>
+      <td class="num">{{ ricevente() ? '' : (r.articolo.giacenza ?? 0) }}</td>
+      @if (daOrdine()) { <td class="num">{{ r.ordinata ?? '—' }}</td> }
+      <td class="num">
+        @if (modifica$() && (!(conInevasi && r.sez !== 'A') || r.scelto)) {
+          <span class="passo"><button class="btn-riga" (click)="passo(r, -1)">−</button><input class="num-mod" [value]="r.manda" (change)="cambiaManda(r, $event)"><button class="btn-riga" (click)="passo(r, 1)">+</button></span>
+        } @else { {{ r.manda }} }
+      </td>
+      @if (daOrdine()) { <td class="num">@if (r.ordinata != null) { @if (inevasoDi(r) > 0) { <span class="inevaso">{{ inevasoDi(r) }}</span> } @else { <span class="ok-tutto" title="Non manca niente: tutto mandato">0</span> } }</td> }
+      <td class="num">{{ numero(r.prezzo) }}</td>
+      <td class="num"><b>{{ numero(cent(r.manda * r.prezzo)) }}</b></td>
+      @if (modifica$()) { <td>@if (!r.ordineRigaId) { <button class="btn-riga cestino" title="Togli riga" (click)="togli(r)">🗑</button> }</td> }
+    </tr>
+  </ng-template>
+}
+</div>

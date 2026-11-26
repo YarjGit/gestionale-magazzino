@@ -326,7 +326,34 @@ $$;
 
 grant execute on function salva_carico(bigint, jsonb, jsonb, bigint[]), ordine_da_caricare_righe(bigint) to authenticated;
 
--- Controllo: deve dare 12
+-- ---------- Inevasi con articolo e giacenza (trasferimento da ordine, pagina Inevasi) ----------
+-- Righe d'ordine delle filiali a una sede fornitrice con quello che manca ancora da mandare, l'articolo e la giacenza
+-- della sede fornitrice. Filtri facoltativi: un ordine, alcune righe, una filiale, solo ordini già preparati (Evasi).
+-- Un ordine di una sede a se stessa non è un ordine di una filiale e non compare.
+create or replace function inevasi_dettaglio(p_sede_fornitrice text, p_ordine bigint default null, p_righe bigint[] default null,
+  p_richiedente text default null, p_solo_evasi boolean default false)
+returns table (ordine_riga_id bigint, ordine_id bigint, protocollo text, data_ordine date, stato_ordine text, sede_richiedente text, nome_richiedente text,
+  articolo_id uuid, codice text, descrizione text, barcode text, costo_netto numeric, prezzo_vendita_ivato numeric, iva numeric, anno_listino int,
+  unita_misura text, giacenza numeric, ordinata numeric, trasferita numeric, annullata numeric, residuo numeric)
+language sql stable security invoker set search_path = public as $$
+  select i.ordine_riga_id, i.ordine_id, i.protocollo, i.data_ordine, i.stato_ordine, i.sede_richiedente, s.nome,
+    a.id, a.codice, a.descrizione, a.barcode, a.costo_netto::numeric, a.prezzo_vendita_ivato::numeric, coalesce(ai.aliquota, 22)::numeric,
+    a.anno_listino::int, a.unita_misura, coalesce(g.quantita, 0)::numeric, i.ordinata::numeric, i.trasferita::numeric, i.annullata::numeric, i.residuo::numeric
+  from inevasi i
+  join articoli a on a.id = i.articolo_id
+  left join aliquote_iva ai on ai.codice = a.aliquota_iva
+  left join sedi s on s.id = i.sede_richiedente
+  left join giacenze g on g.sede_id = p_sede_fornitrice and g.articolo_id = i.articolo_id
+  where i.sede_fornitrice = p_sede_fornitrice and i.sede_richiedente <> p_sede_fornitrice and i.residuo > 0
+    and (p_ordine is null or i.ordine_id = p_ordine)
+    and (p_righe is null or i.ordine_riga_id = any(p_righe))
+    and (p_richiedente is null or i.sede_richiedente = p_richiedente)
+    and (not p_solo_evasi or i.stato_ordine = 'Evaso')
+  order by i.data_ordine, i.ordine_riga_id;
+$$;
+grant execute on function inevasi_dettaglio(text, bigint, bigint[], text, boolean) to authenticated;
+
+-- Controllo: deve dare 13
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
-  'salva_carico', 'ordine_da_caricare_righe');
+  'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio');

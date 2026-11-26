@@ -120,6 +120,15 @@ function rpc(nome: string, args: Riga): unknown {
     case 'salva_movimento':
     case 'salva_movimento_ed_evadi':
       return 99;
+    case 'inevasi_dettaglio': {
+      const riga = (n: number, art: Riga, ordine: number, stato: string, data: string, residuo: number, giac: number): Riga => ({
+        ordine_riga_id: n, ordine_id: ordine, protocollo: null, data_ordine: data, stato_ordine: stato, sede_richiedente: 'cal-smm-roma', nome_richiedente: 'CAL SMM Roma',
+        articolo_id: art['id'], codice: art['codice'], descrizione: art['descrizione'], barcode: art['barcode'], costo_netto: art['costo_netto'],
+        prezzo_vendita_ivato: art['prezzo_vendita_ivato'], iva: 22, anno_listino: 2026, unita_misura: 'Numero', giacenza: giac, ordinata: residuo, trasferita: 0, annullata: 0, residuo });
+      return args['p_solo_evasi']
+        ? [riga(9, ARTICOLI[5], 25, 'Evaso', '2026-10-30', 2, 5)]
+        : [riga(1, ARTICOLI[1], 31, 'Definitivo', '2026-11-18', 4, 1), riga(2, ARTICOLI[2], 31, 'Definitivo', '2026-11-18', 2, 0)];
+    }
     case 'dashboard_sede':
       return {
         in_arrivo: [{ id: 30, prot: '2026-000030', data: '2026-11-10', nome: 'Candele Esempio & C.', righe: 3, pezzi: 40, tipo: 'Ordine a fornitore' },

@@ -39,6 +39,8 @@ export const destinatarioSede = (nome: string, fornitoreSede: Anagrafica | null)
 export interface DocumentoStampa {
   titolo: string;
   sede: string;
+  /** righe della carta intestata di chi manda, quando la sede non ne ha una scritta qui (es. dati del suo fornitore collegato) */
+  mittente?: string[] | null;
   info: [string, string][];
   destinatario: string[];
   colonne: { k: string; t: string; num?: boolean; cod?: boolean }[];
@@ -58,3 +60,6 @@ export interface EtichetteDaStampare {
 export function salvaPerStampa(chiave: 'stampa' | 'etichette', dati: DocumentoStampa | EtichetteDaStampare): void {
   try { sessionStorage.setItem(chiave, JSON.stringify(dati)); } catch { /* senza memoria del browser la stampa non si apre */ }
 }
+
+/** true se la sede ha la sua carta intestata scritta qui. */
+export const haIntestazione = (nome: string): boolean => nome in INTESTAZIONI;

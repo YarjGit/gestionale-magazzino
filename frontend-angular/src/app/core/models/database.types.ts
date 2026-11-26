@@ -346,6 +346,8 @@ export interface RpcFunzioni {
   /** Carico: salva e mette Evasi gli ordini collegati arrivati per intero, nella stessa transazione. */
   salva_carico: { args: { p_id: number | null; p_mov: MovimentoDaSalvare; p_righe: RigaDaSalvare[]; p_ordini: number[] }; ritorno: number };
   ordine_da_caricare_righe: { args: { p_ordine: number }; ritorno: { ordine_riga_id: number; articolo_id: string; prezzo: Numerico; ordinata: Numerico; arrivata: Numerico; residuo: Numerico }[] };
+  /** Inevasi con articolo e giacenza della sede fornitrice (trasferimento da ordine, pagina Inevasi). */
+  inevasi_dettaglio: { args: { p_sede_fornitrice: SedeId; p_ordine: number | null; p_righe: number[] | null; p_richiedente: SedeId | null; p_solo_evasi: boolean }; ritorno: InevasoDettaglio[] };
   /** Dashboard della sede, tutta calcolata dal database (database/34). */
   dashboard_sede: { args: { p_sede: SedeId }; ritorno: DashboardSede };
   /** Scheda fornitore: fornitori con lo stesso nome o la stessa partita IVA. */
@@ -409,6 +411,30 @@ export interface MovimentoElencoRiga {
   etichetta: string | null;
   in_arrivo: boolean;
   righe_totali: number;
+}
+
+export interface InevasoDettaglio {
+  ordine_riga_id: number;
+  ordine_id: number;
+  protocollo: string | null;
+  data_ordine: string;
+  stato_ordine: string;
+  sede_richiedente: SedeId;
+  nome_richiedente: string;
+  articolo_id: string;
+  codice: string;
+  descrizione: string;
+  barcode: string | null;
+  costo_netto: Numerico;
+  prezzo_vendita_ivato: Numerico;
+  iva: Numerico;
+  anno_listino: number | null;
+  unita_misura: string | null;
+  giacenza: Numerico;
+  ordinata: Numerico;
+  trasferita: Numerico;
+  annullata: Numerico;
+  residuo: Numerico;
 }
 
 export interface InevasoInAttesa {
