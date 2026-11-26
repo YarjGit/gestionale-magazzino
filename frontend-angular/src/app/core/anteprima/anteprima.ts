@@ -129,6 +129,8 @@ function rpc(nome: string, args: Riga): unknown {
         ? [riga(9, ARTICOLI[5], 25, 'Evaso', '2026-10-30', 2, 5)]
         : [riga(1, ARTICOLI[1], 31, 'Definitivo', '2026-11-18', 4, 1), riga(2, ARTICOLI[2], 31, 'Definitivo', '2026-11-18', 2, 0)];
     }
+    case 'inevasi_annullati_sede':
+      return [{ id: 1, annullato_il: '2026-11-20T09:30:00Z', annullato_da: 'prova@anteprima.it', quantita: 1, motivo: 'Fuori produzione', ordine_id: 25, codice: 'C2001', descrizione: 'CASULA IN SETA AVORIO', filiale: 'CAL SMM Roma' }];
     case 'dashboard_sede':
       return {
         in_arrivo: [{ id: 30, prot: '2026-000030', data: '2026-11-10', nome: 'Candele Esempio & C.', righe: 3, pezzi: 40, tipo: 'Ordine a fornitore' },

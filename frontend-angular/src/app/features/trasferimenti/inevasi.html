@@ -1,0 +1,132 @@
+<div class="page-head">
+  <div><h1 class="page-title">Inevasi</h1><div class="crumbs"><span>Movimenti</span><span>-</span><span>Inevasi</span><span>-</span><span>{{ sede.sede()?.nome }}</span></div></div>
+</div>
+<div class="nota-elenco">⏳ Gli <b>inevasi</b> sono gli articoli ordinati da una filiale e non ancora mandati: <b>quantità ordinata − già trasferita − cancellata</b>.
+  Si aggiornano da soli a ogni trasferimento, e la filiale non deve riordinarli. Clicca un ordine per vedere gli inevasi di quella filiale, divisi per data dell'ordine.</div>
+@if (errore()) { <div class="avviso-accesso">⚠ {{ errore() }}</div> }
+
+<section class="panel">
+  <div class="schede">
+    <button class="scheda-tab" [class.active]="tab() === 'mandare'" (click)="tab.set('mandare')">📤 Ordini con inevasi da mandare <span class="n">{{ caricamento() ? '…' : ordiniMandare().length }}</span></button>
+    <button class="scheda-tab" [class.active]="tab() === 'attesa'" (click)="tab.set('attesa')">📥 In attesa per noi (da non riordinare) <span class="n">{{ caricamento() ? '…' : articoliAttesa() }}</span></button>
+    <button class="scheda-tab" [class.active]="tab() === 'cancellati'" (click)="tab.set('cancellati')">🗂️ Cancellati <span class="n">{{ caricamento() ? '…' : annullati().length }}</span></button>
+  </div>
+
+  @if (caricamento()) { <div class="vuoto"><b>Lettura…</b></div> }
+  @else if (tab() === 'mandare') {
+    <div class="pannello-tab">
+      @if (!filiale()) {
+        @if (ordiniMandare().length) {
+          <div class="table-wrap"><table class="ordini-inev">
+            <thead><tr><th>Ordine</th><th>Data ordine</th><th>Filiale</th><th class="num">Articoli inevasi</th><th class="num">Pezzi inevasi</th><th class="num">Disponibili ora</th><th></th></tr></thead>
+            <tbody>
+              @for (o of ordiniMandare(); track o.id) {
+                <tr (click)="apriOrdine(o)">
+                  <td><span class="num-mov"><span class="id">#{{ o.id }}</span></span></td><td>{{ dataIt(o.data) }}</td>
+                  <td><span class="filiale"><span class="pallino" [style.background]="coloreSede(o.filiale)"></span>{{ o.filiale }}</span></td>
+                  <td class="num">{{ o.righe.length }}</td><td class="num"><span class="pezzi-inev">{{ c(o.pezzi) }}</span></td>
+                  <td class="num">@if (o.disp) { <span class="disp si">{{ o.disp }} di {{ o.righe.length }}</span> } @else { <span class="disp no">nessuno</span> }</td>
+                  <td class="num"><span class="apri">Apri →</span></td>
+                </tr>
+              }
+            </tbody>
+          </table></div>
+          <div style="margin-top:12px;color:var(--muted)">Totale: <b style="color:var(--text)">{{ ordiniMandare().length }} ordini</b> · {{ daMandare().length }} articoli</div>
+        } @else { <div class="vuoto"><b>Nessun inevaso da mandare</b><span>Qui compaiono gli ordini delle filiali con articoli non ancora mandati.</span></div> }
+      } @else {
+        <div class="dett-head">
+          <button class="btn btn-light" (click)="tuttiGliOrdini()">← Tutti gli ordini con inevasi</button>
+          <h2>Inevasi di <span class="filiale"><span class="pallino" [style.background]="coloreSede(nomeFiliale())"></span>{{ nomeFiliale() }}</span></h2>
+          <span class="spazio"></span>
+          <span style="color:var(--muted)">{{ ordiniFiliale().length }} ordini · {{ righeFiliale().length }} articoli</span>
+        </div>
+        @if (righeFiliale().length) {
+          <div class="barra-sel">
+            <button class="btn btn-light" (click)="selezionaDisponibili()">✔ Seleziona i disponibili</button>
+            <button class="btn btn-light" (click)="togliSelezione()">↺ Togli la selezione</button>
+            <span class="spazio"></span>
+            <span style="color:var(--muted)">@if (selezione().n) { Selezionati: <b style="color:var(--text)">{{ selezione().n }} articoli, {{ selezione().pezzi }} pezzi</b> } @else { Nessun articolo selezionato }</span>
+            <button class="btn btn-primary" (click)="preparaTrasferimento()">🚚 Prepara trasferimento con i selezionati</button>
+          </div>
+        }
+        @for (o of ordiniFiliale(); track o.id) {
+          <div class="blocco-data" [class.evidenziato]="o.id === ordineScelto()" [id]="'ord-' + o.id">
+            <div class="testa-data">📅 <span class="data">{{ dataIt(o.data) }}</span> Ordine #{{ o.id }} <small>{{ o.righe.length }} articoli · {{ c(o.pezzi) }} pezzi inevasi</small>
+              @if (o.id === ordineScelto()) { <span class="questo">ordine aperto</span> }<span class="spazio"></span>
+              <label style="font-weight:500;font-size:0.82rem;cursor:pointer"><input type="checkbox" [checked]="tuttoOrdine(o)" (change)="spuntaOrdine(o, spuntato($event))"> seleziona tutto l'ordine</label></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th class="chk"></th><th>Articolo</th><th class="num">Ordinata</th><th class="num">Già mandata</th><th class="num">Inevasa</th><th class="num">Giac. qui</th><th></th><th style="width:40px"></th></tr></thead>
+              <tbody>
+                @for (r of o.righe; track r.ordine_riga_id) {
+                  <tr>
+                    <td class="chk"><input type="checkbox" [checked]="scelti().has(r.ordine_riga_id)" (change)="spunta(r.ordine_riga_id, spuntato($event))"></td>
+                    <td class="art-cella"><span class="codice">{{ r.codice }}</span><b>{{ r.descrizione }}</b></td>
+                    <td class="num">{{ toNumber(r.ordinata) }}</td><td class="num">{{ toNumber(r.trasferita) || '—' }}</td>
+                    <td class="num"><span class="residuo">{{ toNumber(r.residuo) }}</span></td>
+                    <td class="num">{{ toNumber(r.giacenza) }}</td>
+                    <td><span class="disp" [class]="'disp ' + disponibilita(r).cls">{{ disponibilita(r).testo }}</span></td>
+                    <td><button class="btn-riga cestino" title="Cancella: questo articolo non arriverà più" (click)="chiediCancella(r)">🗑</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table></div>
+          </div>
+        } @empty {
+          <div class="vuoto"><b>Nessun inevaso per questa filiale</b><span><a style="color:var(--accent);cursor:pointer" (click)="tuttiGliOrdini()">Torna all'elenco degli ordini</a></span></div>
+        }
+      }
+    </div>
+  }
+  @else if (tab() === 'attesa') {
+    <div class="pannello-tab">
+      @if (inAttesa().length) {
+        <div class="nota-viola" style="margin-bottom:14px">📥 Questi articoli li avete già ordinati e sono <b>messi da parte per voi</b>: arriveranno con i prossimi trasferimenti. <b>Non rimetteteli nei nuovi ordini</b>, se no chi prepara deve ricontare tutto.</div>
+        <div style="margin-bottom:12px;color:var(--muted)">Totale: <b style="color:var(--text)">{{ ordiniAttesa().length }} ordini · {{ articoliAttesa() }} articoli</b></div>
+        @for (o of ordiniAttesa(); track o.id) {
+          <div class="blocco-data">
+            <div class="testa-data" style="background:#f1ecff;color:#4a2aa8">📅 <span class="data">{{ dataIt(o.data) }}</span> Ordine #{{ o.id }} <small style="color:#6b55b8">a {{ o.sede }} · {{ o.righe.length }} articoli · {{ c(o.pezzi) }} pezzi in attesa</small>
+              <span class="spazio"></span>
+              <span class="disp" [class.parte]="o.righe[0].stato_ordine !== 'Definitivo'" [class.no]="o.righe[0].stato_ordine === 'Definitivo'">{{ o.righe[0].stato_ordine !== 'Definitivo' ? 'preparato in parte: il resto è inevaso' : 'non ancora preparato' }}</span>
+              <a class="btn btn-light" [routerLink]="['/ordine', o.id]" style="padding:4px 10px;font-size:0.78rem">Apri l'ordine</a></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Ancora in attesa</th></tr></thead>
+              <tbody>@for (r of o.righe; track r.ordine_riga_id) {
+                <tr><td class="art-cella"><span class="codice">{{ r.codice }}</span><b>{{ r.descrizione }}</b></td>
+                  <td class="num">{{ toNumber(r.ordinata) }}</td><td class="num">{{ toNumber(r.trasferita) || '—' }}</td><td class="num"><span class="residuo">{{ toNumber(r.residuo) }}</span></td></tr>
+              }</tbody>
+            </table></div>
+          </div>
+        }
+      } @else { <div class="vuoto"><b>Niente in attesa</b><span>Qui compaiono gli articoli che questa sede ha ordinato a un'altra sede e non sono ancora arrivati.</span></div> }
+    </div>
+  }
+  @else {
+    <div class="pannello-tab">
+      @if (annullati().length) {
+        <div class="table-wrap"><table class="storico-canc">
+          <thead><tr><th>Quando</th><th>Chi</th><th>Articolo</th><th>Filiale</th><th>Ordine</th><th class="num">Pezzi cancellati</th><th>Motivo</th></tr></thead>
+          <tbody>@for (x of annullati(); track x.id) {
+            <tr><td>{{ oraIt(x.annullato_il) }}</td><td>{{ x.annullato_da }}</td><td><span class="codice">{{ x.codice }}</span> {{ x.descrizione }}</td>
+              <td>{{ x.filiale }}</td><td>#{{ x.ordine_id }}</td><td class="num">{{ toNumber(x.quantita) }}</td><td class="motivo">{{ x.motivo || '—' }}</td></tr>
+          }</tbody>
+        </table></div>
+      } @else { <div class="vuoto"><b>Nessuna cancellazione</b><span>Quando un inevaso viene cancellato (prodotto che non arriverà più) resta registrato qui.</span></div> }
+    </div>
+  }
+</section>
+
+@if (cancella(); as k) {
+  <div class="modal-bg show"><div class="modal" style="width:min(500px,100%)">
+    <h2>🗑 Cancellare l'inevaso?</h2>
+    <p><b>{{ k.r.codice }} – {{ k.r.descrizione }}</b> per {{ k.r.nome_richiedente }} (ordine #{{ k.r.ordine_id }}): in attesa <b>{{ toNumber(k.r.residuo) }}</b> pezzi.
+      Cancellandolo, la filiale non lo riceverà più. Resta registrato chi, quando e perché.</p>
+    <div class="campi" style="margin-bottom:14px">
+      <div class="f s2"><label>Pezzi da cancellare</label><input [value]="k.quanti" (input)="aggiornaCancella('quanti', testo($event))" style="text-align:right"></div>
+      <div class="f s4"><label>Motivo</label><input [value]="k.motivo" (input)="aggiornaCancella('motivo', testo($event))" placeholder="es. prodotto fuori produzione"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-light" (click)="cancella.set(null)">Annulla</button>
+      <button class="btn btn-primary" style="background:var(--ko)" [disabled]="lavoro()" (click)="confermaCancella()">🗑 Cancella l'inevaso</button>
+    </div>
+  </div></div>
+}

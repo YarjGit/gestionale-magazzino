@@ -1,0 +1,34 @@
+  .gruppo-filiale { margin-bottom: 22px; }
+  .gruppo-filiale h2 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 1rem; }
+  .gruppo-filiale h2 .n { padding: 1px 9px; border-radius: 99px; background: var(--page-bg); color: var(--muted); font-size: 0.78rem; }
+  .gruppo-filiale h2 .spazio { flex: 1; }
+  .disp { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+  .disp.si { background: #ddf5e8; color: var(--ok); }
+  .disp.parte { background: #fff3dd; color: #b26a00; }
+  .disp.no { background: #f1f3f7; color: var(--muted); }
+  .residuo { font-weight: 700; color: var(--ko); }
+  .storico-canc td { color: var(--muted); }
+  .storico-canc .motivo { color: var(--text); font-style: italic; }
+  td.chk, th.chk { width: 34px; text-align: center; }
+  td.chk input { width: 17px; height: 17px; cursor: pointer; }
+  /* Elenco degli ordini con inevasi */
+  .ordini-inev tbody tr { cursor: pointer; }
+  .ordini-inev tbody tr:hover td { background: #fff8ec; }
+  .filiale { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+  .filiale .pallino { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+  .apri { padding: 5px 12px; border-radius: 7px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+  .pezzi-inev { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 6px; background: #fde4e4; color: var(--ko); font-weight: 700; text-align: center; }
+  /* Dettaglio: una sezione per ogni ordine, dalla data più vecchia */
+  .dett-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .dett-head h2 { font-size: 1.05rem; margin: 0; }
+  .dett-head .spazio { flex: 1; }
+  .barra-sel { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 14px; border-radius: 10px; background: #f6f8fc; border: 1px solid var(--line); }
+  .barra-sel .spazio { flex: 1; }
+  .blocco-data { margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .blocco-data.evidenziato { border: 2px solid #ff9f1a; box-shadow: 0 6px 18px rgba(229,99,26,0.15); }
+  .blocco-data .testa-data { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: #fff3dd; color: #7a4700; font-weight: 700; }
+  .blocco-data .testa-data .data { font-size: 1.05rem; }
+  .blocco-data .testa-data small { font-weight: 500; color: #9a6a2a; }
+  .blocco-data .testa-data .spazio { flex: 1; }
+  .blocco-data .testa-data .questo { padding: 2px 9px; border-radius: 99px; background: #ff9f1a; color: #fff; font-size: 0.72rem; }
+  .blocco-data table { margin: 0; }

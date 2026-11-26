@@ -353,7 +353,25 @@ language sql stable security invoker set search_path = public as $$
 $$;
 grant execute on function inevasi_dettaglio(text, bigint, bigint[], text, boolean) to authenticated;
 
--- Controllo: deve dare 13
+-- ---------- Registro degli inevasi cancellati (pagina Inevasi, scheda "Cancellati") ----------
+-- Cancellazioni delle righe d'ordine in cui la sede è chi manda o chi ha ordinato, dalla più recente.
+create or replace function inevasi_annullati_sede(p_sede text)
+returns table (id bigint, annullato_il timestamptz, annullato_da text, quantita numeric, motivo text, ordine_id bigint, codice text, descrizione text, filiale text)
+language sql stable security invoker set search_path = public as $$
+  select x.id, x.annullato_il, x.annullato_da, x.quantita::numeric, x.motivo, m.id, a.codice, a.descrizione, s.nome
+  from inevasi_annullati x
+  join movimenti_righe r on r.id = x.ordine_riga_id
+  join movimenti m on m.id = r.movimento_id
+  join articoli a on a.id = r.articolo_id
+  left join fornitori f on f.id = m.fornitore_id
+  left join sedi s on s.id = m.sede_id
+  where m.sede_id = p_sede or f.sede_collegata = p_sede
+  order by x.annullato_il desc
+  limit 500;
+$$;
+grant execute on function inevasi_annullati_sede(text) to authenticated;
+
+-- Controllo: deve dare 14
 select count(*) as funzioni_ok from information_schema.routines where routine_schema = 'public' and routine_name in ('dashboard_sede', '_movimenti_filtrati', 'movimenti_elenco', 'movimenti_riepilogo', 'ordini_da_caricare',
   'ordini_da_preparare', 'ordini_alle_sedi', 'inevasi_in_attesa', 'cerca_articoli', 'giacenze_articoli',
-  'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio');
+  'salva_carico', 'ordine_da_caricare_righe', 'inevasi_dettaglio', 'inevasi_annullati_sede');
