@@ -173,7 +173,10 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
 - Database **Supabase**: progetto `gestionale-magazzino` (piano gratuito, regione Europa, separato dall'altra web app dell'utente su Vercel).
   URL e chiave publishable in `prototipo/js/supabase-config.js`. Tabelle in `database/01-tabelle.sql` (l'utente le incolla nel SQL Editor).
   Accesso: link via email (`signInWithOtp`). Su Supabase il **Site URL** è `https://yarjgit.github.io/gestionale-magazzino/prototipo/dashboard.html` (i Redirect URLs non sono riusciti a salvarli: il Site URL basta per il sito online). Google da aggiungere.
-  Mai chiedere né salvare la chiave secret/service_role o la password del database. Prima dell'uso quotidiano vero: passare a Pro (backup e niente pausa).
+  Mai chiedere né salvare la chiave secret/service_role o la password del database.
+  **Collegamento di Claude al database in sola lettura** (27/11/2026): `.mcp.json` nella radice = server MCP ufficiale di Supabase
+  (`read_only=true`, solo questo progetto); l'accesso lo autorizza l'utente dal browser (OAuth), nessuna password nel progetto.
+  Serve a guardare dati e funzioni veri per trovare i bug; le modifiche al database restano file SQL che esegue l'utente. Prima dell'uso quotidiano vero: passare a Pro (backup e niente pausa).
 - **Backup del database** (piano gratuito, deciso il 24/11/2026): `Backup gestionale - imposta.bat` (una volta per PC: l'utente incolla l'indirizzo
   "Session pooler" con la password, salvato cifrato da Windows in `%LOCALAPPDATA%\GestionaleMagazzino`) e attiva il backup giornaliero alle 13:00
   (Utilità di pianificazione, "Backup gestionale magazzino"); `Backup gestionale - adesso.bat` per farlo subito. Script in `strumenti/backup-database.ps1`
