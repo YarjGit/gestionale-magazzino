@@ -127,7 +127,7 @@
   .colonne .section + .section { margin-top: 0; }
   .colonne + .section { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--line); }
   .titolo-col { font-size: 1rem; }
-  .tipo-inev { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+  .tipo-inev { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 500; }
   .tipo-inev.mandare { background: #fff1e0; color: #c2410c; }
   .tipo-inev.sede { background: #e7f6f8; color: #0e7490; }
   .tipo-inev.forn { background: #e8f1ff; color: #1f4f80; }
@@ -395,7 +395,8 @@
     mandare.forEach(r => righe.push({ tipo: "mandare", nome: r.nomeRichiedente, r, url: `inevasi.html?filiale=${encodeURIComponent(r.sede_richiedente)}&ordine=${r.ordine_id}` }));
     for (const r of attesa) righe.push({ tipo: "sede", nome: await nomeSedeDb(db, r.sede_fornitrice), r, url: `inevasi.html?vista=attesa&ordine=${r.ordine_id}` });
     forn.forEach(r => righe.push({ tipo: "forn", nome: r.fornitore || "", r, url: `inevasi.html?vista=fornitori&ordine=${r.ordine_id}` }));
-    const TIPI = { mandare: "Da mandare a", sede: "Da ricevere da", forn: "Da ricevere dal fornitore" };
+    const TIPI = { mandare: "Da mandare a", sede: "Da ricevere da", forn: "Da ricevere da" };
+    const frase = x => `${TIPI[x.tipo]} <b>${esc(x.nome)}</b>`;
 
     // Ordini con articoli inevasi: un riquadro per ordine con il tasto Apri
     const ordini = new Map();
@@ -411,7 +412,7 @@
       <div class="card" onclick="location.href='${o.url}'" title="Apri gli inevasi di questo ordine">
         <div class="card-head ${o.tipo === "forn" ? "inev-forn" : "inev"}"><span class="name">${esc(o.nome)} · ordine ${esc(o.prot)}</span><span class="tot">${(Math.round(o.pezzi * 100) / 100).toLocaleString("it-IT")} pezzi</span></div>
         <div class="card-body three">
-          <div><div class="k">Inevaso</div><div class="v"><span class="tipo-inev ${o.tipo}">${TIPI[o.tipo]}</span></div></div>
+          <div><div class="k">Inevaso</div><div class="v"><span class="tipo-inev ${o.tipo}">${frase(o)}</span></div></div>
           <div><div class="k">Data ordine</div><div class="v">${dataIt(o.data)}</div></div>
           <div class="r"><div class="k">Articoli mancanti</div><div class="v">${o.articoli}</div></div>
         </div>
@@ -427,10 +428,9 @@
         .sort((a, b) => a.nome.localeCompare(b.nome) || (a.r.data_ordine || "").localeCompare(b.r.data_ordine || ""));
       document.getElementById("countArtInev").textContent = vis.length;
       document.getElementById("artInev").innerHTML = vis.length ? `<table class="tab-inev">
-        <thead><tr><th>Tipo</th><th>Fornitore o filiale</th><th>Articolo</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Manca</th><th></th></tr></thead>
+        <thead><tr><th>Inevaso</th><th>Articolo</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Manca</th><th></th></tr></thead>
         <tbody>${vis.map(x => `<tr>
-          <td><span class="tipo-inev ${x.tipo}">${TIPI[x.tipo]}</span></td>
-          <td><b>${esc(x.nome)}</b></td>
+          <td><span class="tipo-inev ${x.tipo}">${frase(x)}</span></td>
           <td><span class="codice">${esc(x.r.articolo.codice)}</span>${esc(x.r.articolo.descr)}</td>
           <td>${esc(x.r.protocollo || "#" + x.r.ordine_id)} del ${dataIt(x.r.data_ordine)}</td>
           <td class="num">${x.r.ordinata}</td><td class="num"><b>${x.r.residuo}</b></td>
