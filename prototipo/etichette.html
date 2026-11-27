@@ -95,7 +95,11 @@
   .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
   .cella .c { font-weight: 400; }
   /* Etichetta per la scatola: il codice dentro un riquadro nero (prima si sbarrava a penna) */
-  .cella .c.scatola span { display: inline-block; padding: 0 3px; border: 1.5px solid #000; line-height: 1.15; }
+  /* bordo disegnato con outline (non occupa spazio): la riga resta alta come nell'etichetta normale */
+  .cella .c.scatola span { display: inline-block; padding: 0 3px; outline: 1.5px solid #000; outline-offset: -0.5px; line-height: 1.15; }
+  /* Seconda etichetta (scatola, 27/11/2026): il contorno del codice va da sinistra fino al bordo destro dell'etichetta,
+     anche se il codice è corto (il codice resta scritto a sinistra) */
+  .cella .c.scatola span { display: block; white-space: nowrap; overflow: hidden; }
   .scat-riga { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
   /* Anno di carico (lotto) in due cifre, sulla riga del prezzo prima del costo cifrato */
   .cella .anno { margin-right: 1.2em; }
@@ -108,11 +112,13 @@
   /* barcode più basso ma leggibile dalla pistola: circa il 40% dell'etichetta (≈10 mm sul 4 × 12) */
   .cella .barre { position: relative; flex: 0 0 42%; min-height: 0; margin-top: auto; }
   .cella .barre svg { display: block; width: 100%; height: 100%; }
-  /* Fogli A4 (27/11/2026, prove di stampa dell'utente): barcode 2 mm più basso (≈ 8,4 mm sul 4 × 12) */
-  .foglio .cella .barre { flex-basis: calc(var(--h) * var(--s) * 0.42 - 2 * var(--s)); }
-  /* La stampante non stampa i primi millimetri in alto del foglio e tagliava la prima riga di etichette:
-     nella prima riga il contenuto scende di 3,5 mm (l'etichetta resta allineata al foglio) */
-  .foglio .cella.prima-riga { padding-top: calc(3.5 * var(--s)); }
+  /* Fogli A4, come la stampa del gestionale attuale (27/11/2026): tutte le etichette uguali.
+     - il contenuto parte 3,5 mm sotto il bordo in tutte le righe (la stampante non stampa i primi mm del foglio)
+     - spazio fisso tra descrizione e riga del prezzo, barcode subito sotto il prezzo (non più spinto in fondo)
+     - barcode basso (≈ 7 mm sul 4 × 12) e più stretto, centrato sotto il testo */
+  .foglio .cella { padding-top: calc(3.5 * var(--s)); }
+  .foglio .cella .riga-prezzo { margin-top: 0.7em; }
+  .foglio .cella .barre { flex: 0 0 calc(var(--h) * var(--s) * 0.285); margin: calc(0.4 * var(--s)) auto 0; width: 86%; }
   .cella .barre .n { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0.1em 0.5em 0; background: #fff; line-height: 1; white-space: nowrap; font-size: 1em; color: #000; letter-spacing: 0.04em; }
 
   /* ---------- Stampa: solo i fogli, alle misure vere ---------- */
@@ -431,7 +437,6 @@
       const fogli = [];
       for (let i = 0; i < celle.length; i += per) fogli.push(celle.slice(i, i + per));
       $("fogli").innerHTML = fogli.map(f => `<div class="foglio" style="${stile}">${f.map(a => a ? etichettaHtml(a, o) : '<div class="cella saltata" title="Saltata"></div>').join("")}${'<div class="cella" style="border-color:#eef1f5"></div>'.repeat(per - f.length)}</div>`).join("");
-      document.querySelectorAll("#fogli .foglio").forEach(fg => [...fg.children].slice(0, m.c).forEach(c => c.classList.add("prima-riga")));
       $("pagine").textContent = fogli.length ? `${fogli.length} fogl${fogli.length === 1 ? "io" : "i"} A4${salta ? ` · ${Math.min(salta, per - 1)} posizioni saltate sul primo` : ""}` : "";
     }
     if (!copie.length) $("fogli").innerHTML = '<div class="vuoto" style="margin:auto"><b>L\'anteprima comparirà qui</b></div>';
