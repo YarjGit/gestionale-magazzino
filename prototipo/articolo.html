@@ -566,9 +566,11 @@
     ]);
     const tipo = new Map((tipi || []).map(t => [t.codice, t]));
     const righe = [];
+    // anno di acquisto della singola riga (inventario per anno, database/38), se la colonna c'è
+    const conAnnoRiga = !(await db.from("movimenti_righe").select("anno_acquisto").limit(1)).error;
     for (let da = 0; ; da += 1000) {
       const { data, error } = await db.from("movimenti_righe")
-        .select("id, quantita, movimenti!inner(id, tipo, stato, sede_id, sede_altra_id, data_movimento, anno_acquisto, ricevuto_il, fornitori(sede_collegata))")
+        .select((conAnnoRiga ? "anno_acquisto, " : "") + "id, quantita, movimenti!inner(id, tipo, stato, sede_id, sede_altra_id, data_movimento, anno_acquisto, ricevuto_il, fornitori(sede_collegata))")
         .eq("articolo_id", articoloId).order("id").range(da, da + 999);
       if (error) throw error;
       righe.push(...data);
@@ -580,14 +582,15 @@
       righe.forEach(r => {
         const m = r.movimenti, t = tipo.get(m.tipo) || { nome: m.tipo, segno: 0 }, q = +r.quantita;
         if (m.sede_id === sedeId) {
-          if (STATI_OK.includes(m.stato) && t.segno) ev.push({ m, nome: t.nome, data: m.data_movimento, q: q * t.segno, lotto: t.segno > 0 ? (m.anno_acquisto || +m.data_movimento.slice(0, 4)) : null });
+          if (STATI_OK.includes(m.stato) && t.segno) ev.push({ m, nome: t.nome, data: m.data_movimento, q: q * t.segno, lotto: t.segno > 0 ? (r.anno_acquisto || m.anno_acquisto || +m.data_movimento.slice(0, 4)) : null });
           else if (m.tipo === "ordine_fornitore" && m.stato === "Definitivo") ev.push({ m, nome: t.nome, data: m.data_movimento, q: 0, ordinati: q, aSede: !!(m.fornitori && m.fornitori.sede_collegata) });
           else if (m.tipo === "ordine_cliente" && m.stato === "Definitivo") ev.push({ m, nome: t.nome, data: m.data_movimento, q: 0, prenotati: q });
         } else if (m.tipo === "trasferimento_a_filiale" && m.sede_altra_id === sedeId && STATI_OK.includes(m.stato) && m.ricevuto_il) {
           ev.push({ m, nome: "Trasferimento da Filiale", data: m.ricevuto_il.slice(0, 10), q, lotto: +m.ricevuto_il.slice(0, 4) });
         }
       });
-      return ev.sort((x, y) => x.data.localeCompare(y.data) || x.m.id - y.m.id);
+      // stesso movimento: prima le uscite, poi le entrate (inventario: via la giacenza, poi i contati anno per anno)
+      return ev.sort((x, y) => x.data.localeCompare(y.data) || x.m.id - y.m.id || x.q - y.q);
     };
     const previsti = (sedeId, ev) => {
       // ordini alle sedi (es. Magazzino Centrale): quanto manca ancora lo dice la vista inevasi

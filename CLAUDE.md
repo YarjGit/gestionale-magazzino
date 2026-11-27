@@ -103,7 +103,12 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
   (in corso = Provvisorio, quantita 0 e quantita_contata); non sparati (solo "tutto"): Lascia / Modifica / Elimina (giacenza a zero e articolo
   disattivato se le altre sedi non ne hanno); alla conferma per ogni articolo una riga −giacenza e una +contati sull'anno in corso.
   Confermano solo amministratore e responsabile magazzino. Inventario in corso: avviso rosso in vendite, scarichi, diminuzioni, trasferimenti.
-  **Proposta per l'inventario di fine anno 2026 (26/11/2026, da confermare con l'utente, "poi vediamo")**: le quantità di oggi non sono affidabili
+  **Inventario per anno (fatto il 27/11/2026, `database/38-inventario-per-anno.sql`, eseguito)**: `movimenti_righe.anno_acquisto`; si spara l'articolo
+  (anno in corso) e subito dopo, se serve, il cartellino `ANNO2022` (`cartellini-anni.html`): l'ultimo sparo passa a quell'anno. Conferma solo con
+  `conferma_inventario` del database: via tutta la giacenza, poi i contati anno per anno; "Tutto il magazzino" = non sparati a zero (azione 'azzera',
+  restano attivi) salvo 'lascia'. Lotti (`_articolo_fifo` nel 38, `lottiSedeDb`, `articolo.html`): anno della riga e, nello stesso movimento, prima le uscite.
+  Se si riesegue il 33, rieseguire anche il 38. "Info online" ha anche il ruolo responsabile_magazzino (27/11/2026). Da fare: Angular.
+  Proposta originale (26/11/2026): le quantità di oggi non sono affidabili
   (vengono dal vecchio gestionale), quindi l'inventario **sostituisce tutto**: giacenza = contati **per articolo e anno**, non sparati a zero
   (senza disattivarli), conferma fatta dal database (`conferma_inventario`, anche nel prototipo, che oggi calcola in pagina). Anno dall'etichetta con
   cartellini barcode 2015…2026 + "ANNO CORRENTE" in modalità "anno fisso" (riquadro grande "STAI CONTANDO: 2022", vale finché non si spara
@@ -183,7 +188,7 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
 - Regole architetturali obbligatorie: `frontend-angular/CLAUDE.md` (scritture solo tramite RPC/transazioni PostgreSQL, mai calcoli di
   giacenza solo lato client, paginazione e ricerca lato server, tipi allineati allo schema, `core/` `features/` `shared/`).
 - Database per la nuova versione: `33-funzioni-sicure.sql` e `34-funzioni-angular.sql` (eseguiti il 26/11/2026; il 34 si riesegue
-  quando cambia), `35-indici-e-controlli.sql` (eseguito il 26/11/2026), `36-permessi-per-sede.sql` (dopo aver spuntato la sede di ogni
+  quando cambia), `38-inventario-per-anno.sql` (eseguito il 27/11/2026, dopo il 33), `35-indici-e-controlli.sql` (eseguito il 26/11/2026), `36-permessi-per-sede.sql` (dopo aver spuntato la sede di ogni
   persona in Utenti Sito), `37-solo-funzioni.sql` (**solo** quando il prototipo non si usa più).
 - Provarla: `Avvia versione Angular.bat` (serve Node.js); dati inventati con `http://localhost:4200/?anteprima=1`, veri con `?anteprima=0`.
 - Pubblicazione **preparata ma non attiva** (Cloudflare Pages o GitHub Pages: `frontend-angular/README.md`): la decide l'utente.

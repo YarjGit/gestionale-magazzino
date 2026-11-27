@@ -19,14 +19,14 @@
 <script src="js/elenco.js?v=20261126b"></script>
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js?v=20261126b"></script>
+<script src="js/movimenti-db.js?v=20261127"></script>
 <script>
   // Inventari (riallineamenti giacenza): riallineamento.html. In corso = Provvisorio (si continua a contare), confermato = Definitivo.
   // La differenza di pezzi può essere positiva (merce trovata) o negativa (merce mancante).
   const elenco = avviaElenco({
     titolo: "Inventario",
     nuovo: "Nuovo inventario",
-    nota: "📋 L'<b>inventario</b>: si sparano tutti i pezzi con la pistola e alla conferma la giacenza diventa quella contata (tutta sull'anno in corso). Mentre un inventario è <b>in corso</b> in questa sede non fare vendite né scarichi.",
+    nota: "📋 L'<b>inventario</b>: si sparano tutti i pezzi con la pistola (etichetta di un anno vecchio: subito dopo il <b>cartellino dell'anno</b>) e alla conferma la giacenza diventa esattamente quella contata, anno per anno. Mentre un inventario è <b>in corso</b> in questa sede non fare vendite né scarichi.",
     dettaglio: "riallineamento.html",
     senzaEtichette: true,
     nuovoIcona: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',

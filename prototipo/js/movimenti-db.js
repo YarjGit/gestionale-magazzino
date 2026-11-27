@@ -68,17 +68,20 @@ async function elencoTuttiMovimentiDb(db, sedeId) {
 // Stesse regole della scheda Giacenza dell'articolo (caricaGiacenzaVera in articolo.html): le entrate vanno nel loro anno
 // (anno_acquisto del movimento, altrimenti l'anno della data; i trasferimenti ricevuti nell'anno di ricezione), le uscite
 // tolgono dal lotto più vecchio; se si va sotto zero si toglie dall'anno in corso. Usata dagli Excel dell'inventario e da Giacenze.
+// Una riga con il suo anno (inventario per anno, database/38) entra in quell'anno.
 // In più lotti.inizioAnno: Map articolo_id → giacenza al 1° gennaio dell'anno in corso (colonna "Q. iniz." di Giacenze).
 async function lottiSedeDb(db, sedeId) {
   const STATI_OK = ["Definitivo", "Evaso"], annoOggi = new Date().getFullYear();
   const { data: tipi, error: e1 } = await db.from("tipi_movimento").select("codice, segno");
   if (e1) throw e1;
   const segno = new Map((tipi || []).map(t => [t.codice, +t.segno || 0]));
+  // anno di acquisto della singola riga (inventario per anno, database/38): se la colonna non c'è ancora si legge senza
+  const conAnnoRiga = !(await db.from("movimenti_righe").select("anno_acquisto").limit(1)).error;
   const leggi = async filtro => {
     const tutte = [];
     for (let da = 0; ; da += 1000) {
       const { data, error } = await filtro(db.from("movimenti_righe")
-        .select("id, articolo_id, quantita, movimenti!inner(id, tipo, stato, sede_id, sede_altra_id, data_movimento, anno_acquisto, ricevuto_il)"))
+        .select(`id, articolo_id, quantita${conAnnoRiga ? ", anno_acquisto" : ""}, movimenti!inner(id, tipo, stato, sede_id, sede_altra_id, data_movimento, anno_acquisto, ricevuto_il)`))
         .order("id").range(da, da + 999);
       if (error) throw error;
       tutte.push(...data);
@@ -93,13 +96,14 @@ async function lottiSedeDb(db, sedeId) {
   const eventi = [];
   proprie.forEach(r => {
     const m = r.movimenti, q = +r.quantita * (segno.get(m.tipo) || 0);
-    if (q) eventi.push({ art: r.articolo_id, data: m.data_movimento, id: m.id, q, anno: m.anno_acquisto || +m.data_movimento.slice(0, 4) });
+    if (q) eventi.push({ art: r.articolo_id, data: m.data_movimento, id: m.id, q, anno: r.anno_acquisto || m.anno_acquisto || +m.data_movimento.slice(0, 4) });
   });
   ricevute.forEach(r => {
     const m = r.movimenti;
     if (m.sede_id !== sedeId) eventi.push({ art: r.articolo_id, data: m.ricevuto_il.slice(0, 10), id: m.id, q: +r.quantita, anno: +m.ricevuto_il.slice(0, 4) });
   });
-  eventi.sort((x, y) => x.data.localeCompare(y.data) || x.id - y.id);
+  // stesso movimento: prima le uscite, poi le entrate (l'inventario toglie tutta la giacenza e rimette i contati anno per anno)
+  eventi.sort((x, y) => x.data.localeCompare(y.data) || x.id - y.id || x.q - y.q);
   const lotti = new Map(), inizio = `${annoOggi}-01-01`;
   lotti.inizioAnno = new Map();
   eventi.forEach(e => {
