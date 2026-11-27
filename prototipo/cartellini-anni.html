@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartellini degli anni – Gestionale Magazzino</title>
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<style>
+  /* Cartellini degli anni per l'inventario (27/11/2026): si spara l'articolo e, se l'etichetta non è dell'anno in corso,
+     subito dopo il cartellino del suo anno. Il barcode contiene "ANNO" + anno (es. ANNO2022, Code 128): non può essere
+     scambiato per il codice o il barcode di un articolo. Un foglio A4: 3 colonne × 4 righe = 2015…2025 + "2026 (correggi)". */
+  .nota { background: #eef5ff; border: 1px solid #c9dcf7; border-radius: 10px; padding: 10px 14px; font-size: 0.9rem; line-height: 1.5; margin-bottom: 14px; }
+  .anteprima { background: #e9edf3; border-radius: 12px; padding: 16px; display: flex; justify-content: center; }
+  .foglio {
+    --s: 2.4px;   /* sullo schermo 1 mm = 2,4 px; in stampa 1 mm vero */
+    width: calc(210 * var(--s)); height: calc(297 * var(--s));
+    padding: calc(12 * var(--s)) calc(10 * var(--s));
+    background: #fff; box-shadow: 0 4px 16px rgba(20,30,50,0.15);
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr);
+    gap: calc(6 * var(--s));
+    font-family: Arial, Helvetica, sans-serif; color: #000;
+  }
+  .cartellino {
+    border: calc(0.5 * var(--s)) dashed #888; border-radius: calc(2 * var(--s));
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(2 * var(--s));
+    padding: calc(3 * var(--s));
+  }
+  .cartellino .anno { font-size: calc(16 * var(--s)); font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
+  .cartellino .barre { width: 92%; height: calc(16 * var(--s)); }
+  .cartellino .barre svg { display: block; width: 100%; height: 100%; }
+  .cartellino .testo { font-family: "JetBrains Mono", monospace; font-size: calc(3 * var(--s)); letter-spacing: 0.08em; }
+  .cartellino.corregge { background: #f3f3f3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cartellino.corregge .anno { font-size: calc(12 * var(--s)); }
+  .cartellino .spiega { font-size: calc(2.8 * var(--s)); text-align: center; }
+
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff !important; }
+    body * { visibility: hidden; }
+    .foglio, .foglio * { visibility: visible; }
+    .foglio { --s: 1mm; position: absolute; left: 0; top: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body data-page="riallineamenti-giacenza">
+
+<template id="top-actions">
+  <span class="spacer"></span>
+  <button class="btn btn-light" onclick="location.href='riallineamenti-giacenza.html'">✕ Chiudi</button>
+  <button class="btn btn-primary" onclick="window.print()">🖨️ Stampa</button>
+</template>
+
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Cartellini degli anni</h1>
+      <div class="crumbs"><a href="dashboard.html">⌂</a><span>-</span><span>Movimenti</span><span>-</span><a href="riallineamenti-giacenza.html">Inventario</a><span>-</span><span>Cartellini degli anni</span></div>
+    </div>
+  </div>
+  <div class="nota">
+    📋 <b>Come si usano all'inventario:</b> sparate l'<b>articolo</b>. Se sull'etichetta c'è l'<b>anno in corso</b> passate all'articolo dopo;
+    se c'è un <b>anno vecchio</b> (es. 22), sparate <b>subito dopo</b> il cartellino di quell'anno.
+    Il cartellino <b>2026 (correggi)</b> serve solo a rimettere sull'anno in corso un pezzo a cui avete dato l'anno sbagliato.<br>
+    Stampa su un foglio A4 normale (scala 100%, margini: nessuno) e tenetelo vicino a chi spara.
+  </div>
+  <div class="anteprima"><div class="foglio" id="foglio"></div></div>
+</main>
+
+<script src="js/sedi.js"></script>
+<script src="js/layout.js?v=20261126b"></script>
+<script src="js/barcode.js"></script>
+<script>
+  // 2015 … anno scorso, poi l'anno in corso come "correggi" (gli articoli senza cartellino sono già dell'anno in corso)
+  const annoInCorso = new Date().getFullYear();
+  const anni = [];
+  for (let a = 2015; a < annoInCorso; a++) anni.push(a);
+  const cartellino = (anno, corregge) => `<div class="cartellino${corregge ? " corregge" : ""}">
+      <div class="anno">${anno}${corregge ? " (correggi)" : ""}</div>
+      <div class="barre">${code128Svg("ANNO" + anno, 40)}</div>
+      <div class="testo">ANNO${anno}</div>
+      ${corregge ? `<div class="spiega">rimette sul ${anno} l'ultimo pezzo sparato</div>` : ""}
+    </div>`;
+  document.getElementById("foglio").innerHTML = anni.map(a => cartellino(a, false)).join("") + cartellino(annoInCorso, true);
+</script>
+</body>
+</html>

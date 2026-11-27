@@ -45,6 +45,9 @@
     ],
     dati: []
   });
+  // Foglio A4 con i barcode degli anni da sparare dopo l'articolo (cartellini-anni.html)
+  document.getElementById("btnCrea").insertAdjacentHTML("beforebegin",
+    `<button class="btn btn-light" onclick="location.href='cartellini-anni.html'" title="Foglio A4 con i barcode degli anni da sparare dopo l'articolo">🏷️ Cartellini degli anni</button>`);
 
   // Dopo l'accesso: gli inventari salvati nel database
   dbPronto.then(async db => {
