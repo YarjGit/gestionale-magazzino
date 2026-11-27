@@ -84,7 +84,7 @@
 <script src="js/dati-esempio.js"></script>
 <script src="js/dati-articoli-reali.js"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js?v=20261127"></script>
+<script src="js/movimenti-db.js?v=20261127c"></script>
 <script type="module">
   // Trasferimento a filiale: la merce esce da questa sede ed entra in automatico nella giacenza della sede che riceve.
   // ?nuovo=1&ordine=12  → si prepara l'ordine #12 di una filiale: sopra gli articoli disponibili (quanto mandare),
@@ -122,7 +122,7 @@
       mov = await leggiMovimentoDb(db, dbId, sedeId);
       if (mov) {
         destinazione = mov.sede_altra_id;
-        RIGHE = mov.righe.map((r, i) => ({ pos: i + 1, articolo: r.articolo, ordinata: r.quantita_ordinata == null ? null : +r.quantita_ordinata, manda: +r.quantita, prezzo: +r.prezzo, ordineRigaId: r.ordine_riga_id }));
+        RIGHE = mov.righe.map((r, i) => ({ pos: i + 1, articolo: r.articolo, ordinata: r.quantita_ordinata == null ? null : +r.quantita_ordinata, manda: +r.quantita, prezzo: +r.prezzo, ordineRigaId: r.ordine_riga_id, rigaDbId: r.id }));
       }
     } else if (db && (ordineId || righeInevasi.length)) {
       // Ordine di una filiale: la sede che riceve è quella che ha fatto l'ordine (automatica, niente scelta);
@@ -238,6 +238,7 @@
         </table>
       </div>
       <div class="riepilogo-tr" id="riepilogo"></div>
+      <div id="mancantiRic"></div>
     </section>`;
 
   // ---------- Righe ----------
@@ -490,12 +491,68 @@
     sessionStorage.setItem("etichette", JSON.stringify({ titolo: `Trasferimento #${mov.id}`, ritorno: `trasferimento.html?db=${mov.id}`, righe }));
     location.href = "etichette.html?da=sessione";
   };
+  // ---------- Ricezione: articoli NON arrivati (database/39, ricevi_con_mancanti) ----------
+  // Chi riceve segna i pezzi non arrivati e per ognuno sceglie: negli inevasi (li manderanno dopo) o "non arriverà più" (con motivo).
+  // Alla conferma la riga del trasferimento si riduce: quei pezzi restano nella giacenza di chi manda.
+  let mancantiAperto = false;
+  function disegnaMancantiRic() {
+    if (!daRicevere) return;
+    const conMancanti = RIGHE.filter(r => r.nonArr > 0);
+    $("mancantiRic").innerHTML = `<div style="margin-top:16px;border:2px dashed #f0b35a;border-radius:12px;padding:12px 16px;background:#fffaf2">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <b>⚠️ Manca qualcosa?</b><span style="color:var(--muted);font-size:0.86rem">Se un articolo non è arrivato (o ne sono arrivati meno), segnalo qui prima di confermare.</span>
+        <span style="flex:1"></span>${conMancanti.length ? `<span style="color:var(--ko);font-weight:600">${conMancanti.length} articoli non arrivati</span>` : ""}
+        <button class="btn btn-light" id="btnApriMancanti">${mancantiAperto ? "Chiudi" : "Segna articoli non arrivati"}</button>
+      </div>
+      ${mancantiAperto ? `<div class="table-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Articolo</th><th class="num">Mandati</th><th class="num">Non arrivati</th><th>Cosa fare</th><th>Motivo</th></tr></thead>
+        <tbody>${RIGHE.map(r => `<tr>
+          <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+          <td class="num">${r.manda}</td>
+          <td class="num"><input class="num-mod" data-nonarr="${r.pos}" value="${r.nonArr || 0}" style="width:70px"></td>
+          <td><select data-sceltaric="${r.pos}" ${r.nonArr > 0 ? "" : "disabled"}>
+            <option value="inevaso"${r.sceltaRic !== "cancella" ? " selected" : ""}>📥 Negli inevasi (arriverà dopo)</option>
+            <option value="cancella"${r.sceltaRic === "cancella" ? " selected" : ""}>⛔ Non arriverà più</option></select></td>
+          <td><input data-motivoric="${r.pos}" value="${esc(r.motivoRic || "")}" ${r.nonArr > 0 ? "" : "disabled"}
+            placeholder="${r.sceltaRic === "cancella" ? "Motivo (obbligatorio)" : "Motivo (es. dimenticato, rotto)"}" style="width:100%;min-width:180px"></td>
+        </tr>`).join("")}</tbody></table></div>
+        <p style="margin:10px 0 0;color:var(--muted);font-size:0.84rem">📥 <b>Negli inevasi</b>: i pezzi restano a ${esc(nomeDest(mov.sede_id))}${daOrdine ? " e tornano tra gli articoli da mandarvi (inevasi dell'ordine)" : ""}.
+          ⛔ <b>Non arriverà più</b>: restano a ${esc(nomeDest(mov.sede_id))} e l'inevaso si cancella, con il motivo. Il motivo si scrive nelle annotazioni del trasferimento.</p>` : ""}
+    </div>`;
+  }
+  $("mancantiRic").addEventListener("click", e => {
+    if (e.target.id === "btnApriMancanti") { mancantiAperto = !mancantiAperto; disegnaMancantiRic(); }
+  });
+  $("mancantiRic").addEventListener("change", e => {
+    const d = e.target.dataset;
+    if (d.nonarr) {
+      const r = riga(d.nonarr);
+      r.nonArr = Math.min(r.manda, Math.max(0, cent(num(e.target.value))));
+      disegnaMancantiRic();
+    }
+    if (d.sceltaric) { riga(d.sceltaric).sceltaRic = e.target.value; disegnaMancantiRic(); }
+  });
+  $("mancantiRic").addEventListener("input", e => { if (e.target.dataset.motivoric) riga(e.target.dataset.motivoric).motivoRic = e.target.value; });
+  disegnaMancantiRic();
+
   $("btnConferma").onclick = async () => {
-    const pezzi = cent(RIGHE.reduce((s, r) => s + r.manda, 0));
-    if (!confirm(`Confermi di aver ricevuto ${RIGHE.length} articoli (${pezzi} pezzi) da ${nomeDest(mov.sede_id)}?\n\nDa adesso entrano nella giacenza di ${sedeLavoro}.`)) return;
+    const mancanti = RIGHE.filter(r => r.nonArr > 0);
+    if (mancanti.some(r => r.sceltaRic === "cancella" && !(r.motivoRic || "").trim())) {
+      mancantiAperto = true; disegnaMancantiRic();
+      avviso("Per gli articoli che non arriveranno più scrivi il motivo", true); return;
+    }
+    const pezzi = cent(RIGHE.reduce((s, r) => s + r.manda - (r.nonArr || 0), 0));
+    const articoli = RIGHE.filter(r => r.manda - (r.nonArr || 0) > 0).length;
+    if (!confirm(`Confermi di aver ricevuto ${articoli} articoli (${pezzi} pezzi) da ${nomeDest(mov.sede_id)}?` +
+      (mancanti.length ? `\n\nNon arrivati: ${mancanti.map(r => `${r.articolo.codice} (${r.nonArr})`).join(", ")}` : "") +
+      `\n\nDa adesso entrano nella giacenza di ${sedeLavoro}.`)) return;
     $("btnConferma").disabled = true;
     try {
-      await confermaRicezioneDb(db, mov.id);
+      if (mancanti.length) {
+        const { error } = await db.rpc("ricevi_con_mancanti", { p_id: mov.id, p_mancanti: mancanti.map(r => ({
+          riga: r.rigaDbId, quantita: r.nonArr, scelta: r.sceltaRic === "cancella" ? "cancella" : "inevaso", motivo: (r.motivoRic || "").trim() })) });
+        if (error) throw new Error(/ricevi_con_mancanti/.test(error.message) ? "manca la funzione del database: esegui il file database/39-inevasi-fornitori.sql" : error.message);
+      } else await confermaRicezioneDb(db, mov.id);
       avviso(`Ricevuto: ${pezzi} pezzi aggiunti alla giacenza di ${sedeLavoro}`);
       setTimeout(() => location.reload(), 900);
     } catch (err) { avviso("Errore nel confermare: " + err.message); $("btnConferma").disabled = false; }

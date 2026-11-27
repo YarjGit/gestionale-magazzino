@@ -166,6 +166,9 @@ async function ordiniConInevasiDb(db, sedeId) {
   if (error) throw error;
   const mancano = new Map();
   data.filter(r => r.sede_fornitrice !== sedeId).forEach(r => mancano.set(r.ordine_id, (mancano.get(r.ordine_id) || 0) + +r.residuo));
+  // anche gli ordini ai fornitori esterni arrivati in parte (inevasi dei fornitori, database/39)
+  const { data: forn, error: e2 } = await db.from("inevasi_fornitori").select("ordine_id, residuo").eq("sede_richiedente", sedeId).gt("residuo", 0);
+  if (!e2) (forn || []).forEach(r => mancano.set(r.ordine_id, (mancano.get(r.ordine_id) || 0) + +r.residuo));
   return mancano;
 }
 
@@ -224,15 +227,35 @@ async function ordiniDaCaricareDb(db, fornitoreId, sedeId) {
   })).filter(o => o.righe.length);
 }
 
-// Dopo un carico Definitivo: gli ordini collegati in cui è arrivato tutto diventano Evasi (escono dagli ordini aperti)
-async function evadiOrdiniArrivatiDb(db, ordineIds, fornitoreId, sedeId) {
+// Dopo un carico Definitivo: gli ordini collegati diventano Evasi anche se sono arrivati solo in parte (deciso con l'utente
+// il 27/11/2026): quello che manca resta negli INEVASI DEL FORNITORE (vista inevasi_fornitori, database/39-inevasi-fornitori.sql)
+async function evadiOrdiniArrivatiDb(db, ordineIds) {
   if (!ordineIds.length) return;
-  const aperti = new Set((await ordiniDaCaricareDb(db, fornitoreId, sedeId)).map(o => o.id));
-  const completi = ordineIds.filter(id => !aperti.has(id));
-  if (completi.length) {
-    const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() }).in("id", completi);
-    if (error) throw error;
-  }
+  const { error } = await db.from("movimenti").update({ stato: "Evaso", modificato_il: new Date().toISOString() })
+    .in("id", ordineIds).eq("tipo", "ordine_fornitore").in("stato", ["Provvisorio", "Definitivo"]);
+  if (error) throw error;
+}
+
+// ---------- Inevasi dei fornitori esterni (vista inevasi_fornitori, database/39) ----------
+// Articoli ordinati a un fornitore in ordini già Evasi (carico arrivato in parte) e non ancora arrivati.
+// filtro: { sede_richiedente } e facoltativi { ordine_id, ordine_riga_id: [..], fornitore_id }. Ogni riga ha l'articolo con la giacenza della sede.
+// Se la vista non c'è ancora (file 39 non eseguito) restituisce [] senza errore.
+async function inevasiFornitoriDb(db, filtro, { soloResiduo = true } = {}) {
+  let q = db.from("inevasi_fornitori").select("*");
+  if (soloResiduo) q = q.gt("residuo", 0);
+  Object.entries(filtro).forEach(([k, v]) => { q = Array.isArray(v) ? q.in(k, v) : q.eq(k, v); });
+  const { data, error } = await q.order("data_ordine", { ascending: true }).order("ordine_riga_id", { ascending: true });
+  if (error) { if (error.code === "42P01" || /inevasi_fornitori/.test(error.message || "")) return []; throw error; }
+  if (!data.length) return [];
+  const ids = [...new Set(data.map(r => r.articolo_id))];
+  const { data: art, error: e2 } = await db.from("articoli").select(CAMPI_ARTICOLO).in("id", ids);
+  if (e2) throw e2;
+  const sedi = [...new Set(data.map(r => r.sede_richiedente))];
+  const { data: giac } = await db.from("giacenze").select("sede_id, articolo_id, quantita").in("sede_id", sedi).in("articolo_id", ids);
+  const g = new Map((giac || []).map(x => [x.sede_id + "|" + x.articolo_id, +x.quantita]));
+  const articoli = new Map(art.map(a => [a.id, a]));
+  return data.map(r => ({ ...r, ordinata: +r.ordinata, arrivata: +r.arrivata, annullata: +r.annullata, residuo: +r.residuo, prezzo: +r.prezzo,
+    articolo: articoloDalDb(articoli.get(r.articolo_id), g.get(r.sede_richiedente + "|" + r.articolo_id) ?? 0) }));
 }
 
 // Cancella (in tutto o in parte) un inevaso: resta registrato chi, quando, quanto e perché

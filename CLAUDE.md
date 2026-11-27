@@ -65,6 +65,12 @@ L'utente parla italiano e non è un programmatore: rispondere in italiano, sempl
 - **Ricezione dei trasferimenti** (`database/15-ricezione-trasferimenti.sql`): il trasferimento Definitivo toglie subito la merce a chi manda;
   chi riceve lo trova "Da ricevere" in Trasferimenti da Filiali e in Dashboard, lo apre (`trasferimento.html?db=N`), stampa le etichette e preme
   "Conferma ricevuto" (`ricevuto_il`, `ricevuto_da`): solo allora la merce entra nella sua giacenza. Dopo la ricezione chi manda non può più annullare.
+- **Inevasi anche dei fornitori, per tutte le sedi** (`database/39-inevasi-fornitori.sql`, 27/11/2026): un carico Definitivo collegato a un ordine mette l'ordine Evaso
+  anche se arrivato in parte; nella scheda "Mancanti" del carico per ogni articolo non arrivato si sceglie "Negli inevasi" o "Non arriverà più" (motivo obbligatorio).
+  Vista `inevasi_fornitori`; in `inevasi.html` scheda "Da ricevere dai fornitori" → `carico.html?nuovo=1&righe=…`. Alla ricezione di un trasferimento
+  "Segna articoli non arrivati" (`ricevi_con_mancanti`): la riga si riduce, i pezzi restano a chi manda e tornano negli inevasi, o si cancellano col motivo.
+  Dashboard (tutte le sedi): a sinistra "Ordini da preparare ricevuti dalle filiali" (solo sedi che ricevono ordini), a destra "Ordini da caricare
+  ricevuti dai fornitori", sotto "Ordini con articoli inevasi" e la lista di tutti gli articoli inevasi filtrabile per fornitore/filiale. Da fare: Angular.
 - `inevasi.html`: elenco degli ordini con inevasi (tasto INEVASI in Trasferimenti a Filiali e in Dashboard) → `?filiale=…&ordine=N` inevasi della filiale divisi per data dell'ordine, da spuntare per preparare il trasferimento.
 - Sede **CAL Roma per Estero** (nel vecchio "Apostolato Liturgico Roma per Estero", `database/20-sede-roma-per-estero.sql`): carichi e ordini per le sedi estere, nella causale il paese di spedizione (stampato nelle Note). Carichi con IVA 22% come le altre: non è in `SEDI_ESTERE`. Alle sedi estere si passa la merce al costo + IVA, senza ricarico; il compenso per il servizio non è in bolla.
 - `ordine-cliente.html` (elenco `ordini-clienti.html`, `database/21-ordini-clienti-ddt.sql`): ordine da cliente con **solo il cliente** (nel vecchio c'era anche

@@ -28,7 +28,9 @@ $$;
 -- solo le richieste fatte da una persona dalla pagina vengono controllate (non il SQL Editor né le funzioni di servizio)
 create or replace function _da_controllare() returns boolean
 language sql stable set search_path = public as $$
-  select coalesce(auth.jwt() ->> 'role', '') = 'authenticated';
+  -- le funzioni sicure del database (es. ricevi_con_mancanti, 39) controllano i permessi da sole
+  select coalesce(current_setting('gestionale.funzione_sicura', true), '') <> '1'
+     and coalesce(auth.jwt() ->> 'role', '') = 'authenticated';
 $$;
 
 -- colonne cambiate tra due versioni della stessa riga (senza le date di modifica)

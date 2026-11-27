@@ -51,7 +51,7 @@
 <script src="js/dati-articoli-reali.js"></script>
 <script src="js/dati-articoli.js"></script>
 <script src="js/dati-carichi.js"></script>
-<script src="js/movimenti-db.js?v=20261127"></script>
+<script src="js/movimenti-db.js?v=20261127c"></script>
 <script src="js/cerca-fornitore.js"></script>
 <script type="module">
   // "module": permette di aspettare il database (await) prima di disegnare un carico salvato
@@ -64,6 +64,8 @@
   const dbId = +qs.get("db");
   // ?nuovo=1&ordine=N: carico nuovo già riempito con gli articoli dell'ordine N (dal riquadro in Carichi da Fornitori)
   const daOrdine = nuovo ? +qs.get("ordine") : 0;
+  // ?nuovo=1&righe=5,9: carico degli INEVASI DEL FORNITORE scelti (Dashboard o pagina Inevasi): il resto di ordini già Evasi
+  const daInevasi = nuovo ? (qs.get("righe") || "").split(",").map(Number).filter(Boolean) : [];
   const oggi = new Date().toISOString().slice(0, 10);
   const sedeLavoro = trovaSede(leggiSede()).nome;
   // Sede che prepara la merce chiesta dalle sedi estere: nella causale si scrive il paese di spedizione
@@ -144,7 +146,7 @@
         <button class="scheda-tab active" data-t="dettagli">📄 Dettagli</button>
         <button class="scheda-tab" data-t="collegati">🚚 Movimenti collegati <span class="n">${nuovo ? 0 : 1}</span></button>
         <button class="scheda-tab" data-t="articoli">📦 Articoli <span class="n" id="nRigheTab">${RIGHE.length}</span></button>
-        <button class="scheda-tab" data-t="riordini">🧩 Riordini <span class="n">0</span></button>
+        <button class="scheda-tab" data-t="riordini">🧩 Mancanti (inevasi) <span class="n">0</span></button>
         <button class="scheda-tab" data-t="storico">🕑 Storico modifiche</button>
         <span class="spazio"></span>
         <label class="interr"><span class="switch"><input type="checkbox" id="ordinaCodice"><span></span></span> Ordina per codice</label>
@@ -263,7 +265,7 @@
 
       <!-- RIORDINI -->
       <div class="pannello-tab" id="tab-riordini" hidden>
-        <div class="vuoto"><b>Nessun riordino</b><span>Qui compariranno gli ordini creati con gli articoli non arrivati in questo carico.</span></div>
+        <div class="vuoto"><b>Niente di mancante</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa resta negli inevasi del fornitore.</span></div>
       </div>
 
       <!-- STORICO -->
@@ -387,8 +389,11 @@
 
   // ---------- Collegamento a un ordine (solo carico nuovo) ----------
   let ordineCollegato = null;
+  // Righe d'ordine tolte con ✕ (non arrivate): restano tra i Mancanti per scegliere inevaso / non arriverà più
+  const righeTolte = [];
   const ordiniCollegati = [];   // ordini veri (database) collegati a questo carico
   let apriOrdine = null;        // per ?ordine=N: sceglie il fornitore e collega l'ordine con le quantità già riempite
+  let apriInevasi = null;       // per ?righe=…: inevasi del fornitore da caricare
   if (nuovo) {
     // Ordini aperti del fornitore scelto: quelli veri dal database (con quello che manca ancora da arrivare),
     // oppure quelli di esempio finché i fornitori veri non sono arrivati
@@ -458,21 +463,54 @@
       $("bannerModifica").textContent = `✎ Carico dall'ordine ${o.prot} del ${dataIt(o.data)}: le quantità sono quelle ancora da arrivare. Correggile con − / +, metti lo sconto riga per riga o togli con ✕ quello che non è arrivato, poi salva.`;
     };
     $("btnSalta").onclick = () => { document.querySelector('.scheda-tab[data-t="articoli"]').click(); apriRigaNuova(); };
+    // ?righe=…: carico degli inevasi del fornitore scelti (ordini già Evasi): Spedita = quanto manca, poi − / + o ✕
+    apriInevasi = async righeIds => {
+      const db = await dbPronto;
+      const lista = await inevasiFornitoriDb(db, { sede_richiedente: ID_SEDI_DB[sedeLavoro], ordine_riga_id: righeIds });
+      if (!lista.length) { avviso("Questi inevasi sono già arrivati o cancellati: non c'è più niente da caricare"); return; }
+      const forn = lista[0].fornitore_id;
+      if (lista.some(r => r.fornitore_id !== forn)) avviso("Attenzione: gli inevasi scelti sono di fornitori diversi; qui ci sono solo quelli del primo", true);
+      await sincronizzaFornitore(forn);
+      const prot = [...new Set(lista.filter(r => r.fornitore_id === forn).map(r => r.protocollo || "#" + r.ordine_id))];
+      collegaOrdine({ prot: prot.join(", "), data: lista[0].data_ordine,
+        righe: lista.filter(r => r.fornitore_id === forn).map(r => ({ rigaId: r.ordine_riga_id, articolo: r.articolo, prezzo: r.prezzo, ordinata: r.ordinata, residuo: r.residuo })) }, true);
+      $("bannerModifica").textContent = `✎ Carico degli inevasi del fornitore (ordini ${prot.join(", ")}): le quantità sono quelle che mancavano. Correggile con − / + o togli con ✕ quello che non è arrivato, poi salva.`;
+    };
   }
 
-  // ---------- Riordini: ciò che è stato ordinato ma non è arrivato ----------
+  // ---------- Mancanti: ciò che è stato ordinato ma non è arrivato ----------
+  // Per ogni articolo si sceglie: "Negli inevasi" (arriverà dopo: resta da caricare dagli inevasi del fornitore)
+  // oppure "Non arriverà più" con il motivo (l'inevaso si cancella subito e resta registrato chi e perché).
+  const mancantiCarico = () => [...RIGHE, ...righeTolte.filter(t => !RIGHE.some(r => r.ordineRigaId === t.ordineRigaId))]
+    .filter(r => r.ordineRigaId && r.ordinata != null && r.qta < r.ordinata);
   function disegnaRiordini() {
-    const mancanti = RIGHE.filter(r => r.ordinata != null && r.qta < r.ordinata);
+    const mancanti = mancantiCarico();
     document.querySelector('.scheda-tab[data-t="riordini"] .n').textContent = mancanti.length;
     $("tab-riordini").innerHTML = mancanti.length ? `
-      <div class="nota-viola">🧩 Questi articoli erano nell'ordine ${ordineCollegato ? ordineCollegato.prot : ""} ma non sono arrivati tutti. La parte mancante va in un <b>nuovo ordine Provvisorio "ordine INEVASI"</b> allo stesso fornitore.</div>
+      <div class="nota-viola">🧩 Questi articoli erano nell'ordine ${ordineCollegato ? esc(ordineCollegato.prot) : ""} ma non sono arrivati tutti. Per ognuno scegli:
+        <b>📥 Negli inevasi</b> = arriverà più avanti (resta negli inevasi del fornitore, in Dashboard e nella pagina Inevasi, e si carica da lì);
+        <b>⛔ Non arriverà più</b> = si cancella subito, scrivendo il motivo (es. fuori produzione). Vale quando salvi il carico come <b>Definitivo</b>: l'ordine diventa Evaso.</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Arrivata</th><th class="num">Da riordinare</th></tr></thead>
-        <tbody>${mancanti.map(r => `<tr><td class="art-cella"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td><td class="num">${r.ordinata}</td><td class="num">${r.qta}</td><td class="num"><span class="arrivo parziale">${r.ordinata - r.qta}</span></td></tr>`).join("")}</tbody>
+        <thead><tr><th>Articolo</th><th class="num">Ordinata</th><th class="num">Arrivata</th><th class="num">Manca</th><th>Cosa fare</th><th>Motivo</th></tr></thead>
+        <tbody>${mancanti.map(r => `<tr><td class="art-cella"><span class="codice">${esc(r.cod)}</span><b>${esc(r.descr)}</b></td>
+          <td class="num">${r.ordinata}</td><td class="num">${r.qta}</td><td class="num"><span class="arrivo parziale">${Math.round((r.ordinata - r.qta) * 100) / 100}</span></td>
+          <td><select data-scelta="${r.ordineRigaId}" ${inModifica() ? "" : "disabled"}>
+            <option value="inevaso"${r.mancaScelta !== "cancella" ? " selected" : ""}>📥 Negli inevasi</option>
+            <option value="cancella"${r.mancaScelta === "cancella" ? " selected" : ""}>⛔ Non arriverà più</option></select></td>
+          <td><input data-motivo="${r.ordineRigaId}" value="${esc(r.mancaMotivo || "")}" placeholder="${r.mancaScelta === "cancella" ? "Scrivi il motivo (obbligatorio)" : "—"}"
+            ${r.mancaScelta === "cancella" && inModifica() ? "" : "disabled"} style="width:100%;min-width:180px"></td></tr>`).join("")}</tbody>
       </table></div>
-      <div style="margin-top:12px;text-align:right"><button class="btn btn-primary" onclick="avviso('Ordine INEVASI: verrà creato un ordine a fornitore Provvisorio con gli articoli mancanti (quando gli ordini si salveranno nel database)')">🧩 Crea ordine INEVASI</button></div>`
-      : '<div class="vuoto"><b>Nessun riordino</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui comparirà cosa riordinare.</span></div>';
+      `
+      : '<div class="vuoto"><b>Niente di mancante</b><span>Se il carico è collegato a un ordine e qualcosa non arriva, qui scegli se mandarlo negli inevasi del fornitore.</span></div>';
   }
+  function inModifica() { return document.body.classList.contains("in-modifica"); }
+  const rigaMancante = id => [...RIGHE, ...righeTolte].filter(r => r.ordineRigaId === +id);
+  $("tab-riordini").addEventListener("change", e => {
+    if (e.target.dataset.scelta) { rigaMancante(e.target.dataset.scelta).forEach(r => r.mancaScelta = e.target.value); disegnaRiordini(); }
+  });
+  $("tab-riordini").addEventListener("input", e => {
+    if (e.target.dataset.motivo) rigaMancante(e.target.dataset.motivo).forEach(r => r.mancaMotivo = e.target.value);
+  });
   $("righeArt").onclick = async e => {
     // ↻ accanto al costo: riprende il costo netto attuale dall'anagrafica dell'articolo (anche se cambiato da poco in un'altra scheda)
     const rp = e.target.closest("[data-riprezzo]");
@@ -501,8 +539,12 @@
     }
     const b = e.target.closest("[data-togli]");
     if (!b) return;
-    RIGHE.splice(RIGHE.findIndex(x => x.pos === +b.dataset.togli), 1);
+    const tolta = RIGHE.splice(RIGHE.findIndex(x => x.pos === +b.dataset.togli), 1)[0];
     selezionati.delete(+b.dataset.togli);
+    if (tolta && tolta.ordineRigaId) {
+      righeTolte.push({ ...tolta, qta: 0 });
+      avviso(`${tolta.cod} non è arrivato: nella scheda "Mancanti" scegli se mandarlo negli inevasi o se non arriverà più`);
+    }
     ricalcola(); disegnaArticoli();
   };
 
@@ -733,6 +775,20 @@
       condizione_pagamento: $("fCondPag").value || null, spedizioniere: $("fSped").value || null, tracking: testo("fTracking"),
       spese: Math.round([...document.querySelectorAll(".spesa")].reduce((s, i) => s + num(i.value), 0) * 100) / 100
     };
+    // Articoli dell'ordine non arrivati: negli inevasi o cancellati (solo quando il carico diventa Definitivo)
+    const mancanti = mov.stato === "Definitivo" ? mancantiCarico() : [];
+    const daCancellare = mancanti.filter(r => r.mancaScelta === "cancella");
+    if (daCancellare.some(r => !(r.mancaMotivo || "").trim())) {
+      document.querySelector('.scheda-tab[data-t="riordini"]').click();
+      avviso("Scheda Mancanti: per gli articoli che non arriveranno più scrivi il motivo", true);
+      return;
+    }
+    if (mancanti.length && !confirm(`Non sono arrivati ${mancanti.length} articoli dell'ordine:\n` +
+        `• ${mancanti.length - daCancellare.length} vanno negli inevasi del fornitore (arriveranno dopo)\n` +
+        `• ${daCancellare.length} non arriveranno più (cancellati con il motivo)\n\nSalvare il carico?`)) {
+      document.querySelector('.scheda-tab[data-t="riordini"]').click();
+      return;
+    }
     const pulsanti = ["btnSalva", "btnSalvaChiudi"].map($);
     pulsanti.forEach(b => b.disabled = true);
     try {
@@ -740,9 +796,13 @@
         articolo_id: r.articolo.id, quantita: r.qta, quantita_ordinata: r.ordinata ?? null, ordine_riga_id: r.ordineRigaId ?? null,
         prezzo: r.prezzo, sconto: r.sconto || 0, etichette: r.etichette
       })), car.dbId);
-      // Ordini collegati arrivati per intero: diventano Evasi (non compaiono più tra gli ordini aperti)
-      if (mov.stato === "Definitivo") await evadiOrdiniArrivatiDb(db, ordiniCollegati.map(o => o.id), fornitoreId, mov.sede_id)
+      // Ordini collegati: diventano Evasi anche se arrivati in parte; quello che manca resta negli inevasi del fornitore
+      if (mov.stato === "Definitivo") await evadiOrdiniArrivatiDb(db, ordiniCollegati.map(o => o.id))
         .catch(err => avviso("Carico salvato, ma non sono riuscito ad aggiornare l'ordine: " + err.message));
+      for (const r of daCancellare) {
+        await annullaInevasoDb(db, r.ordineRigaId, Math.round((r.ordinata - r.qta) * 100) / 100, r.mancaMotivo.trim())
+          .catch(err => avviso(`Carico salvato, ma ${r.cod} non sono riuscito a toglierlo dagli inevasi: ${err.message}`, true));
+      }
       avviso(mov.stato === "Definitivo" ? `Carico salvato: ${righe.reduce((s, r) => s + r.qta, 0)} pezzi caricati in giacenza`
         : `Carico salvato come ${mov.stato.toLowerCase()}: la giacenza non cambia finché non è definitivo`);
       setTimeout(() => location.replace(chiudi ? "carichi-fornitori.html" : `carico.html?db=${nuovoId}`), 900);
@@ -776,12 +836,17 @@
         const { data: od } = await db.from("movimenti").select("fornitore_id").eq("id", daOrdine).maybeSingle();
         if (od) tenere.push(od.fornitore_id);
       }
+      if (daInevasi.length) {
+        const { data: od } = await db.from("inevasi_fornitori").select("fornitore_id").in("ordine_riga_id", daInevasi).limit(1);
+        if (od && od[0]) tenere.push(od[0].fornitore_id);
+      }
       FORN = (await soloFornitoriSede(db, data, tenere)).map(f => ({ id: f.id, codice: f.codice, nome: f.ragione_sociale }));
       // la tendina di "Movimenti collegati" c'è solo nel carico nuovo
       ["selFornitore", "colFornitore"].forEach(id => { if ($(id)) $(id).innerHTML = opzioniForn(scelto); });
       aggiornaCampiForn();
     }
     if (daOrdine && apriOrdine) await apriOrdine(daOrdine);
+    if (daInevasi.length && apriInevasi) await apriInevasi(daInevasi);
   }).catch(err => avviso("Errore nel leggere articoli e fornitori: " + err.message));
 </script>
 </body>

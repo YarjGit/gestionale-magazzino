@@ -66,10 +66,12 @@
     <div class="schede" id="schede">
       <button class="scheda-tab active" data-t="mandare">📤 Ordini con inevasi da mandare <span class="n" id="nMandare">…</span></button>
       <button class="scheda-tab" data-t="attesa">📥 In attesa per noi (da non riordinare) <span class="n" id="nAttesa">…</span></button>
+      <button class="scheda-tab" data-t="fornitori">🏭 Da ricevere dai fornitori <span class="n" id="nForn">…</span></button>
       <button class="scheda-tab" data-t="cancellati">🗂️ Cancellati <span class="n" id="nCanc">…</span></button>
     </div>
     <div class="pannello-tab" id="tab-mandare"><div class="vuoto"><b>Lettura…</b></div></div>
     <div class="pannello-tab" id="tab-attesa" hidden></div>
+    <div class="pannello-tab" id="tab-fornitori" hidden></div>
     <div class="pannello-tab" id="tab-cancellati" hidden></div>
   </section>
 </main>
@@ -78,7 +80,7 @@
 <script src="js/layout.js?v=20261126b"></script>
 <script src="js/elenco.js?v=20261126b"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js?v=20261127"></script>
+<script src="js/movimenti-db.js?v=20261127c"></script>
 <script>
   // Pagina Inevasi (vista "inevasi", database/14-inevasi.sql).
   // "Da mandare": inevasi delle filiali verso questa sede (es. Magazzino Centrale), con la giacenza attuale:
@@ -215,14 +217,93 @@
       : '<div class="vuoto"><b>Niente in attesa</b><span>Qui compaiono gli articoli che questa sede ha ordinato a un\'altra sede e non sono ancora arrivati.</span></div>';
   }
 
+  // ---------- Da ricevere dai fornitori (database/39): ordini ai fornitori arrivati in parte, con quello che manca ----------
+  // Un blocco per fornitore e ordine (dal più vecchio); si spuntano gli articoli arrivati e si prepara il carico,
+  // oppure si cancellano (la merce non arriverà più): resta registrato chi, quando e perché.
+  let dalFornitori = [], dalFornitoriTutte = [];
+  function disegnaFornitori() {
+    const ordini = new Map();
+    dalFornitori.forEach(r => {
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo || "#" + r.ordine_id, data: r.data_ordine, forn: r.fornitore || "", fornId: r.fornitore_id, righe: [], pezzi: 0 };
+      o.righe.push(r); o.pezzi += r.residuo;
+      ordini.set(r.ordine_id, o);
+    });
+    const lista = [...ordini.values()].sort((a, b) => a.forn.localeCompare(b.forn) || a.data.localeCompare(b.data) || a.id - b.id);
+    $("nForn").textContent = lista.length;
+    $("tab-fornitori").innerHTML = lista.length ? `
+      <div class="nota-viola" style="margin-bottom:14px">🏭 Ordini ai fornitori <b>arrivati solo in parte</b>: l'ordine è Evaso e quello che manca è qui. Quando il fornitore manda il resto,
+        spunta gli articoli arrivati e premi <b>Prepara carico</b>; se non arriveranno più, cancellali con il cestino (resta registrato il motivo).</div>
+      <div class="barra-sel">
+        <span class="spazio"></span>
+        <span id="nSelF" style="color:var(--muted)">Nessun articolo selezionato</span>
+        <button class="btn btn-primary" data-azf="prepara">📦 Prepara carico con i selezionati</button>
+      </div>
+      ${lista.map(o => `<div class="blocco-data${o.id === ordineScelto ? " evidenziato" : ""}" id="ordf-${o.id}">
+        <div class="testa-data" style="background:#e8f1ff;color:#1f4f80">🏭 <span class="data">${esc(o.forn)}</span> Ordine ${esc(o.prot)} del ${dataIt(o.data)}
+          <small style="color:#3d6aa0">${o.righe.length} articoli · ${cent(o.pezzi)} pezzi ancora da arrivare</small><span class="spazio"></span>
+          <label style="font-weight:500;font-size:0.82rem;cursor:pointer"><input type="checkbox" data-tuttoordf="${o.id}"> seleziona tutto l'ordine</label>
+          <a class="btn btn-light" href="ordine.html?db=${o.id}" style="padding:4px 10px;font-size:0.78rem">Apri l'ordine</a></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th class="chk"></th><th>Articolo</th><th class="num">Ordinata</th><th class="num">Già arrivata</th><th class="num">Manca</th><th class="num">Giac. qui</th><th style="width:40px"></th></tr></thead>
+          <tbody>${o.righe.map(r => `<tr>
+            <td class="chk"><input type="checkbox" data-rigaf="${r.ordine_riga_id}" data-ordf="${o.id}" data-forn="${esc(r.fornitore_id || "")}"></td>
+            <td class="art-cella"><span class="codice">${esc(r.articolo.codice)}</span><b>${esc(r.articolo.descr)}</b></td>
+            <td class="num">${r.ordinata}</td><td class="num">${r.arrivata || "—"}</td>
+            <td class="num"><span class="residuo">${r.residuo}</span></td><td class="num">${r.articolo.giac ?? 0}</td>
+            <td><button class="btn-riga cestino" data-cancellaf="${r.ordine_riga_id}" title="Cancella: questo articolo non arriverà più">🗑</button></td>
+          </tr>`).join("")}</tbody>
+        </table></div>
+      </div>`).join("")}`
+      : '<div class="vuoto"><b>Niente da ricevere dai fornitori</b><span>Qui compaiono gli ordini ai fornitori arrivati solo in parte (carico con meno pezzi dell\'ordine).</span></div>';
+    const ev = document.getElementById("ordf-" + ordineScelto);
+    if (ev && qs.get("vista") === "fornitori") setTimeout(() => ev.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }
+  function contaSelezioneF() {
+    const scelte = [...document.querySelectorAll("#tab-fornitori input[data-rigaf]:checked")];
+    const pezzi = scelte.reduce((s, c) => s + dalFornitori.find(x => x.ordine_riga_id === +c.dataset.rigaf).residuo, 0);
+    if ($("nSelF")) $("nSelF").innerHTML = scelte.length ? `Selezionati: <b style="color:var(--text)">${scelte.length} articoli, ${cent(pezzi)} pezzi</b>` : "Nessun articolo selezionato";
+    document.querySelectorAll("#tab-fornitori input[data-tuttoordf]").forEach(t => {
+      const caselle = [...document.querySelectorAll(`#tab-fornitori input[data-ordf="${t.dataset.tuttoordf}"]`)];
+      t.checked = caselle.length && caselle.every(c => c.checked);
+    });
+  }
+  $("tab-fornitori").onchange = e => {
+    if (e.target.dataset.tuttoordf) document.querySelectorAll(`#tab-fornitori input[data-ordf="${e.target.dataset.tuttoordf}"]`).forEach(c => c.checked = e.target.checked);
+    contaSelezioneF();
+  };
+  $("tab-fornitori").onclick = async e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.azf === "prepara") {
+      const scelte = [...document.querySelectorAll("#tab-fornitori input[data-rigaf]:checked")];
+      if (!scelte.length) { avviso("Spunta gli articoli arrivati"); return; }
+      if (new Set(scelte.map(c => c.dataset.forn)).size > 1) { avviso("Un carico è di un solo fornitore: spunta solo gli articoli dello stesso fornitore", true); return; }
+      location.href = `carico.html?nuovo=1&righe=${scelte.map(c => c.dataset.rigaf).join(",")}`;
+    }
+    if (b.dataset.cancellaf) {
+      const r = dalFornitori.find(x => x.ordine_riga_id === +b.dataset.cancellaf);
+      const q = prompt(`Cancellare l'inevaso di ${r.articolo.codice} – ${r.articolo.descr} (fornitore ${r.fornitore || ""})?\n\nQuanti pezzi cancellare? (mancano: ${r.residuo})`, r.residuo);
+      if (q === null) return;
+      const quanti = Math.min(r.residuo, Math.max(0, +String(q).replace(",", ".") || 0));
+      if (!quanti) { avviso("Nessun pezzo cancellato"); return; }
+      const motivo = prompt("Perché? (es. il fornitore non lo produce più) — resta registrato", "Il fornitore non lo manda più");
+      if (motivo === null) return;
+      try {
+        await annullaInevasoDb(db, r.ordine_riga_id, quanti, motivo.trim());
+        avviso(`Inevaso cancellato: ${quanti} pezzi di ${r.articolo.codice}. Resta registrato in "Cancellati".`);
+        await carica();
+      } catch (err) { avviso("Errore nel cancellare: " + err.message); }
+    }
+  };
+
   // Registro delle cancellazioni: resta sempre visibile
   async function disegnaCancellati() {
-    const tutte = [...daMandareTutte, ...inAttesaTutte];
+    const tutte = [...daMandareTutte, ...inAttesaTutte, ...dalFornitoriTutte.map(r => ({ ...r, nomeRichiedente: r.fornitore || "" }))];
     const reg = await inevasiAnnullatiDb(db, tutte.map(r => r.ordine_riga_id));
     const perRiga = new Map(tutte.map(r => [r.ordine_riga_id, r]));
     $("nCanc").textContent = reg.length;
     $("tab-cancellati").innerHTML = reg.length ? `<div class="table-wrap"><table class="storico-canc">
-        <thead><tr><th>Quando</th><th>Chi</th><th>Articolo</th><th>Filiale</th><th>Ordine</th><th class="num">Pezzi cancellati</th><th>Motivo</th></tr></thead>
+        <thead><tr><th>Quando</th><th>Chi</th><th>Articolo</th><th>Filiale o fornitore</th><th>Ordine</th><th class="num">Pezzi cancellati</th><th>Motivo</th></tr></thead>
         <tbody>${reg.map(c => { const r = perRiga.get(c.ordine_riga_id) || {}; const a = r.articolo || {}; return `<tr>
           <td>${new Date(c.annullato_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}</td><td>${esc(c.annullato_da || "")}</td>
           <td><span class="codice">${esc(a.codice || "")}</span> ${esc(a.descr || "")}</td><td>${esc(r.nomeRichiedente || "")}</td><td>#${r.ordine_id || ""}</td>
@@ -233,16 +314,19 @@
   let daMandareTutte = [], inAttesaTutte = [], nomiSede = new Map();
   async function carica() {
     // "Tutte" servono al registro delle cancellazioni (anche righe ormai chiuse)
-    [daMandareTutte, inAttesaTutte] = await Promise.all([
+    [daMandareTutte, inAttesaTutte, dalFornitoriTutte] = await Promise.all([
       inevasiDb(db, { sede_fornitrice: sedeId, stato_ordine: "Evaso" }, { soloResiduo: false }),
-      inevasiDb(db, { sede_richiedente: sedeId }, { soloResiduo: false })
+      inevasiDb(db, { sede_richiedente: sedeId }, { soloResiduo: false }),
+      inevasiFornitoriDb(db, { sede_richiedente: sedeId }, { soloResiduo: false })
     ]);
+    dalFornitori = dalFornitoriTutte.filter(r => r.residuo > 0);
     daMandare = daMandareTutte.filter(r => r.residuo > 0);
     inAttesa = inAttesaTutte.filter(r => r.residuo > 0);
     for (const r of inAttesa) nomiSede.set(r.sede_fornitrice, await nomeSedeDb(db, r.sede_fornitrice));
-    disegnaMandare(); disegnaAttesa(); await disegnaCancellati();
+    disegnaMandare(); disegnaAttesa(); disegnaFornitori(); await disegnaCancellati();
     // una sede che non riceve ordini si apre su "In attesa per noi"
     if ((!daMandare.length && inAttesa.length) || qs.get("vista") === "attesa") document.querySelector('.scheda-tab[data-t="attesa"]').click();
+    if (qs.get("vista") === "fornitori" || (!daMandare.length && !inAttesa.length && dalFornitori.length)) document.querySelector('.scheda-tab[data-t="fornitori"]').click();
   }
 
   $("tab-mandare").onchange = e => {

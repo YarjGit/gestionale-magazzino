@@ -119,7 +119,29 @@
   .v { font-weight: 500; }
   .r { text-align: right; }
 
+  /* Due colonne: a sinistra gli ordini ricevuti dalle filiali, a destra i nostri ordini da caricare */
+  .colonne { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+  .colonne.una { grid-template-columns: 1fr; }
+  .colonne .cards { grid-template-columns: 1fr; }
+  .colonne.una .cards { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+  .colonne .section + .section { margin-top: 0; }
+  .titolo-col { font-size: 1rem; }
+  .tipo-inev { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+  .tipo-inev.mandare { background: #fff1e0; color: #c2410c; }
+  .tipo-inev.sede { background: #e7f6f8; color: #0e7490; }
+  .tipo-inev.forn { background: #e8f1ff; color: #1f4f80; }
+  .card-head.inev { background: linear-gradient(135deg, #ff9f1a, #e5631a); }
+  .card-head.inev-forn { background: linear-gradient(135deg, #5b8def, #2f5fb3); }
+  .filtro-inev { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .filtro-inev select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; min-width: 220px; }
+  .tab-inev { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .tab-inev th { text-align: left; padding: 8px 10px; background: #f3f5f9; color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+  .tab-inev td { padding: 9px 10px; border-top: 1px solid var(--line); }
+  .tab-inev td.num, .tab-inev th.num { text-align: right; }
+  .tab-inev .codice { display: block; color: var(--muted); font-size: 0.76rem; }
+
   @media (max-width: 900px) {
+    .colonne { grid-template-columns: 1fr; }
     .cards { grid-template-columns: 1fr; }
     .card-body { grid-template-columns: 1fr 1fr; }
     .card-body .r { text-align: left; }
@@ -147,27 +169,54 @@
       <div class="cards" id="arrivi"></div>
     </section>
 
-    <section class="section" id="sezRicevuti">
+    <div class="colonne una" id="colonne">
+      <!-- Sinistra: solo per le sedi che ricevono ordini dalle filiali (es. Magazzino Centrale) -->
+      <section class="section" id="sezRicevuti" hidden>
+        <h2 class="section-title titolo-col">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+          Ordini da preparare ricevuti dalle filiali
+          <span class="count" id="countRicevuti">…</span>
+        </h2>
+        <div class="cards" id="ricevuti"><p class="empty">Lettura degli ordini…</p></div>
+      </section>
+
+      <!-- Destra: i nostri ordini ai fornitori (e alle altre sedi) ancora da caricare -->
+      <section class="section">
+        <h2 class="section-title titolo-col">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+          Ordini da caricare ricevuti dai fornitori
+          <span class="count" id="countIn">…</span>
+        </h2>
+        <div class="cards" id="inArrivo"><p class="empty">Lettura degli ordini…</p></div>
+      </section>
+    </div>
+
+    <section class="section" id="sezInevasi">
       <h2 class="section-title">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
-        Ordini ricevuti dalle filiali (da preparare)
-        <span class="count" id="countRicevuti">…</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Ordini con articoli inevasi
+        <span class="count" id="countInev">…</span>
       </h2>
-      <div class="cards" id="ricevuti"><p class="empty">Lettura degli ordini…</p></div>
-      <a href="inevasi.html" class="btn-inevasi" id="linkInevasi">
-        <span class="ico">⏳</span>
-        <span class="t">Inevasi da mandare alle filiali<small>Articoli ordinati dalle filiali e non ancora mandati: aprili per sceglierli o cancellarli</small></span>
-        <span class="num" id="numInevasi">…</span>
-      </a>
+      <div class="cards" id="ordiniInev"><p class="empty">Lettura degli inevasi…</p></div>
     </section>
 
-    <section class="section">
+    <section class="section" id="sezArtInev">
       <h2 class="section-title">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
-        I nostri ordini in arrivo
-        <span class="count" id="countIn"></span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Tutti gli articoli inevasi
+        <span class="count" id="countArtInev">…</span>
       </h2>
-      <div class="cards" id="inArrivo"></div>
+      <div class="filtro-inev">
+        <label for="filtroInev">Fornitore o filiale</label>
+        <select id="filtroInev"><option value="">Tutti</option></select>
+        <select id="filtroTipo">
+          <option value="">Tutti i tipi</option>
+          <option value="mandare">Da mandare alle filiali</option>
+          <option value="sede">Da ricevere dalle sedi</option>
+          <option value="forn">Da ricevere dai fornitori</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="artInev"><p class="empty">Lettura degli inevasi…</p></div>
     </section>
 
     <section class="section">
@@ -189,7 +238,7 @@
 <script src="js/layout.js?v=20261126b"></script>
 <script src="js/elenco.js?v=20261126b"></script>
 <script src="js/dati-articoli.js"></script>
-<script src="js/movimenti-db.js?v=20261127"></script>
+<script src="js/movimenti-db.js?v=20261127c"></script>
 <script>
   // ---------- Riquadri in alto, ordini in arrivo e movimenti aperti: tutto dal database della sede di lavoro ----------
   const sedeDash = ID_SEDI_DB[trovaSede(leggiSede()).nome];
@@ -221,7 +270,7 @@
     // Gli inevasi si vedono col tasto INEVASI IN ATTESA e nella scheda "Con inevasi" di Ordini a Fornitori, e in "Già in attesa" nel nuovo ordine.
     ordiniSedi.forEach((o, id) => { if (o.stato === "Evaso" && !o.tr) ordiniSedi.delete(id); });
     const inArrivo = aiFornitori.map(o => ({ nome: o.fornitore, prot: o.prot, data: o.data, righe: o.righe.length, pezzi: o.righe.reduce((s, r) => s + r.residuo, 0),
-      tipo: "Ordine a fornitore", url: `carico.html?nuovo=1&ordine=${o.id}`, azione: "Crea carico →" }))
+      tipo: "Ordine a fornitore", url: `carico.html?nuovo=1&ordine=${o.id}`, azione: "Apri e prepara carico →" }))
       // Ordine a una sede: come in Trasferimenti da Filiali, se la merce è partita (trasferimento non ancora confermato) si apre
       // quel trasferimento per confermare il ricevuto ("Ricevi"); altrimenti si apre l'ordine (articoli e quanto manca)
       .concat([...ordiniSedi.values()].map(o => ({ ...o, prot: o.prot || "#" + o.id, tipo: "Ordine a sede",
@@ -238,7 +287,7 @@
           <div class="r"><div class="k">Articoli da arrivare</div><div class="v">${o.righe}</div></div>
         </div>
         <div class="card-apri"><span>${o.azione}</span></div>
-      </div>`).join("") : '<p class="empty">Nessun ordine in arrivo: tutto quello che avete ordinato è già arrivato.</p>';
+      </div>`).join("") : '<p class="empty">Nessun ordine da caricare: tutto quello che avete ordinato è già arrivato.</p>';
 
     // Movimenti non ancora definitivi (provvisori, riordini): da finire
     const aperti = (await elencoTuttiMovimentiDb(db, sedeDash)).filter(m => ["Provvisorio", "Riordino"].includes(m.stato) && m.url);
@@ -297,45 +346,99 @@
       </div>`).join("");
   }).catch(err => avviso("Errore nel leggere la merce in arrivo: " + err.message));
 
-  // ---------- Ordini ricevuti dalle filiali (dal database) ----------
+  // ---------- Sinistra: ordini da preparare ricevuti dalle filiali ----------
   // Ordini a fornitore Definitivi il cui fornitore è questa sede (es. SMM → Magazzino Centrale), ancora da preparare.
-  // Cliccando si prepara il trasferimento: quello che non c'è resta negli inevasi.
+  // La colonna c'è solo se la sede riceve ordini (è il "fornitore" di qualche filiale): per i negozi resta solo la destra.
   dbPronto.then(async db => {
     if (!db) return;
-    const sede = ID_SEDI_DB[trovaSede(leggiSede()).nome];
-    const [daPreparare, inevasi] = await Promise.all([
-      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Definitivo" }, { soloResiduo: false }),
-      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Evaso" })
+    const sede = sedeDash;
+    const [{ data: comeFornitore }, daPreparare] = await Promise.all([
+      db.from("fornitori").select("id").eq("sede_collegata", sede).limit(1),
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Definitivo" }, { soloResiduo: false })
     ]);
     const ordini = new Map();
     daPreparare.forEach(r => {
-      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, da: r.nomeRichiedente, data: r.data_ordine, righe: 0, pezzi: 0, disponibili: 0 };
+      const o = ordini.get(r.ordine_id) || { id: r.ordine_id, prot: r.protocollo, da: r.nomeRichiedente, data: r.data_ordine, righe: 0, pezzi: 0, disponibili: 0 };
       o.righe++; o.pezzi += r.ordinata;
       if ((r.articolo.giac ?? 0) >= r.ordinata) o.disponibili++;
       ordini.set(r.ordine_id, o);
     });
     const lista = [...ordini.values()];
+    const riceveOrdini = (comeFornitore && comeFornitore.length) || lista.length;
+    document.getElementById("sezRicevuti").hidden = !riceveOrdini;
+    document.getElementById("colonne").classList.toggle("una", !riceveOrdini);
     document.getElementById("countRicevuti").textContent = lista.length;
     document.getElementById("ricevuti").innerHTML = lista.length ? lista.map(o => `
       <div class="card nuovo-ord" onclick="location.href='trasferimento.html?nuovo=1&ordine=${o.id}'" title="Apri l'ordine e prepara il trasferimento a filiale">
-        <div class="card-head trasf"><span class="name">${esc(o.da)} · ordine #${o.id}</span><span class="tot">${o.pezzi} pezzi</span></div>
+        <div class="card-head trasf"><span class="name">${esc(o.da)} · ordine ${esc(o.prot || "#" + o.id)}</span><span class="tot">${o.pezzi} pezzi</span></div>
         <div class="card-body three">
           <div><div class="k">Data ordine</div><div class="v">${dataIt(o.data)}</div></div>
           <div><div class="k">Articoli</div><div class="v">${o.righe}</div></div>
           <div class="r"><div class="k">Disponibili ora</div><div class="v">${o.disponibili} di ${o.righe}</div></div>
         </div>
-        <div class="card-apri"><span>Apri e prepara il trasferimento →</span></div>
+        <div class="card-apri"><span>Apri e prepara trasferimento →</span></div>
       </div>`).join("") : '<p class="empty">Nessun ordine da preparare.</p>';
-    const nInevasi = new Set(inevasi.map(r => r.articolo_id)).size;
-    const nOrdiniInev = new Set(inevasi.map(r => r.ordine_id)).size;
-    document.getElementById("numInevasi").textContent = nOrdiniInev;
-    document.querySelector("#linkInevasi small").textContent = nOrdiniInev
-      ? `${nOrdiniInev} ordini con ${nInevasi} articoli non ancora mandati: aprili per vederli divisi per data e mandarli`
-      : "Nessun articolo in attesa di essere mandato";
-    document.getElementById("linkInevasi").classList.toggle("zero", !nInevasi);
-    // Una sede che non riceve ordini (es. un negozio) non vede la sezione
-    if (!lista.length && !nInevasi) document.getElementById("sezRicevuti").hidden = true;
   }).catch(err => avviso("Errore nel leggere gli ordini ricevuti: " + err.message));
+
+  // ---------- Inevasi: ordini con articoli mancanti e lista di tutti gli articoli, filtrabile ----------
+  // Tre tipi: da mandare alle filiali (noi siamo il fornitore), da ricevere dalle sedi, da ricevere dai fornitori esterni.
+  dbPronto.then(async db => {
+    if (!db) return;
+    const sede = sedeDash;
+    const [mandare, attesa, forn] = await Promise.all([
+      inevasiDb(db, { sede_fornitrice: sede, stato_ordine: "Evaso" }),
+      inevasiDb(db, { sede_richiedente: sede, stato_ordine: "Evaso" }),
+      inevasiFornitoriDb(db, { sede_richiedente: sede })
+    ]);
+    const righe = [];
+    mandare.forEach(r => righe.push({ tipo: "mandare", nome: r.nomeRichiedente, r, url: `inevasi.html?filiale=${encodeURIComponent(r.sede_richiedente)}&ordine=${r.ordine_id}` }));
+    for (const r of attesa) righe.push({ tipo: "sede", nome: await nomeSedeDb(db, r.sede_fornitrice), r, url: `inevasi.html?vista=attesa&ordine=${r.ordine_id}` });
+    forn.forEach(r => righe.push({ tipo: "forn", nome: r.fornitore || "", r, url: `inevasi.html?vista=fornitori&ordine=${r.ordine_id}` }));
+    const TIPI = { mandare: "Da mandare a", sede: "Da ricevere da", forn: "Da ricevere dal fornitore" };
+
+    // Ordini con articoli inevasi: un riquadro per ordine con il tasto Apri
+    const ordini = new Map();
+    righe.forEach(x => {
+      const k = x.tipo + "|" + x.r.ordine_id;
+      const o = ordini.get(k) || { ...x, prot: x.r.protocollo || "#" + x.r.ordine_id, data: x.r.data_ordine, articoli: 0, pezzi: 0 };
+      o.articoli++; o.pezzi += x.r.residuo;
+      ordini.set(k, o);
+    });
+    const lista = [...ordini.values()].sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+    document.getElementById("countInev").textContent = lista.length;
+    document.getElementById("ordiniInev").innerHTML = lista.length ? lista.map(o => `
+      <div class="card" onclick="location.href='${o.url}'" title="Apri gli inevasi di questo ordine">
+        <div class="card-head ${o.tipo === "forn" ? "inev-forn" : "inev"}"><span class="name">${esc(o.nome)} · ordine ${esc(o.prot)}</span><span class="tot">${(Math.round(o.pezzi * 100) / 100).toLocaleString("it-IT")} pezzi</span></div>
+        <div class="card-body three">
+          <div><div class="k">Inevaso</div><div class="v"><span class="tipo-inev ${o.tipo}">${TIPI[o.tipo]}</span></div></div>
+          <div><div class="k">Data ordine</div><div class="v">${dataIt(o.data)}</div></div>
+          <div class="r"><div class="k">Articoli mancanti</div><div class="v">${o.articoli}</div></div>
+        </div>
+        <div class="card-apri"><span>Apri →</span></div>
+      </div>`).join("") : '<p class="empty">Nessun ordine con articoli inevasi.</p>';
+
+    // Lista di tutti gli articoli inevasi, filtrabile per fornitore o filiale e per tipo
+    const fSel = document.getElementById("filtroInev"), tSel = document.getElementById("filtroTipo");
+    fSel.innerHTML = '<option value="">Tutti</option>' + [...new Set(righe.map(x => x.nome))].sort((a, b) => a.localeCompare(b))
+      .map(n => `<option>${esc(n)}</option>`).join("");
+    const disegna = () => {
+      const vis = righe.filter(x => (!fSel.value || x.nome === fSel.value) && (!tSel.value || x.tipo === tSel.value))
+        .sort((a, b) => a.nome.localeCompare(b.nome) || (a.r.data_ordine || "").localeCompare(b.r.data_ordine || ""));
+      document.getElementById("countArtInev").textContent = vis.length;
+      document.getElementById("artInev").innerHTML = vis.length ? `<table class="tab-inev">
+        <thead><tr><th>Tipo</th><th>Fornitore o filiale</th><th>Articolo</th><th>Ordine</th><th class="num">Ordinata</th><th class="num">Manca</th><th></th></tr></thead>
+        <tbody>${vis.map(x => `<tr>
+          <td><span class="tipo-inev ${x.tipo}">${TIPI[x.tipo]}</span></td>
+          <td><b>${esc(x.nome)}</b></td>
+          <td><span class="codice">${esc(x.r.articolo.codice)}</span>${esc(x.r.articolo.descr)}</td>
+          <td>${esc(x.r.protocollo || "#" + x.r.ordine_id)} del ${dataIt(x.r.data_ordine)}</td>
+          <td class="num">${x.r.ordinata}</td><td class="num"><b>${x.r.residuo}</b></td>
+          <td><a class="btn btn-light" href="${x.url}" style="padding:4px 10px;font-size:0.78rem">Apri</a></td>
+        </tr>`).join("")}</tbody></table>` : '<p class="empty">Nessun articolo inevaso.</p>';
+    };
+    fSel.onchange = tSel.onchange = disegna;
+    disegna();
+  }).catch(err => avviso("Errore nel leggere gli inevasi: " + err.message));
 </script>
 </body>
 </html>
