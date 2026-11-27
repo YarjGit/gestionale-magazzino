@@ -381,9 +381,12 @@ export class OrdiniClienti {
 /** Riallineamenti Giacenza = inventari (prototipo/riallineamenti-giacenza.html). */
 @Component({
   selector: 'app-riallineamenti',
-  imports: [ElencoMovimenti],
+  imports: [ElencoMovimenti, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<app-elenco-movimenti [config]="config" />`
+  // tasto per il foglio A4 dei cartellini degli anni da sparare dopo l'articolo (come il prototipo)
+  template: `<app-elenco-movimenti [config]="config">
+    <a azioni class="btn btn-light" routerLink="/inventario/cartellini-anni" title="Foglio A4 con i barcode degli anni da sparare dopo l'articolo">🏷️ Cartellini degli anni</a>
+  </app-elenco-movimenti>`
 })
 export class Riallineamenti {
   protected readonly config: ConfigElencoMovimenti = {

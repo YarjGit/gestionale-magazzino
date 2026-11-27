@@ -33,6 +33,7 @@ export const routes: Routes = [
       { path: 'trasferimenti/a-filiali', loadComponent: () => import('./features/movimenti/elenchi').then(m => m.TrasferimentiAFiliali) },
       { path: 'trasferimenti/da-filiali', loadComponent: () => import('./features/movimenti/elenchi').then(m => m.TrasferimentiDaFiliali) },
       { path: 'inventario', loadComponent: () => import('./features/movimenti/elenchi').then(m => m.Riallineamenti) },
+      { path: 'inventario/cartellini-anni', loadComponent: () => import('./features/stampe/cartellini-anni').then(m => m.CartelliniAnni) },
       { path: 'carico/:id', loadComponent: () => import('./features/movimenti/carico').then(m => m.Carico) },
       { path: 'ordine/:id', loadComponent: () => import('./features/movimenti/ordine').then(m => m.Ordine) },
       { path: 'vendita/:id', loadComponent: () => import('./features/movimenti/vendita').then(m => m.Vendita) },
