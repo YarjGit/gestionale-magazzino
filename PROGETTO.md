@@ -114,3 +114,12 @@ Per vederlo: avviare `prototipo/server.ps1` e aprire http://localhost:8080/
 
 - Collegamento del magazzino all'e-commerce (Setup → Utenti Sito e sincronizzazione giacenze)
 - Menu Laboratori (per ora non serve, da rivedere)
+- **Montaggio di prodotti dai pezzi dei laboratori** (idea approvata dall'utente il 27/11/2026, da fare dopo il collaudo di quello che c'è):
+  es. il Magazzino Centrale ordina al laboratorio dell'alabastro un nodo in alabastro e una coppa in metallo, li monta a mano e ne esce un calice
+  con il suo codice. Non in automatico all'arrivo dell'ordine (i pezzi arrivati non sono ancora montati, rotture, pezzi venduti da soli):
+  - nella scheda del prodotto finito l'elenco dei pezzi che lo compongono (articoli veri collegati, non righe scritte a mano come in "Materiali");
+  - i pezzi entrano con un carico normale;
+  - nuova scheda movimento "Montaggio": si sceglie/spara il prodotto finito e quanti ne sono stati montati → toglie i pezzi e aggiunge i prodotti
+    finiti in un colpo solo (salvataggio dal database, tutto o niente), bloccato se mancano pezzi; etichette da stampare; costo = somma dei pezzi.
+  - Domande da fare all'utente prima di cominciare: i pezzi si vendono anche da soli? montano solo al Magazzino Centrale o anche altre sedi?
+    manodopera da aggiungere al costo? anno di acquisto sull'etichetta = anno del montaggio (consigliato) o quello dei pezzi?
