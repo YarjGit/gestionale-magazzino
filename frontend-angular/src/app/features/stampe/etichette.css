@@ -83,7 +83,8 @@
   .cella.saltata { background: repeating-linear-gradient(45deg, #f6f8fb, #f6f8fb 4px, #fff 4px, #fff 8px); }
   .cella .c { font-weight: 400; }
   /* Etichetta per la scatola: il codice dentro un riquadro nero (prima si sbarrava a penna) */
-  .cella .c.scatola span { display: inline-block; padding: 0 3px; border: 1.5px solid #000; line-height: 1.15; }
+  /* bordo disegnato con outline (non occupa spazio) e per tutta la larghezza dell'etichetta, anche se il codice è corto (come il prototipo) */
+  .cella .c.scatola span { display: block; padding: 0 3px; outline: 1.5px solid #000; outline-offset: -0.5px; line-height: 1.15; white-space: nowrap; overflow: hidden; }
   .scat-riga { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
   /* Anno di carico (lotto) in due cifre, sulla riga del prezzo prima del costo cifrato */
   .cella .anno { margin-right: 1.2em; }
@@ -97,9 +98,12 @@
   .cella .barre { position: relative; flex: 0 0 42%; min-height: 0; margin-top: auto; }
   .cella .barre ::ng-deep svg { display: block; width: 100%; height: 100%; }
   /* Fogli A4 (27/11/2026, prove di stampa): barcode 2 mm più basso (≈ 8,4 mm sul 4 × 12) */
-  .foglio .cella .barre { flex-basis: calc(var(--h) * var(--s) * 0.42 - 2 * var(--s)); }
+  /* come la stampa del gestionale attuale: contenuto 3,5 mm sotto il bordo in tutte le righe, spazio fisso prima del prezzo,
+     barcode basso (≈ 7 mm sul 4 × 12), più stretto e subito sotto il prezzo: etichette tutte uguali */
+  .foglio .cella { padding-top: calc(3.5 * var(--s)); }
+  .foglio .cella .riga-prezzo { margin-top: 0.7em; }
+  .foglio .cella .barre { flex: 0 0 calc(var(--h) * var(--s) * 0.285); margin: calc(0.4 * var(--s)) auto 0; width: 86%; }
   /* La stampante non stampa i primi millimetri in alto: nella prima riga il contenuto scende di 3,5 mm */
-  .foglio .cella.prima-riga { padding-top: calc(3.5 * var(--s)); }
   .cella .barre .n { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0.1em 0.5em 0; background: #fff; line-height: 1; white-space: nowrap; font-size: 1em; color: #000; letter-spacing: 0.04em; }
 
   .modal .campi-imp { display: grid; gap: 12px; }

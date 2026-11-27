@@ -65,9 +65,8 @@
     } @else {
       @for (f of fogli(); track $index) {
         <div class="foglio" [attr.style]="stileFoglio()">
-          @for (a of f; track $index; let i = $index) {
-            <!-- prima riga del foglio: contenuto più in basso, la stampante non stampa i primi mm in alto (come il prototipo) -->
-            @if (a) { <ng-container *ngTemplateOutlet="cella; context: { $implicit: a, prima: i < misure().c }" /> } @else { <div class="cella saltata" title="Saltata"></div> }
+          @for (a of f; track $index) {
+            @if (a) { <ng-container *ngTemplateOutlet="cella; context: { $implicit: a }" /> } @else { <div class="cella saltata" title="Saltata"></div> }
           }
           @for (x of vuote(perFoglio() - f.length); track x) { <div class="cella" style="border-color:#eef1f5"></div> }
         </div>
@@ -76,8 +75,8 @@
   </div>
 </section>
 
-<ng-template #cella let-a let-prima="prima">
-  <div class="cella" [class.prima-riga]="prima">
+<ng-template #cella let-a>
+  <div class="cella">
     @if (opz().codice) { @if (a.perScatola) { <div class="c scatola" title="Seconda etichetta (doppia)"><span>{{ a.art.codice }}</span></div> } @else { <div class="c">{{ a.art.codice }}</div> } }
     @if (opz().descr) { <div class="d">{{ a.art.descr }}</div> }
     <div class="riga-prezzo"><span><span class="anno" [title]="'Anno di carico ' + a.anno">{{ ('' + a.anno).slice(-2) }}</span>@if (opz().cifrato) { <span class="cifrato" title="Costo d'acquisto cifrato">{{ costoCifrato(a.art.costo) }}</span> }</span>
