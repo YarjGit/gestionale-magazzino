@@ -108,6 +108,11 @@
   /* barcode più basso ma leggibile dalla pistola: circa il 40% dell'etichetta (≈10 mm sul 4 × 12) */
   .cella .barre { position: relative; flex: 0 0 42%; min-height: 0; margin-top: auto; }
   .cella .barre svg { display: block; width: 100%; height: 100%; }
+  /* Fogli A4 (27/11/2026, prove di stampa dell'utente): barcode 2 mm più basso (≈ 8,4 mm sul 4 × 12) */
+  .foglio .cella .barre { flex-basis: calc(var(--h) * var(--s) * 0.42 - 2 * var(--s)); }
+  /* La stampante non stampa i primi millimetri in alto del foglio e tagliava la prima riga di etichette:
+     nella prima riga il contenuto scende di 3,5 mm (l'etichetta resta allineata al foglio) */
+  .foglio .cella.prima-riga { padding-top: calc(3.5 * var(--s)); }
   .cella .barre .n { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0.1em 0.5em 0; background: #fff; line-height: 1; white-space: nowrap; font-size: 1em; color: #000; letter-spacing: 0.04em; }
 
   /* ---------- Stampa: solo i fogli, alle misure vere ---------- */
@@ -426,6 +431,7 @@
       const fogli = [];
       for (let i = 0; i < celle.length; i += per) fogli.push(celle.slice(i, i + per));
       $("fogli").innerHTML = fogli.map(f => `<div class="foglio" style="${stile}">${f.map(a => a ? etichettaHtml(a, o) : '<div class="cella saltata" title="Saltata"></div>').join("")}${'<div class="cella" style="border-color:#eef1f5"></div>'.repeat(per - f.length)}</div>`).join("");
+      document.querySelectorAll("#fogli .foglio").forEach(fg => [...fg.children].slice(0, m.c).forEach(c => c.classList.add("prima-riga")));
       $("pagine").textContent = fogli.length ? `${fogli.length} fogl${fogli.length === 1 ? "io" : "i"} A4${salta ? ` · ${Math.min(salta, per - 1)} posizioni saltate sul primo` : ""}` : "";
     }
     if (!copie.length) $("fogli").innerHTML = '<div class="vuoto" style="margin:auto"><b>L\'anteprima comparirà qui</b></div>';
