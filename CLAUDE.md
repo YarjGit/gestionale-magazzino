@@ -195,6 +195,6 @@ L'utente lavora da due PC e usa GitHub solo dal sito: Git lo usa Claude.
   non quelli con soli inevasi; trasferimento da ordine senza niente da mandare → ordine Evaso senza trasferimento vuoto; pagina Giacenze
   (dati veri, anni di acquisto, "Anche senza giacenza", niente Ricalcola) da confrontare col prototipo; carico da ordine con il fornitore
   dell'ordine anche se non è della sede; tasto "⛔ Annulla ordine" (Provvisorio/Definitivo senza niente arrivato → Annullato, non cancellato).
-  Node.js 26 installato anche sul PC di lavoro (26/11/2026, con winget): `npm install` in `frontend-angular/` (cambia package-lock.json: non salvarlo) e `npx ng build` compila senza errori. Su questo PC manca Node.js (Angular non si prova).
+  Node.js 26 installato anche sul PC di lavoro (26/11/2026, con winget): `npm install` in `frontend-angular/` (cambia package-lock.json: non salvarlo) e `npx ng build` compila senza errori.
 - Nel prototipo "Validazione" e "Record attuali" sono nascoste negli elenchi dei movimenti e in Configurazione (restano in Articoli, Categorie, Sottocategorie);
   i file `js/layout.js`, `js/elenco.js`, `js/movimenti-db.js` si caricano con `?v=…` (cambiarlo quando cambiano, se no il browser usa quelli vecchi).
